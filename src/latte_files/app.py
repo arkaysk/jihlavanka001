@@ -31,8 +31,8 @@ class Window(Gtk.ApplicationWindow):
         self.volume = None      # None = koreň (Tento počítač)
         self.path = None        # kde sme
         self.root = None        # hranica, nad ktorú sa nedá ísť
-        self.history = []       # späť
-        self.forward = []       # dopredu
+        self.history = []
+        self.forward = []
 
         # ---------- titulok ----------
         header = Gtk.HeaderBar()
@@ -116,10 +116,68 @@ class Window(Gtk.ApplicationWindow):
             inner.append(title)
             inner.append(sub)
             row.set_child(inner)
+            self.attach_menu(row, v)
             self.side.append(row)
+
+    def reload_sidebar(self):
+        row = self.side.get_first_child()
+        while row is not None:
+            self.side.remove(row)
+            row = self.side.get_first_child()
+        self.fill_sidebar()
 
     def on_side(self, _box, row):
         self.go_volume(row.volume)
+
+    # ---------- premenovanie zväzku ----------
+    def attach_menu(self, widget, volume):
+        gesture = Gtk.GestureClick()
+        gesture.set_button(3)          # pravé tlačidlo
+        gesture.connect("pressed", self.on_right_click, volume)
+        widget.add_controller(gesture)
+
+    def on_right_click(self, _gesture, _n, _x, _y, volume):
+        self.ask_rename(volume)
+
+    def ask_rename(self, volume):
+        dialog = Gtk.Window(transient_for=self, modal=True, title="Premenovať zväzok")
+        dialog.set_default_size(340, -1)
+
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        box.set_margin_top(18)
+        box.set_margin_bottom(18)
+        box.set_margin_start(18)
+        box.set_margin_end(18)
+        dialog.set_child(box)
+
+        entry = Gtk.Entry(text=volume.name)
+        box.append(entry)
+
+        note = Gtk.Label(label="Interná identita zväzku sa nemení.", xalign=0)
+        note.add_css_class("dim-label")
+        box.append(note)
+
+        row = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL, spacing=8, halign=Gtk.Align.END
+        )
+        cancel = Gtk.Button(label="Zrušiť")
+        cancel.connect("clicked", lambda _b: dialog.destroy())
+        ok = Gtk.Button(label="Premenovať")
+        ok.add_css_class("suggested-action")
+
+        def apply(_widget):
+            if vol_mod.rename(volume, entry.get_text()):
+                self.reload_sidebar()
+                self.refresh()
+            dialog.destroy()
+
+        ok.connect("clicked", apply)
+        entry.connect("activate", apply)
+        row.append(cancel)
+        row.append(ok)
+        box.append(row)
+
+        dialog.present()
 
     # ---------- navigácia ----------
     def snapshot(self):
@@ -285,6 +343,7 @@ class Window(Gtk.ApplicationWindow):
         line.append(info)
         row.set_child(line)
         self.list.append(row)
+        return row
 
     def clear_list(self):
         row = self.list.get_first_child()
@@ -307,7 +366,8 @@ class Window(Gtk.ApplicationWindow):
                     note = "voľné " + note + " z " + v.size
                 else:
                     note = v.size
-                self.add_row(v.name, note, None, volume=v)
+                row = self.add_row(v.name, note, None, volume=v)
+                self.attach_menu(row, v)
             return
 
         # koreň systémového zväzku: iba vybrané miesta

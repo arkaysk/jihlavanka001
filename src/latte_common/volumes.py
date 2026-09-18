@@ -13,6 +13,8 @@ SYSTEM_ENTRIES = [
     ("Shared", "/srv"),
 ]
 
+_known_volumes = []
+
 
 class Volume:
     def __init__(self, name, path, uuid="", role="data", removable=False, size=""):
@@ -113,5 +115,19 @@ def list_volumes():
         counter += 1
 
     result = fixed + removable
+
+    global _known_volumes
+    _known_volumes = result
+
     _save_names(result)
     return result
+
+
+def rename(volume, new_name):
+    """Zmení zobrazované meno zväzku. Interná identita (UUID) zostáva."""
+    new_name = new_name.strip()
+    if not new_name:
+        return False
+    volume.name = new_name
+    _save_names(_known_volumes)
+    return True
