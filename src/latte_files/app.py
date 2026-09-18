@@ -77,22 +77,34 @@ class Window(Gtk.ApplicationWindow):
     def open_volume(self, volume):
         self.volume = volume
         self.path = volume.path
+        self.root = volume.path          # hranica, nad ktorú sa nedá ísť
         self.refresh()
 
     def on_volume(self, _box, row):
         self.open_volume(row.volume)
 
     def on_back(self, _btn):
-        if not self.volume or self.path == self.volume.path:
+        if not self.volume:
+            return
+        if self.path == self.root:
+            # sme v koreni priečinka Apps/Users/Shared -> späť na zväzok
+            if self.root != self.volume.path:
+                self.root = self.volume.path
+                self.path = self.volume.path
+                self.refresh()
             return
         self.path = os.path.dirname(self.path)
         self.refresh()
 
     def on_entry(self, _box, row):
         target = row.target
-        if target and os.path.isdir(target):
-            self.path = target
-            self.refresh()
+        if not target or not os.path.isdir(target):
+            return
+        # vstup do systémového miesta (Apps, Users, Shared) posúva hranicu
+        if self.path == self.volume.path and self.volume.entries() is not None:
+            self.root = target
+        self.path = target
+        self.refresh()
 
     # ---------- výpis ----------
     def add_row(self, text, subtext, target):
@@ -118,8 +130,9 @@ class Window(Gtk.ApplicationWindow):
                 break
             self.list.remove(row)
 
-        rel = os.path.relpath(self.path, self.volume.path)
-        crumb = self.volume.name if rel == "." else self.volume.name + "/" + rel
+        base = os.path.dirname(self.root) if self.root != self.volume.path else self.volume.path
+        rel = os.path.relpath(self.path, base)
+        crumb = self.volume.name if self.path == self.volume.path else self.volume.name + "/" + rel
         self.crumb.set_text(crumb)
 
         # koreň systémového zväzku: iba vybrané miesta
@@ -130,7 +143,7 @@ class Window(Gtk.ApplicationWindow):
                     self.add_row(label, "priečinok", target)
                 return
 
-        if self.path != self.volume.path:
+        if self.path != self.root:
             self.add_row("..", "", os.path.dirname(self.path))
 
         try:
