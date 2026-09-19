@@ -18,5 +18,5 @@ status=$?
 # Zoznam premenných musí sedieť s labwc/autostart.
 systemctl --user stop latte-session.target
 systemctl --user unset-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP \
-    XDG_SESSION_DESKTOP XDG_SESSION_TYPE GSK_RENDERER XCURSOR_THEME XCURSOR_SIZE
+    XDG_SESSION_DESKTOP XDG_SESSION_TYPE XDG_SESSION_ID GSK_RENDERER XCURSOR_THEME XCURSOR_SIZE
 exit $status

@@ -2,5 +2,5 @@
 Description=LatteOS session
 Documentation=man:systemd.special(7)
 BindsTo=graphical-session.target
-Wants=graphical-session-pre.target latte-shell.service
+Wants=graphical-session-pre.target latte-shell.service latte-polkit.service
 After=graphical-session-pre.target

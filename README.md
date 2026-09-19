@@ -15,6 +15,14 @@ Celá relácia (labwc, lišta pod systemd):
     latteos-session              # z konzoly
     systemctl --user restart latte-shell   # reštart lišty pri vývoji
 
+Práca ako správca v správcovi súborov (polkit), ako root:
+    sh tools/install-admin.sh    # pomocník do /usr/libexec/latteos/ a polkit politika;
+                                 # spustiť znova po zmene src/latte_files/latte-files-admin alebo fileops.py
+Dialóg pre heslo zobrazuje latte-polkit.service (tools/install-session.sh ho zapojí do relácie).
+
+Testy:
+    python3 -m unittest discover -s tests
+
 Prihlasovacia obrazovka (greetd + gtkgreet), ako root:
     dnf install greetd gtkgreet greetd-selinux
     sh tools/install-greeter.sh
@@ -28,6 +36,7 @@ latteos-console otvorí textovú konzolu (po exit sa vráti prihlásenie).
 - latte-resources  mapa zdrojov (plánované)
 - latte-apps       App Manager (plánované)
 - latte-shell      lišta a plocha
+- latte-polkit     dialóg na zadanie hesla správcu (polkit agent relácie)
 
 ## LatteOS 0.1 Jihlavanka — mapa vývoja
 Od prvého kódu po hotové prostredie s Android a Windows aplikáciami Základ: Fedora Server + labwc + Python/GTK4 Stav dokumentu: pracovný plán, aktualizuje sa podľa postupu
@@ -39,15 +48,19 @@ Značka	Význam
 ⬜	nezačaté
 Každá etapa má overiteľný výsledok. Kým nie je splnený, ďalej sa nejde.
 
-Etapa 0 — Základ ✅
+Etapa 0 — Spustenie systému a relácie ✅
 Úloha	Stav
-0.1	Fedora Server vo VirtualBoxe, snímky	✅
-0.2	Git, GitHub, VS Code cez SSH	✅
-0.3	labwc ako relácia, autoštart, environment v repozitári	✅
-0.4	run-shell.sh s LD_PRELOAD pre layer-shell	✅
-Výsledok: po prihlásení sa spustí prostredie bez ručného zadávania príkazov.
+0.1	Po zapnutí počítača sa načíta Fedora a systémové služby	✅
+0.2	Prihlasovacie menu ponúkne LatteOS ako Wayland reláciu	✅
+0.3	Po prihlásení sa spustí labwc, environment a LatteOS desktop	✅
+0.4	LatteOS shell sa spustí automaticky po štarte relácie	✅
+0.5	Vývojové ukončenie relácie vráti používateľa do headless Linuxu	✅
+Výsledok: po zapnutí a prihlásení sa spustí LatteOS bez ručného zadávania príkazov.
+Vývojový výsledok: Ctrl+Alt+Backspace ukončí labwc a vráti systém do prihlasovacieho alebo textového režimu, aby spustené aplikácie nezavadzali pri úprave kódu.
+ručny autostart je latteos-session alebo
+/home/user/dev/jihlavanka001/session/latteos-session
 
-Etapa 1 — Súbory ✅ / 🔸
+Etapa 1 — Súbory ✅
 Úloha	Stav
 1.1	Zväzky z lsblk, mapovanie na Device1…N, volumes.toml	✅
 1.2	Koreň „Tento počítač", hranice zväzkov, žiadny Linux	✅
@@ -56,11 +69,11 @@ Etapa 1 — Súbory ✅ / 🔸
 1.5	Otvorenie súboru, nový priečinok, premenovanie, kopírovanie, presun, Kôš	✅
 1.6	Premenovanie zväzku pravým klikom	✅
 1.7	Kontextové menu pravým klikom nad položkou	✅
-1.8	Viacnásobný výber (Ctrl, Shift) a operácie nad ním	⬜
-1.9	Priebeh operácie (kopírovanie veľkých súborov, zrušenie)	⬜
-1.10	Vykonať ako správca cez polkit pri „prístup odmietnutý"	⬜
-1.11	Automatické obnovenie pri pripojení USB (udisks2 signály) — latte-storaged	⬜
-1.12	Obľúbené položky v bočnom paneli	⬜
+1.8	Viacnásobný výber (Ctrl, Shift) a operácie nad ním	✅
+1.9	Priebeh operácie (kopírovanie veľkých súborov, zrušenie)	✅
+1.10	Vykonať ako správca cez polkit pri „prístup odmietnutý"	✅
+1.11	Automatické obnovenie pri pripojení USB (udisks2 signály) — latte-storaged	✅
+1.12	Obľúbené položky v bočnom paneli	✅
 Výsledok: správca súborov použiteľný na bežnú prácu bez terminálu.
 
 Etapa 2 — Shell ✅ / 🔸

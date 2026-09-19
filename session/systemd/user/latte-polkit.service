@@ -1,0 +1,11 @@
+[Unit]
+Description=LatteOS polkit agent (dialóg overenia správcu)
+PartOf=latte-session.target
+After=latte-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/latte-polkit
+Restart=on-failure
+RestartSec=1
+Slice=session.slice

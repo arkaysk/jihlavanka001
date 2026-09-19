@@ -13,17 +13,37 @@ SYSTEM_ENTRIES = [
     ("Shared", "/srv"),
 ]
 
+# Súborové systémy, ktoré nemá zmysel pripájať ako zväzok
+NOT_MOUNTABLE = {"swap", "crypto_LUKS", "LVM2_member", "linux_raid_member", "zfs_member"}
+
 _known_volumes = []
 
 
 class Volume:
-    def __init__(self, name, path, uuid="", role="data", removable=False, size=""):
+    """path je None, kým zväzok (výmenný disk) nie je pripojený."""
+
+    def __init__(self, name, path, uuid="", role="data", removable=False, size="", device=""):
         self.name = name
         self.path = path
         self.uuid = uuid
         self.role = role
         self.removable = removable
         self.size = size
+        self.device = device
+
+    @property
+    def mounted(self):
+        return self.path is not None
+
+    @property
+    def key(self):
+        return self.uuid or self.device or self.path
+
+    def __eq__(self, other):
+        return isinstance(other, Volume) and self.key == other.key
+
+    def __hash__(self):
+        return hash(self.key)
 
     def entries(self):
         """Obsah koreňa zväzku. Systémový zväzok ukazuje len vybrané miesta."""
@@ -32,14 +52,19 @@ class Volume:
         return None
 
 
-def _flatten(node, out):
+def _flatten(node, out, inherit=None):
+    """Potomkovia (partície) zdedia príznak výmenného disku od rodiča."""
+    inherit = inherit or {}
+    for key in ("rm", "tran"):
+        if not node.get(key) and inherit.get(key):
+            node[key] = inherit[key]
     out.append(node)
     for child in node.get("children", []):
-        _flatten(child, out)
+        _flatten(child, out, node)
 
 
 def _block_devices():
-    cmd = ["lsblk", "-J", "-o", "NAME,UUID,FSTYPE,SIZE,MOUNTPOINT,RM,TYPE,LABEL"]
+    cmd = ["lsblk", "-J", "-o", "NAME,PATH,UUID,FSTYPE,SIZE,MOUNTPOINT,RM,TRAN,TYPE,LABEL"]
     raw = subprocess.run(cmd, capture_output=True, text=True).stdout
     nodes = []
     for dev in json.loads(raw).get("blockdevices", []):
@@ -81,20 +106,29 @@ def list_volumes():
 
     for dev in _block_devices():
         mount = dev.get("mountpoint")
-        if not mount or dev.get("type") not in ("part", "disk", "lvm", "crypt"):
-            continue
-        if mount.startswith(("/boot", "/proc", "/sys", "/run", "/dev")):
+        removable_dev = bool(dev.get("rm")) or dev.get("tran") == "usb"
+        if not mount:
+            # nepripojený výmenný disk so súborovým systémom: ukáže sa a pripojí sa pri otvorení
+            fstype = dev.get("fstype")
+            if not (removable_dev and fstype and fstype not in NOT_MOUNTABLE and dev.get("path")):
+                continue
+        elif not mount.startswith("/") or dev.get("type") not in ("part", "disk", "lvm", "crypt"):
+            continue                    # aj swap ("[SWAP]"): nie je to priečinok
+        elif mount.startswith(("/boot", "/proc", "/sys", "/run", "/dev")) and not (
+            removable_dev and mount.startswith("/run/media/")
+        ):
             continue
 
         uuid = dev.get("uuid") or ""
         role = "system" if mount == "/" else "data"
         vol = Volume(
             name=names.get(uuid, ""),
-            path=mount,
+            path=mount or None,
             uuid=uuid,
             role=role,
-            removable=bool(dev.get("rm")),
+            removable=removable_dev,
             size=dev.get("size") or "",
+            device=dev.get("path") or "",
         )
         (removable if vol.removable else fixed).append(vol)
 
@@ -131,3 +165,25 @@ def rename(volume, new_name):
     volume.name = new_name
     _save_names(_known_volumes)
     return True
+
+
+def locate(volumes, path):
+    """Zväzok a koreň zobrazenia pre cestu, alebo None, ak cesta nepatrí žiadnemu zväzku
+    (alebo leží mimo miest, ktoré systémový zväzok ukazuje). Koreň určuje, kam až
+    sa dá ísť hore tlačidlom „..“."""
+    def inside(base):
+        return path == base or path.startswith(base.rstrip("/") + "/")
+
+    best = None
+    for v in volumes:
+        if v.path and inside(v.path) and (best is None or len(v.path) > len(best.path)):
+            best = v
+    if best is None:
+        return None
+    entries = best.entries()
+    if entries is None:
+        return best, best.path
+    for _label, entry in entries:
+        if inside(entry):
+            return best, entry
+    return None

@@ -16,6 +16,8 @@ def _report(_provider, section, error):
 
 
 def load(display):
+    # tmavé prostredie pre všetky komponenty; farby si drží latte.css
+    Gtk.Settings.get_for_display(display).set_property("gtk-application-prefer-dark-theme", True)
     provider = Gtk.CssProvider()
     provider.connect("parsing-error", _report)
     provider.load_from_file(Gio.File.new_for_path(os.path.normpath(STYLE_FILE)))

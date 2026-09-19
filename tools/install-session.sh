@@ -11,6 +11,7 @@ for unit in "$ROOT"/session/systemd/user/*; do
     ln -sf "$unit" "$UNITS/"
 done
 ln -sf "$ROOT/tools/run-shell.sh" "$BIN/latte-shell"
+ln -sf "$ROOT/tools/run-polkit.sh" "$BIN/latte-polkit"
 ln -sf "$ROOT/session/latteos-session" "$BIN/latteos-session"
 [ -e "$HOME/.config/labwc" ] || ln -s "$ROOT/session/labwc" "$HOME/.config/labwc"
 systemctl --user daemon-reload
