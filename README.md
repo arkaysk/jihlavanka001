@@ -23,13 +23,35 @@ Dialóg pre heslo zobrazuje latte-polkit.service (tools/install-session.sh ho za
 Testy:
     python3 -m unittest discover -s tests
 
-Prihlasovacia obrazovka (greetd + gtkgreet), ako root:
+Prihlasovacia obrazovka (greetd + latte-greeter, gtkgreet ako záloha), ako root:
     dnf install greetd gtkgreet greetd-selinux
-    sh tools/install-greeter.sh
+    sh tools/install-greeter.sh  # kód a dáta greetera sa KOPÍRUJÚ do /usr/local; spustiť znova po zmene
     systemctl set-default graphical.target && systemctl enable greetd
+Vývoj greetera bez inštalácie a reštartu (v okne, proti simulovanému greetd; účty test/kava a guest):
+    tools/run-greeter.sh
 
-Vývoj: Ctrl+Alt+Backspace ukončí labwc a vráti prihlasovaciu obrazovku, v nej voľba
-latteos-console otvorí textovú konzolu (po exit sa vráti prihlásenie).
+Vývoj: Ctrl+Alt+Backspace ukončí labwc a vráti prihlasovaciu obrazovku (pri riadnom ukončení
+nezobrazí nič). V prihlasovaní je vľavo menu: vypnúť/reštartovať počítač a dve voľby dev buildu,
+"Reštartovať LatteOS" (znovu načíta greetd) a "Ukončiť do konzoly" (multi-user.target, textový
+režim). Z konzoly späť: latteos-start. Voľba relácie "Konzola (headless)" otvorí shell a po exit
+sa vráti prihlásenie.
+
+Ak relácia spadne, prihlasovanie vpravo ukáže kartu s dôvodom, v journale je zápis
+(journalctl LATTEOS_KIND=crash) a podrobnosti dá príkaz:
+    latteos-diag
+
+Systémový manažér (tlačidlo napájania v lište) spúšťa session/latteos-logout ako samostatnú user službu:
+labwc skončí čisto (labwc --exit, potrebuje LABWC_PID z labwc/autostart), latteos-session upratá a potom
+"Odhlásiť" ukončí prihlásenie, ktoré vlastní greetd (aj konzolu, z ktorej si LatteOS spustil ručne), takže
+sa ukáže prihlasovacia obrazovka. "Vypnúť" v dev builde prepne do textovej konzoly (multi-user.target);
+bez hesla to ide len s pravidlom data/polkit/51-latteos-dev.rules (dáva ho install-greeter.sh, len dev),
+inak sa po odhlásení ukáže prihlasovanie. Bez greetd je oboje len odhlásenie.
+
+Tapeta: systémová je v data/wallpapers/ (používa ju prihlasovanie a plocha bez vlastnej tapety),
+používateľská je súbor v priestore používateľa a jej cestu drží ~/.config/latteos/appearance.toml.
+Kým nie sú Nastavenia systému:
+    latte-wallpaper set ~/Obrázky/moja.jpg [cover|contain|fill]    # zmena platí hneď
+    latte-wallpaper reset                                           # späť na systémovú
 
 ## Komponenty
 - latte-files      správca súborov so zväzkami
@@ -82,12 +104,12 @@ Etapa 2 — Shell ✅ / 🔸
 2.2	Rohové dlaždice, hodiny, tlačidlá	✅
 2.3	Popupy v tvare L, zatvorenie klikom mimo, pripnutie do okna	✅
 2.4	Zoznam otvorených okien v strede lišty (protokol wlr-foreign-toplevel)	✅
-2.5	Systémový manažér: vypnúť, reštart, odhlásiť, nastavenia	⬜
+2.5	Systémový manažér: popup nad tlačidlom napájania (skryje sa, keď z neho odídeš kurzorom). Hotové: Vypnúť (relácia → konzola) a Odhlásiť (→ prihlásenie). Zostáva: reštart, nastavenia	🔸
 2.6	Manažér času: hodiny → pásma, zvonček → oznámenia, dátum → kalendár	⬜
 2.7	Oznámenia (démon org.freedesktop.Notifications) — latte-shell	⬜
 2.8	Prompt/search segment s prepínačom: hľadať / terminál / AI	⬜
 2.9	Schránka s ôsmimi slotmi — latte-clipd	⬜
-2.10	Plocha: tapeta, ikony, Kôš	⬜
+2.10	Plocha: tapeta ✅ (systémová + používateľská, mení sa za behu), ikony, Kôš	🔸
 2.11	Animované rohové dlaždice viazané na stav	⬜
 Výsledok: prostredie, v ktorom sa dá pracovať celý deň bez cudzieho desktopu.
 
@@ -97,20 +119,24 @@ Základ: tenká vrstva nad systemd user službami. Reštarty, závislosti a pora
 Úloha	Komponent	Stav
 2b.1	Skript relácie s premennými (XDG_CURRENT_DESKTOP, LD_PRELOAD, GSK_RENDERER)	latteos-session	✅
 2b.2	latteos.desktop v /usr/share/wayland-sessions/	—	✅
-2b.3	Prihlasovacia obrazovka (greetd + gtkgreet, neskôr vlastná)	latte-greeter	✅
+2b.3	Prihlasovacia obrazovka: vlastný latte-greeter (greetd), gtkgreet ako záloha	latte-greeter	✅
 2b.4	systemd user jednotky pre každý komponent, latte-session.target	—	✅
 2b.5	Stav relácie, odhlásenie, vypnutie, reštart (logind)	latte-sessiond	⬜
 2b.6	Zamykanie obrazovky	latte-sessiond	⬜
 2b.7	Uvítanie pri prvom prihlásení: čo sa spúšťa, čo beží na pozadí	latte-greeter	⬜
 2b.8	Obnova otvorených okien po prihlásení (deklaratívne, nie snímka pamäte)	latte-sessiond	⬜
+2b.9	Dôvod pádu relácie: journald, záznam, karta v prihlasovaní, latteos-diag, oznam v konzole (riadne ukončenie nič nezobrazí)	latteos-session	✅
+2b.10	Prihlasovanie: nedávni používatelia, účet bez hesla sa prihlási hneď, napájacie menu, dev voľby	latte-greeter	✅ (overiť vo VM: SELinux, polkit)
+2b.11	Panel oznamov v prihlasovaní: počasie, RSS, čo si používateľ povolí (cache plní samostatná služba, greeter sám nesťahuje)	latte-greeter	⬜
+2b.12	latteos-start: z konzoly späť do grafiky	latteos-start	✅
 Výsledok: prostredie sa spúšťa prihlásením, pád jedného komponentu nezhodí reláciu.
 
 Etapa 3 — Vzhľad 🔸
 Úloha	Stav
 3.1	data/styles/latte.css — jedna téma pre všetky komponenty	✅
-3.2	Paleta a typografia podľa prototypu (teplá káva, krémová, karamel)	⬜
+3.2	Paleta a typografia podľa prototypu (teplá káva, krémová, karamel)	🔸 (farby a polomery sú premenné v latte.css; typografia zostáva)
 3.3	Vlastná sada ikon (~30 kusov)	⬜
-3.4	Tapeta a prihlasovacia obrazovka (greetd + gtkgreet v téme)	⬜
+3.4	Tapeta a prihlasovacia obrazovka v jednej téme (spoločné latte.css, widgety, tapeta)	✅
 3.5	Polopriehľadné panely so šumom (náhrada za sklo, kým nie je vlastný kompozitor)	⬜
 3.6	Kontrola prístupnosti: kontrast, veľkosť cieľov, viditeľnosť fokusu	⬜
 Výsledok: prostredie vyzerá ako jeden produkt, nie ako sada nástrojov.

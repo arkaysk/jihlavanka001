@@ -6,9 +6,11 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, Gio  # noqa: E402
 
-STYLE_FILE = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "..", "data", "styles", "latte.css"
-)
+from latte_common import paths  # noqa: E402
+
+
+def style_file():
+    return os.path.join(paths.data_dir(), "styles", "latte.css")
 
 
 def _report(_provider, section, error):
@@ -16,11 +18,11 @@ def _report(_provider, section, error):
 
 
 def load(display):
-    # tmavé prostredie pre všetky komponenty; farby si drží latte.css
+    # tmavé prostredie pre všetky komponenty; farby a tvary drží latte.css
     Gtk.Settings.get_for_display(display).set_property("gtk-application-prefer-dark-theme", True)
     provider = Gtk.CssProvider()
     provider.connect("parsing-error", _report)
-    provider.load_from_file(Gio.File.new_for_path(os.path.normpath(STYLE_FILE)))
+    provider.load_from_file(Gio.File.new_for_path(style_file()))
     Gtk.StyleContext.add_provider_for_display(
         display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
     )

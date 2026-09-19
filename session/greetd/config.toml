@@ -1,11 +1,13 @@
 # Konfigurácia greetd pre LatteOS (2b.3). Nainštaluje ju tools/install-greeter.sh.
-# Greeter je gtkgreet v labwc; neskôr ho nahradí vlastný latte-greeter.
+# Greeter je latte-greeter (session/latte-greeter) v labwc; ak spadne, nastúpi gtkgreet.
 [terminal]
 vt = 1
 
 [default_session]
-# GSK_RENDERER a kurzor: rovnaké obchádzanie VirtualBoxu ako v session/labwc/environment,
-# greeter ich odtiaľ nevidí. `labwc -S` skončí spolu s gtkgreet.
-command = "env GSK_RENDERER=cairo WLR_NO_HARDWARE_CURSORS=1 labwc -S 'gtkgreet -l'"
+# GSK_RENDERER, kurzor, WLR_RENDERER a WLR_DRM_NO_ATOMIC: rovnaké obchádzanie VirtualBoxu
+# (VMSVGA) ako v session/labwc/environment, greeter ich odtiaľ nevidí. Bez pixman a
+# legacy page-flipu ostávali za kurzorom stopy (zlyhané atomic commity, GLES na vmwgfx).
+# `labwc -S` skončí spolu s greeterom.
+command = "env GSK_RENDERER=cairo WLR_NO_HARDWARE_CURSORS=1 WLR_RENDERER=pixman WLR_DRM_NO_ATOMIC=1 labwc -S latte-greeter"
 # Používateľ vytvorený balíkom greetd vo Fedore.
 user = "greetd"
