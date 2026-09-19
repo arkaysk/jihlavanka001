@@ -12,9 +12,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("GdkPixbuf", "2.0")
-from gi.repository import Gtk, Gio, GLib, Gdk, GdkPixbuf  # noqa: E402
+gi.require_version("Graphene", "1.0")
+gi.require_version("Pango", "1.0")
+from gi.repository import Gtk, Gio, GLib, Gdk, GdkPixbuf, Graphene, Pango  # noqa: E402
 
-from latte_common import fileops, favorites, jobs, storage, theme  # noqa: E402
+from latte_common import fileops, favorites, jobs, prefs, storage, theme, thumbnails  # noqa: E402
 from latte_common import volumes as vol_mod  # noqa: E402
 
 ROOT_NAME = "Tento počítač"
@@ -23,10 +25,21 @@ DENIED = (errno.EACCES, errno.EPERM)
 ICON = 22                       # veľkosť ikony v zozname
 COL_SIZE, COL_DATE, COL_KIND = 90, 140, 130
 MODES = [
-    ("simple", "view-list-symbolic", "Jednoduché: jeden panel a inšpektor"),
+    ("simple", "sidebar-show-right-symbolic", "Jednoduché: jeden panel a inšpektor"),
     ("dual", "view-dual-symbolic", "Dvojpanel"),
     ("classic", "view-paged-symbolic", "Klasické: dvojpanel s textovou cestou"),
 ]
+# Štýly zobrazenia zoznamu súborov: id, ikona tlačidla, názov, popis
+VIEWS = [
+    ("list", "view-list-symbolic", "Zoznam", "Názov vedľa malej ikony"),
+    ("medium", "view-app-grid-symbolic", "Stredné ikony", "Názov pod ikonou"),
+    ("details", "view-continuous-symbolic", "Podrobnosti", "Stĺpce: veľkosť, dátum, typ"),
+    ("large", "image-x-generic-symbolic", "Miniatúry", "Náhľady fotiek a videí, inak veľké ikony"),
+]
+VIEW_IDS = [v[0] for v in VIEWS]
+VIEW_ICON = {"list": 16, "details": ICON, "medium": 48, "large": 112}     # veľkosť ikony/náhľadu v px
+CELL_WIDTH = {"medium": 104, "large": 144}                                # šírka bunky v mriežke
+GRID_STYLES = ("medium", "large")
 IMAGE_PREVIEW_MAX = 30 * 1024 * 1024
 PREVIEW_W, PREVIEW_H = 248, 180
 
@@ -74,13 +87,26 @@ def file_icon(name, is_dir):
     return Gtk.Image.new_from_gicon(icon) if icon else Gtk.Image.new_from_icon_name("text-x-generic")
 
 
+ROW_TYPES = (Gtk.ListBoxRow, Gtk.FlowBoxChild)
+
+
+class IconFlow(Gtk.FlowBox):
+    """Mriežka ikon s rovnakými metódami na výber ako Gtk.ListBox, aby panel nemusel rozlišovať."""
+
+    def select_row(self, row):
+        self.select_child(row)
+
+    def get_selected_rows(self):
+        return self.get_selected_children()
+
+
 def clear_rows(listbox):
     """Odstráni riadky zoznamu. Potomkom Gtk.ListBox je aj otvorený popover menu, ktorý
     sa cez remove() odstrániť nedá: slučka „kým je prvý potomok“ by sa zacyklila."""
     rows = []
     child = listbox.get_first_child()
     while child is not None:
-        if isinstance(child, Gtk.ListBoxRow):
+        if isinstance(child, ROW_TYPES):
             rows.append(child)
         child = child.get_next_sibling()
     for row in rows:
@@ -133,11 +159,12 @@ def dim_label(text="", xalign=0.0, width=None):
 class Pane(Gtk.Box):
     COLUMNS = [("name", "Názov"), ("size", "Veľkosť"), ("date", "Zmenené"), ("kind", "Typ")]
 
-    def __init__(self, window, volumes):
+    def __init__(self, window, volumes, style="details"):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.add_css_class("pane")
         self.win = window
         self.volumes = volumes
+        self.view_style = style if style in VIEW_IDS else "details"
 
         self.volume = None
         self.path = None
@@ -196,21 +223,38 @@ class Pane(Gtk.Box):
             lbl.add_controller(click)
             cols.append(lbl)
             self.col_labels[key] = lbl
+        self.cols = cols
         self.append(cols)
 
-        scroll = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
-        self.list = Gtk.ListBox()
-        self.list.add_css_class("files-list")
-        self.list.set_selection_mode(Gtk.SelectionMode.MULTIPLE)
-        self.list.connect("row-activated", self.on_activate)
-        self.list.connect("selected-rows-changed", self.on_selection_changed)
-        scroll.set_child(self.list)
-        self.append(scroll)
-
+        # dva kontajnery: riadky (Zoznam, Podrobnosti) a mriežka (Stredné ikony, Miniatúry);
+        # self.list je vždy ten práve zobrazený, ostatný kód s ním pracuje rovnako
+        self.scroll = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
+        self.listbox = Gtk.ListBox()
+        self.flow = IconFlow()
+        self.flow.add_css_class("icon-grid")
+        self.flow.set_homogeneous(True)
+        self.flow.set_valign(Gtk.Align.START)       # riadky sa neroztiahnu; pravý klik pod nimi chytá scroll
+        self.flow.set_min_children_per_line(1)
+        self.flow.set_max_children_per_line(60)
+        self.flow.set_row_spacing(6)
+        self.flow.set_column_spacing(4)
+        self.listbox.connect("row-activated", self.on_activate)
+        self.listbox.connect("selected-rows-changed", self.on_selection_changed)
+        self.flow.connect("child-activated", self.on_activate)
+        self.flow.connect("selected-children-changed", self.on_selection_changed)
+        for container in (self.listbox, self.flow):
+            container.add_css_class("files-list")
+            container.set_selection_mode(Gtk.SelectionMode.MULTIPLE)
+            container.set_activate_on_single_click(False)       # otvára sa dvojklikom, klik len vyberá
+        # pravý klik chytá celý posuvný panel (aj prázdne miesto pod ikonami), nie kontajner
         context = Gtk.GestureClick()
         context.set_button(3)
-        context.connect("pressed", self.on_context)
-        self.list.add_controller(context)
+        context.connect("pressed", self.on_scroll_context)
+        self.scroll.add_controller(context)
+        self.list = self.flow if self.view_style in GRID_STYLES else self.listbox
+        self.scroll.set_child(self.list)
+        self.cols.set_visible(self.view_style == "details")
+        self.append(self.scroll)
 
         click = Gtk.GestureClick()
         click.connect("pressed", lambda *_a: self.win.set_active(self))
@@ -255,15 +299,31 @@ class Pane(Gtk.Box):
         return (sorted(dirs, key=dir_key, reverse=self.sort_desc)
                 + sorted(files, key=key_of, reverse=self.sort_desc))
 
+    # -------- štýl zobrazenia --------
+    def set_view_style(self, style):
+        if style not in VIEW_IDS or style == self.view_style:
+            return
+        self.view_style = style
+        self.list = self.flow if style in GRID_STYLES else self.listbox
+        self.scroll.set_child(self.list)
+        self.cols.set_visible(style == "details")
+        self.win.on_view_style_changed(self)
+        self.refresh()
+
+    def row_at(self, x, y):
+        """Riadok alebo ikona pod bodom (súradnice sú vzhľadom na self.list)."""
+        if self.list is self.flow:
+            return self.flow.get_child_at_pos(int(x), int(y))
+        return self.list.get_row_at_y(int(y))
+
     # -------- filter (vyhľadávanie) --------
     def set_filter(self, text):
         text = text.strip().casefold()
         self.list.unselect_all()
-        if text:
-            self.list.set_filter_func(lambda row: row.kind != "item" or text in row.name.casefold())
-        else:
-            self.list.set_filter_func(None)
-        self.list.invalidate_filter()
+        func = (lambda row: row.kind != "item" or text in row.name.casefold()) if text else None
+        for container in (self.listbox, self.flow):
+            container.set_filter_func(func)
+            container.invalidate_filter()
 
     # -------- navigácia --------
     def snapshot(self):
@@ -284,8 +344,12 @@ class Pane(Gtk.Box):
 
     def go_volume(self, volume, record=True):
         if not volume.mounted:
-            # výmenný disk sa pripojí pri otvorení a potom sa doň vstúpi
-            self.win.mount_volume(volume, lambda v: self.go_volume(v, record))
+            if volume.mountable:
+                # nepripojený zväzok sa pripojí pri otvorení a potom sa doň vstúpi
+                self.win.mount_volume(volume, lambda v: self.go_volume(v, record))
+            else:
+                # prázdny disk, mechanika bez média, šifrovaný zväzok, disketa bez ovládača
+                self.win.notify("„%s“ (%s): %s" % (volume.name, volume.kind_text.lower(), volume.help_text))
             return
         if record:
             self.record()
@@ -422,8 +486,13 @@ class Pane(Gtk.Box):
         )
 
     # -------- kontextové menu --------
+    def on_scroll_context(self, gesture, n, x, y):
+        """Súradnice z posuvného panela sa prepočítajú na súradnice zobrazeného kontajnera."""
+        ok, point = self.scroll.compute_point(self.list, Graphene.Point().init(x, y))
+        self.on_context(gesture, n, point.x if ok else x, point.y if ok else y)
+
     def on_context(self, _gesture, _n, x, y):
-        row = self.list.get_row_at_y(int(y))
+        row = self.row_at(x, y)
         if row is not None and row.volume is not None:
             return                      # zväzok má vlastné menu
         self.win.set_active(self)
@@ -540,53 +609,95 @@ class Pane(Gtk.Box):
 
     # -------- výpis --------
     def add_row(self, text, size, date, target, volume=None, is_dir=False, kind="item",
-                kind_text="", size_bytes=0, icon=None):
+                kind_text="", size_bytes=0, icon=None, subtitle=""):
         # kind: item = súbor alebo priečinok, fixed = pevné miesto v koreni
         # systémového zväzku (len otvoriť), parent = riadok „..“,
         # admin = výzva zobraziť ako správca, note = len text
-        row = Gtk.ListBoxRow()
+        style = self.view_style
+        grid = style in GRID_STYLES
+        row = Gtk.FlowBoxChild() if grid else Gtk.ListBoxRow()
         row.target = target
         row.volume = volume
         row.is_dir = is_dir
         row.kind = kind
         row.name = text
         row.size_bytes = size_bytes
-        line = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        line.set_margin_top(4)
-        line.set_margin_bottom(4)
-        line.set_margin_start(12)
-        line.set_margin_end(12)
 
         if icon is None:
             if volume is not None:
-                icon = Gtk.Image.new_from_icon_name(
-                    "drive-removable-media" if volume.removable else "drive-harddisk")
+                icon = Gtk.Image.new_from_icon_name(volume.icon_name)
             elif kind == "admin":
                 icon = Gtk.Image.new_from_icon_name("dialog-password-symbolic")
             elif kind == "parent":
                 icon = Gtk.Image.new_from_icon_name("go-up-symbolic")
             else:
                 icon = file_icon(text, is_dir)
-        icon.set_pixel_size(ICON)
-        line.append(icon)
+        icon.set_pixel_size(VIEW_ICON[style])
+        detail = " · ".join(x for x in (size, date, kind_text) if x)
 
-        name = Gtk.Label(label=text, xalign=0, hexpand=True)
-        name.set_ellipsize(3)
-        line.append(name)
-        line.append(dim_label(size, 1, COL_SIZE))
-        line.append(dim_label(date, 0, COL_DATE))
-        if not self.compact:
-            line.append(dim_label(kind_text, 0, COL_KIND))
+        if grid:
+            cell = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            cell.add_css_class("icon-cell")
+            cell.set_size_request(CELL_WIDTH[style], -1)
+            slot = Gtk.Box(halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
+            slot.set_size_request(-1, VIEW_ICON[style] + 6)
+            slot.append(icon)
+            label = Gtk.Label(label=text, wrap=True, justify=Gtk.Justification.CENTER)
+            label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
+            label.set_lines(2)
+            label.set_ellipsize(Pango.EllipsizeMode.END)
+            label.set_max_width_chars(14 if style == "medium" else 18)
+            cell.append(slot)
+            cell.append(label)
+            if subtitle:
+                sub_label = dim_label(subtitle, 0.5)
+                sub_label.set_justify(Gtk.Justification.CENTER)
+                cell.append(sub_label)
+            row.set_child(cell)
+            row.set_tooltip_text(text + ("\n" + detail if detail else ""))
+        else:
+            line = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            pad = 2 if style == "list" else 4
+            line.set_margin_top(pad)
+            line.set_margin_bottom(pad)
+            line.set_margin_start(12)
+            line.set_margin_end(12)
+            line.append(icon)
+            name = Gtk.Label(label=text, xalign=0, hexpand=True)
+            name.set_ellipsize(3)
+            line.append(name)
+            if style == "details":
+                line.append(dim_label(size, 1, COL_SIZE))
+                line.append(dim_label(date, 0, COL_DATE))
+                if not self.compact:
+                    line.append(dim_label(kind_text, 0, COL_KIND))
+            elif detail:
+                row.set_tooltip_text(text + "\n" + detail)
+            row.set_child(line)
+            if kind == "note":
+                row.set_selectable(False)
+                row.set_activatable(False)
 
-        row.set_child(line)
-        if kind == "note":
-            row.set_selectable(False)
-            row.set_activatable(False)
         self.list.append(row)
+        if style == "large" and kind == "item" and not is_dir and target and thumbnails.wants_thumbnail(target):
+            self.load_thumbnail(icon, target)
         return row
 
+    def load_thumbnail(self, icon, path):
+        """Fotku alebo video nahradí ikonu náhľadom, keď je pripravený (vo vlákne)."""
+        gen = self.generation
+
+        def ready(pixbuf):
+            if pixbuf is not None:
+                icon.set_from_paintable(Gdk.Texture.new_for_pixbuf(pixbuf))
+                icon.set_pixel_size(max(pixbuf.get_width(), pixbuf.get_height()))
+
+        thumbnails.request(path, VIEW_ICON["large"], ready,
+                           lambda: gen == self.generation and self.view_style == "large")
+
     def clear(self):
-        clear_rows(self.list)
+        clear_rows(self.listbox)
+        clear_rows(self.flow)
 
     def update_status(self):
         """Druhý riadok hlavičky: počet položiek, výber a voľné miesto."""
@@ -596,7 +707,7 @@ class Pane(Gtk.Box):
         rows = []
         child = self.list.get_first_child()
         while child is not None:
-            if isinstance(child, Gtk.ListBoxRow) and child.kind in ("item", "fixed"):
+            if isinstance(child, ROW_TYPES) and child.kind in ("item", "fixed"):
                 rows.append(child)
             child = child.get_next_sibling()
         selected = [r for r in self.list.get_selected_rows() if r.kind in ("item", "fixed")]
@@ -614,7 +725,7 @@ class Pane(Gtk.Box):
 
     def refresh(self):
         self.generation += 1
-        self.compact = self.win.mode != "simple"
+        self.compact = self.win.mode != "simple" and self.view_style == "details"
         self.col_labels["kind"].set_visible(not self.compact)
         self.clear()
         self.build_crumbs()
@@ -626,7 +737,7 @@ class Pane(Gtk.Box):
         if self.volume is None:
             self.head_icon.set_from_icon_name("computer")
         elif self.path == self.volume.path:
-            self.head_icon.set_from_icon_name("drive-removable-media" if self.volume.removable else "drive-harddisk")
+            self.head_icon.set_from_icon_name(self.volume.icon_name)
         else:
             self.head_icon.set_from_icon_name("folder-open")
         self.win.update_title()
@@ -637,8 +748,9 @@ class Pane(Gtk.Box):
                     note = free_space(v.path)
                     text = ("voľné " + note + " z " + v.size) if note else v.size
                 else:
-                    text = "nepripojený · " + v.size
-                row = self.add_row(v.name, text, "", None, volume=v, kind_text="Zariadenie")
+                    text = " · ".join(x for x in (v.state_text, v.size) if x)
+                kind_text = v.kind_text + (" · " + v.label if v.label else "")
+                row = self.add_row(v.name, text, "", None, volume=v, kind_text=kind_text, subtitle=text)
                 self.win.attach_volume_menu(row, v)
             self.finish_refresh()
             return
@@ -672,10 +784,13 @@ class Pane(Gtk.Box):
                         entries.append({"name": entry.name, "path": entry.path, "is_dir": False,
                                         "size": 0, "mtime": 0})
         except PermissionError:
+            denied = "Prístup odmietnutý"
+            if self.volume.fstype == "vboxsf":
+                denied += " (zdieľaný priečinok VirtualBoxu patrí skupine vboxsf, pridajte do nej používateľa)"
             if jobs.admin_available():
-                self.add_row("Prístup odmietnutý. Dvojklik: zobraziť ako správca", "", "", None, kind="admin")
+                self.add_row(denied + ". Dvojklik: zobraziť ako správca", "", "", None, kind="admin")
             else:
-                self.add_row("Prístup odmietnutý", "", "", None, kind="note")
+                self.add_row(denied, "", "", None, kind="note")
             self.finish_refresh()
             return
         except FileNotFoundError:
@@ -963,6 +1078,7 @@ class Window(Gtk.ApplicationWindow):
         self.set_default_size(1280, 760)
         self.volumes = vol_mod.list_volumes()
         self.mode = "simple"        # simple | dual | classic
+        self.prefs = prefs.load("files")
 
         # ---- panel nástrojov (ako v ForkLifte: navigácia, názov, zobrazenie, akcie, hľadanie)
         header = Gtk.HeaderBar()
@@ -1006,6 +1122,33 @@ class Window(Gtk.ApplicationWindow):
             btn.connect("toggled", lambda b, m=mode: b.get_active() and self.set_mode(m))
             self.mode_buttons[mode] = btn
         header.pack_end(linked(*self.mode_buttons.values()))
+
+        # štýl zobrazenia zoznamu súborov (Zoznam, Stredné ikony, Podrobnosti, Miniatúry)
+        self.view_button = Gtk.MenuButton()
+        self.view_button.add_css_class("flat")
+        popover = Gtk.Popover()
+        popover.add_css_class("context-menu")
+        menu = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.view_checks = {}
+        for style, icon, title, hint in VIEWS:
+            item = Gtk.Button()
+            item.add_css_class("flat")
+            line = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            line.append(Gtk.Image.new_from_icon_name(icon))
+            text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1, hexpand=True)
+            name = Gtk.Label(label=title, xalign=0)
+            text.append(name)
+            text.append(dim_label(hint))
+            line.append(text)
+            check = Gtk.Image.new_from_icon_name("object-select-symbolic")
+            line.append(check)
+            item.set_child(line)
+            item.connect("clicked", lambda _b, st=style: (popover.popdown(), self.set_view_style(st)))
+            menu.append(item)
+            self.view_checks[style] = check
+        popover.set_child(menu)
+        self.view_button.set_popover(popover)
+        header.pack_end(linked(self.view_button))
 
         # ---- telo
         body = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -1065,8 +1208,8 @@ class Window(Gtk.ApplicationWindow):
         self.panes.add_css_class("files-panes")
         right.append(self.panes)
 
-        self.pane_a = Pane(self, self.volumes)
-        self.pane_b = Pane(self, self.volumes)
+        self.pane_a = Pane(self, self.volumes, self.prefs.get("view_a", "details"))
+        self.pane_b = Pane(self, self.volumes, self.prefs.get("view_b", "details"))
         self.detail = Detail()
         self.panes.append(self.pane_a)
         self.panes.append(self.pane_b)
@@ -1085,11 +1228,10 @@ class Window(Gtk.ApplicationWindow):
 
         # 1.11: zoznam zväzkov sa obnoví sám pri pripojení či odpojení disku
         self.storage = storage.Watcher(self.reload_volumes)
-        problem = self.storage.start()
-        if problem:
-            print("latte-files: automatické obnovenie diskov nefunguje:", problem, file=sys.stderr)
-            self.side_note.set_text("Disky sa neobnovujú samy: " + problem)
-            self.side_note.set_visible(True)
+        self.storage_problem = self.storage.start() or ""
+        if self.storage_problem:
+            print("latte-files: automatické obnovenie diskov nefunguje:", self.storage_problem, file=sys.stderr)
+        self.show_device_problems()
         self.connect("close-request", lambda *_a: (self.storage.stop(), False)[1])
 
     # ---------- nástroje ----------
@@ -1125,10 +1267,21 @@ class Window(Gtk.ApplicationWindow):
     # ---------- zväzky ----------
     @staticmethod
     def signature(volumes):
-        return [(v.key, v.path, v.name, v.size, v.removable) for v in volumes]
+        return [(v.key, v.path, v.name, v.size, v.removable, v.kind, v.state) for v in volumes]
+
+    def show_device_problems(self):
+        """Bez tichej degradácie: ak zoznam zariadení alebo sledovanie nefunguje, povie sa to v bočnom paneli."""
+        parts = []
+        if vol_mod.problem:
+            parts.append("Zariadenia: " + vol_mod.problem)
+        if self.storage_problem:
+            parts.append("Disky sa neobnovujú samy: " + self.storage_problem)
+        self.side_note.set_text("\n".join(parts))
+        self.side_note.set_visible(bool(parts))
 
     def reload_volumes(self):
         fresh = vol_mod.list_volumes()
+        self.show_device_problems()
         if self.signature(fresh) == self.signature(self.volumes):
             return                      # nič sa nezmenilo: nemazať výber v paneloch
         self.volumes[:] = fresh
@@ -1171,7 +1324,7 @@ class Window(Gtk.ApplicationWindow):
             line = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
             line.set_margin_start(10)
             line.set_margin_end(6)
-            icon = Gtk.Image.new_from_icon_name("drive-removable-media" if v.removable else "drive-harddisk")
+            icon = Gtk.Image.new_from_icon_name(v.icon_name)
             icon.set_pixel_size(20)
             if not v.mounted:
                 icon.add_css_class("dim-label")
@@ -1179,7 +1332,8 @@ class Window(Gtk.ApplicationWindow):
             title.set_ellipsize(3)
             line.append(icon)
             line.append(title)
-            line.append(dim_label(v.size if v.mounted else "nepripojený", 1))
+            line.append(dim_label(v.size if v.mounted else (v.state_short or v.size), 1))
+            row.set_tooltip_text(" · ".join(x for x in (v.kind_text, v.model, v.label, v.size, v.state_text) if x))
             if v.removable and v.mounted:
                 eject = Gtk.Button(icon_name="media-eject-symbolic")
                 eject.add_css_class("flat")
@@ -1256,7 +1410,7 @@ class Window(Gtk.ApplicationWindow):
         groups = [[("Premenovať", lambda: self.ask_rename_volume(volume))]]
         if volume.mounted:
             groups.append([("Odpojiť", lambda: self.unmount_volume(volume))])
-        else:
+        elif volume.mountable:
             groups.append([("Pripojiť", lambda: self.mount_volume(volume, lambda _v: None))])
         popup_menu(widget, groups, x, y)
 
@@ -1294,12 +1448,35 @@ class Window(Gtk.ApplicationWindow):
         self.pane_a.refresh()
         self.pane_b.refresh()
 
+    def set_view_style(self, style):
+        """Štýl zobrazenia aktívneho panela (druhý panel si drží vlastný)."""
+        self.active.set_view_style(style)
+
+    def on_view_style_changed(self, pane):
+        key = "view_a" if pane is self.pane_a else "view_b"
+        self.prefs[key] = pane.view_style
+        try:
+            prefs.update("files", **{key: pane.view_style})
+        except OSError as err:
+            print("latte-files: nastavenie zobrazenia sa nepodarilo uložiť:", err, file=sys.stderr)
+        if pane is self.active:
+            self.update_view_button()
+
+    def update_view_button(self):
+        style = self.active.view_style
+        for vid, icon, title, _hint in VIEWS:
+            if vid == style:
+                self.view_button.set_icon_name(icon)
+                self.view_button.set_tooltip_text("Zobrazenie: %s (Ctrl+1 až Ctrl+4)" % title)
+            self.view_checks[vid].set_opacity(1.0 if vid == style else 0.0)
+
     def set_active(self, pane):
         self.active = pane
         self.pane_a.remove_css_class("active")
         self.pane_b.remove_css_class("active")
         pane.add_css_class("active")
         self.update_title()
+        self.update_view_button()
         self.sync_sidebar()
         self.update_detail()
 
@@ -1635,6 +1812,9 @@ class Window(Gtk.ApplicationWindow):
             return True
         if ctrl and keyval in (Gdk.KEY_a, Gdk.KEY_A):
             self.active.list.select_all()
+            return True
+        if ctrl and Gdk.KEY_1 <= keyval <= Gdk.KEY_4:
+            self.set_view_style(VIEW_IDS[keyval - Gdk.KEY_1])
             return True
         if ctrl and keyval in (Gdk.KEY_f, Gdk.KEY_F):
             self.search.grab_focus()

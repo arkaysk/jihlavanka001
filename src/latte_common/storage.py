@@ -32,6 +32,8 @@ class Watcher:
         self.subscriptions = []
         self.watch = 0
         self.bus = None
+        self.mounts = None          # sledovanie /proc/self/mountinfo (zdieľané priečinky, ručné pripojenia)
+        self.mounts_handler = 0
 
     def start(self):
         """Vráti None, alebo text, prečo sledovanie nefunguje (bez tichej degradácie)."""
@@ -50,6 +52,10 @@ class Watcher:
         # zmena MountPoints pri pripojení a odpojení
         subscribe("org.freedesktop.DBus.Properties", "PropertiesChanged", None, FILESYSTEM)
 
+        # zdieľané priečinky a pripojenia mimo udisks2 udisks nevidí: sleduje ich jadro cez mountinfo
+        self.mounts = Gio.UnixMountMonitor.get()
+        self.mounts_handler = self.mounts.connect("mounts-changed", self._signal)
+
         # AUTO_START spustí udisksd, ak ešte nebeží; bez neho by signály neprišli
         self.watch = Gio.bus_watch_name_on_connection(
             self.bus, UDISKS, Gio.BusNameWatcherFlags.AUTO_START,
@@ -61,6 +67,9 @@ class Watcher:
         for sub in self.subscriptions:
             self.bus.signal_unsubscribe(sub)
         self.subscriptions.clear()
+        if self.mounts is not None and self.mounts_handler:
+            self.mounts.disconnect(self.mounts_handler)
+            self.mounts_handler = 0
         if self.watch:
             Gio.bus_unwatch_name(self.watch)
             self.watch = 0

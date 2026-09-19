@@ -1,7 +1,8 @@
-"""Zväzky LatteOS: zisťovanie diskov a mapovanie na mená Device1, Device2..."""
-import json
+"""Zväzky LatteOS: zdroje dát z detekcie zariadení (latte_common.devices) a ich mená Device1, Device2..."""
 import os
-import subprocess
+import sys
+
+from latte_common import devices
 
 CONFIG_DIR = os.path.expanduser("~/.config/latteos")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "volumes.toml")
@@ -13,16 +14,16 @@ SYSTEM_ENTRIES = [
     ("Shared", "/srv"),
 ]
 
-# Súborové systémy, ktoré nemá zmysel pripájať ako zväzok
-NOT_MOUNTABLE = {"swap", "crypto_LUKS", "LVM2_member", "linux_raid_member", "zfs_member"}
-
 _known_volumes = []
+problem = ""                    # prečo sa zoznam zariadení nepodarilo zistiť ("" = všetko v poriadku)
 
 
 class Volume:
-    """path je None, kým zväzok (výmenný disk) nie je pripojený."""
+    """Zdroj dát. path je None, kým zväzok nie je pripojený; kind a state pochádzajú z detekcie
+    (devices.Device): system | disk | usb | optical | floppy | share."""
 
-    def __init__(self, name, path, uuid="", role="data", removable=False, size="", device=""):
+    def __init__(self, name, path, uuid="", role="data", removable=False, size="", device="",
+                 kind="disk", state=None, label="", model="", fstype=""):
         self.name = name
         self.path = path
         self.uuid = uuid
@@ -30,10 +31,42 @@ class Volume:
         self.removable = removable
         self.size = size
         self.device = device
+        self.kind = kind
+        self.state = state or ("mounted" if path else "unmounted")
+        self.label = label
+        self.model = model
+        self.fstype = fstype
 
     @property
     def mounted(self):
         return self.path is not None
+
+    @property
+    def mountable(self):
+        """Nepripojený zväzok so súborovým systémom, ktorý sa dá pripojiť."""
+        return self.state == "unmounted"
+
+    @property
+    def kind_text(self):
+        return devices.KIND_TEXT[self.kind]
+
+    @property
+    def state_text(self):
+        return devices.STATE_TEXT[self.state]
+
+    @property
+    def state_short(self):
+        return devices.STATE_SHORT[self.state]
+
+    @property
+    def help_text(self):
+        """Prečo sa zväzok nedá otvoriť (prázdne, ak sa dá)."""
+        return devices.STATE_HELP.get(self.state, "")
+
+    @property
+    def icon_name(self):
+        return {"system": "drive-harddisk", "disk": "drive-harddisk", "usb": "drive-removable-media",
+                "optical": "media-optical", "floppy": "media-floppy", "share": "folder-remote"}[self.kind]
 
     @property
     def key(self):
@@ -50,26 +83,6 @@ class Volume:
         if self.role == "system":
             return [(n, p) for n, p in SYSTEM_ENTRIES if os.path.isdir(p)]
         return None
-
-
-def _flatten(node, out, inherit=None):
-    """Potomkovia (partície) zdedia príznak výmenného disku od rodiča."""
-    inherit = inherit or {}
-    for key in ("rm", "tran"):
-        if not node.get(key) and inherit.get(key):
-            node[key] = inherit[key]
-    out.append(node)
-    for child in node.get("children", []):
-        _flatten(child, out, node)
-
-
-def _block_devices():
-    cmd = ["lsblk", "-J", "-o", "NAME,PATH,UUID,FSTYPE,SIZE,MOUNTPOINT,RM,TRAN,TYPE,LABEL"]
-    raw = subprocess.run(cmd, capture_output=True, text=True).stdout
-    nodes = []
-    for dev in json.loads(raw).get("blockdevices", []):
-        _flatten(dev, nodes)
-    return nodes
 
 
 def _load_names():
@@ -100,41 +113,41 @@ def _save_names(volumes):
             f.write('role   = "%s"\n' % v.role)
 
 
+def _volume(d):
+    persistent = d.kind == "share" or (bool(d.uuid) and not d.removable)
+    return Volume(
+        name=d.share_name if d.kind == "share" else "",
+        path=d.mountpoint, uuid=d.key if d.kind == "share" else d.uuid,
+        role="system" if d.kind == "system" else "data", removable=d.removable,
+        size=devices.format_size(d.size), device=d.node, kind=d.kind, state=d.state,
+        label=d.label, model=d.model, fstype=d.fstype), persistent
+
+
 def list_volumes():
+    """Zdroje dát v poradí: systémový disk, ďalšie disky, USB, optické, disketa, zdieľané priečinky.
+
+    Ak sa zariadenia nepodarilo zistiť, vráti posledný známy zoznam a dôvod je v `problem`."""
+    global _known_volumes, problem
+    try:
+        found = devices.detect()
+    except (RuntimeError, ValueError, OSError) as err:
+        problem = "zoznam zariadení sa nepodarilo zistiť: %s" % err
+        print("latte-devices:", problem, file=sys.stderr)
+        return list(_known_volumes)
+    problem = ""
+
     names = _load_names()
-    fixed, removable = [], []
+    volumes, fixed = [], []
+    for d in found:
+        vol, persistent = _volume(d)
+        if persistent and vol.uuid in names:
+            vol.name = names[vol.uuid]
+        volumes.append(vol)
+        if persistent and d.kind != "share":
+            fixed.append(vol)
 
-    for dev in _block_devices():
-        mount = dev.get("mountpoint")
-        removable_dev = bool(dev.get("rm")) or dev.get("tran") == "usb"
-        if not mount:
-            # nepripojený výmenný disk so súborovým systémom: ukáže sa a pripojí sa pri otvorení
-            fstype = dev.get("fstype")
-            if not (removable_dev and fstype and fstype not in NOT_MOUNTABLE and dev.get("path")):
-                continue
-        elif not mount.startswith("/") or dev.get("type") not in ("part", "disk", "lvm", "crypt"):
-            continue                    # aj swap ("[SWAP]"): nie je to priečinok
-        elif mount.startswith(("/boot", "/proc", "/sys", "/run", "/dev")) and not (
-            removable_dev and mount.startswith("/run/media/")
-        ):
-            continue
-
-        uuid = dev.get("uuid") or ""
-        role = "system" if mount == "/" else "data"
-        vol = Volume(
-            name=names.get(uuid, ""),
-            path=mount or None,
-            uuid=uuid,
-            role=role,
-            removable=removable_dev,
-            size=dev.get("size") or "",
-            device=dev.get("path") or "",
-        )
-        (removable if vol.removable else fixed).append(vol)
-
-    fixed.sort(key=lambda v: (v.role != "system", v.path))
-
-    used = {v.name for v in fixed if v.name}
+    # Device1..N: pevné zväzky si číslo pamätajú (volumes.toml), ostatné sa číslujú za nimi
+    used = {v.name for v in volumes if v.name}
     counter = 1
     for v in fixed:
         if not v.name:
@@ -142,19 +155,17 @@ def list_volumes():
                 counter += 1
             v.name = "Device%d" % counter
             used.add(v.name)
-
     counter = len(fixed) + 1
-    for v in removable:
-        v.name = "Device%d" % counter
-        counter += 1
+    for v in volumes:
+        if not v.name:
+            while "Device%d" % counter in used:
+                counter += 1
+            v.name = "Device%d" % counter
+            used.add(v.name)
 
-    result = fixed + removable
-
-    global _known_volumes
-    _known_volumes = result
-
-    _save_names(result)
-    return result
+    _known_volumes = volumes
+    _save_names(volumes)
+    return volumes
 
 
 def rename(volume, new_name):

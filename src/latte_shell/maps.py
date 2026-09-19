@@ -79,7 +79,7 @@ def resources_grid():
         card.set_size_request(180, 70)
         title = Gtk.Label(label=v.name, xalign=0)
         title.add_css_class("heading")
-        note = "systémový zväzok" if v.role == "system" else v.size
+        note = " · ".join(x for x in (v.kind_text, v.size if v.mounted else v.state_short) if x)
         sub = Gtk.Label(label=note, xalign=0)
         sub.add_css_class("dim")
         card.append(title)

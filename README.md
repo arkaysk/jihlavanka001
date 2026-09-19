@@ -18,10 +18,16 @@ Celá relácia (labwc, lišta pod systemd):
 Práca ako správca v správcovi súborov (polkit), ako root:
     sh tools/install-admin.sh    # pomocník do /usr/libexec/latteos/ a polkit politika;
                                  # spustiť znova po zmene src/latte_files/latte-files-admin alebo fileops.py
-Dialóg pre heslo zobrazuje latte-polkit.service (tools/install-session.sh ho zapojí do relácie).
+Dialóg pre heslo zobrazuje latte-polkit, ktorý spúšťa session/labwc/autostart (nie systemd: polkit chce agenta v scope relácie).
 
 Testy:
     python3 -m unittest discover -s tests
+
+Závislosti (Fedora), okrem GTK4, gtk4-layer-shell, labwc:
+    udisks2 polkit                  pripájanie diskov a práca ako správca
+    ffmpegthumbnailer               náhľady videí v zobrazení Miniatúry (fotky idú bez neho)
+    kernel-modules-extra            ovládač disketovej mechaniky (modul floppy); bez disketovej
+                                    mechaniky vo VM nie je potrebný
 
 Prihlasovacia obrazovka (greetd + latte-greeter, gtkgreet ako záloha), ako root:
     dnf install greetd gtkgreet greetd-selinux
@@ -55,7 +61,7 @@ Kým nie sú Nastavenia systému:
 
 ## Komponenty
 - latte-files      správca súborov so zväzkami
-- latte-resources  mapa zdrojov (plánované)
+- latte-resources  mapa zdrojov (popup ZDROJE v lište; zdroje dát dodáva latte_common/devices.py)
 - latte-apps       App Manager (plánované)
 - latte-shell      lišta a plocha
 - latte-polkit     dialóg na zadanie hesla správcu (polkit agent relácie)
@@ -96,6 +102,8 @@ Etapa 1 — Súbory ✅
 1.10	Vykonať ako správca cez polkit pri „prístup odmietnutý"	✅
 1.11	Automatické obnovenie pri pripojení USB (udisks2 signály) — latte-storaged	✅
 1.12	Obľúbené položky v bočnom paneli	✅
+1.13	Štýly zobrazenia: Zoznam, Stredné ikony, Podrobnosti, Miniatúry (náhľady fotiek a videí, inak veľké ikony)	✅
+1.14	Detekcia zdrojov dát: disky, USB, optická mechanika, disketa, zdieľané priečinky (latte_common/devices.py, prvá časť manažéra zariadení)	✅
 Výsledok: správca súborov použiteľný na bežnú prácu bez terminálu.
 
 Etapa 2 — Shell ✅ / 🔸
@@ -222,7 +230,7 @@ latte-appd → latte-apps	App Manager (Flatpak, PackageKit, Waydroid, Bottles)	4
 latte-capd → latte-perms	mapa oprávnení nad Flatpakom; nie vlastný capability engine	4
 latte-netd → latte-net	prepínač siete pre aplikáciu	4
 latte-storaged → latte-resources	zväzky, pripojenie, USB, udisks2	1, 8
-latte-deviced	zariadenia: kamera, tlačiareň, Bluetooth	8
+latte-deviced	zariadenia: kamera, tlačiareň, Bluetooth (detekcia diskov a zdieľaných priečinkov už je: latte_common/devices.py)	8
 latte-audiod	zvuk nad PipeWire	8
 latte-translatord	výber prostredia: Flatpak / Waydroid / Bottles	4–7
 latte-probe	zistenie schopností hostiteľa	9

@@ -7,6 +7,7 @@ UNITS=$HOME/.config/systemd/user
 BIN=$HOME/.local/bin
 
 mkdir -p "$UNITS" "$BIN"
+rm -f "$UNITS/latte-polkit.service"     # agent už nie je user služba (pozri session/labwc/autostart)
 for unit in "$ROOT"/session/systemd/user/*; do
     ln -sf "$unit" "$UNITS/"
 done

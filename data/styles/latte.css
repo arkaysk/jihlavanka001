@@ -109,6 +109,13 @@ headerbar.files-toolbar entry {
 .files-list row:selected { background: var(--latte-tint-3); color: var(--latte-cream); }
 .pane.active .files-list row:selected { background: var(--latte-accent-tint); }
 
+/* mriežka ikon (Stredné ikony, Miniatúry) */
+.icon-grid { padding: 10px 8px; }
+.icon-grid flowboxchild { border-radius: var(--latte-radius-m); padding: 6px 2px; }
+.icon-grid flowboxchild:hover { background: var(--latte-tint-1); }
+.icon-grid flowboxchild:selected { background: var(--latte-tint-3); color: var(--latte-cream); }
+.pane.active .icon-grid flowboxchild:selected { background: var(--latte-accent-tint); }
+
 /* štítok (správca, bez hesla, pád...): karamelový, hodnota danger pre chyby */
 .admin-badge, .badge {
     background: var(--latte-caramel);
