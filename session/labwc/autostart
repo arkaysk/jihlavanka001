@@ -1,2 +1,8 @@
 #!/bin/sh
-~/dev/jihlavanka001/tools/run-shell.sh &
+# Odovzdá prostredie systemd a spustí reláciu. Komponenty (latte-shell, ...)
+# bežia ako user služby pod latte-session.target; ak spadnú, systemd ich
+# reštartuje. Zoznam premenných musí sedieť s session/latteos-session.
+VARS="WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE GSK_RENDERER XCURSOR_THEME XCURSOR_SIZE"
+systemctl --user import-environment $VARS
+dbus-update-activation-environment --systemd $VARS
+systemctl --user start --no-block latte-session.target

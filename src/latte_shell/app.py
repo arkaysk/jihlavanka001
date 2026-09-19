@@ -13,69 +13,13 @@ gi.require_version("Gtk4LayerShell", "1.0")
 from gi.repository import Gtk, GLib  # noqa: E402
 from gi.repository import Gtk4LayerShell as LayerShell  # noqa: E402
 
+from latte_common import theme  # noqa: E402
 from latte_shell import maps  # noqa: E402
+from latte_shell.tasks import TaskList  # noqa: E402
 
 BAR_HEIGHT = 104
 CORNER = 104
 FILES_APP = os.path.join(os.path.dirname(__file__), "..", "latte_files", "app.py")
-
-CSS = """
-window.latte-bar, window.latte-overlay { background: transparent; }
-
-.segment {
-    background: rgba(20,16,13,0.80);
-    border: 1px solid rgba(242,234,224,0.14);
-    border-radius: 12px;
-    color: #F2EAE0;
-}
-.corner {
-    background: #0B120C;
-    border: 1px solid rgba(242,234,224,0.18);
-    border-radius: 14px;
-    color: #E9F5EC;
-    padding: 0;
-}
-.corner.right { background: #1B1612; color: #F2EAE0; }
-.corner-label { font-family: monospace; font-size: 10px; }
-.clock { font-size: 26px; }
-.dim { color: #CDBFAF; font-size: 12px; }
-
-.map-panel {
-    background: rgba(22,18,14,0.94);
-    border: 1px solid rgba(242,234,224,0.14);
-    border-bottom: none;
-    border-radius: 14px 14px 0 0;
-    color: #F2EAE0;
-}
-.arm {
-    background: rgba(22,18,14,0.94);
-    border-left: 1px solid rgba(242,234,224,0.14);
-    border-right: 1px solid rgba(242,234,224,0.14);
-    color: #F2EAE0;
-}
-.arm-title { font-size: 15px; font-weight: bold; }
-.column {
-    background: #0B120C;
-    border: 1px solid rgba(242,234,224,0.18);
-    border-radius: 0 0 14px 14px;
-    color: #E9F5EC;
-}
-.tabs { background: rgba(8,6,5,0.5); }
-.tab {
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    color: #CDBFAF;
-    padding: 12px 16px;
-}
-.tab.active { background: rgba(242,234,224,0.12); color: #F2EAE0; }
-.card-item {
-    background: rgba(242,234,224,0.06);
-    border-radius: 10px;
-    padding: 12px;
-    color: #F2EAE0;
-}
-"""
 
 
 class Bar(Gtk.ApplicationWindow):
@@ -103,12 +47,7 @@ class Bar(Gtk.ApplicationWindow):
         row.append(self.time_segment())
         row.append(self.system_segment())
 
-        tasks = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        tasks.add_css_class("segment")
-        tasks.set_hexpand(True)
-        tasks.set_size_request(-1, 64)
-        tasks.set_valign(Gtk.Align.CENTER)
-        row.append(tasks)
+        row.append(TaskList())
 
         row.append(self.files_segment())
         row.append(self.corner_tile("ZDROJE", "resources", True))
@@ -220,12 +159,8 @@ class App(Gtk.Application):
         self.map_windows.pop(kind, None)
 
     def do_activate(self):
-        provider = Gtk.CssProvider()
-        provider.load_from_string(CSS)
         bar = Bar(self)
-        Gtk.StyleContext.add_provider_for_display(
-            bar.get_display(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
+        theme.load(bar.get_display())
         bar.present()
 
 

@@ -1,0 +1,11 @@
+# Konfigurácia greetd pre LatteOS (2b.3). Nainštaluje ju tools/install-greeter.sh.
+# Greeter je gtkgreet v labwc; neskôr ho nahradí vlastný latte-greeter.
+[terminal]
+vt = 1
+
+[default_session]
+# GSK_RENDERER a kurzor: rovnaké obchádzanie VirtualBoxu ako v session/labwc/environment,
+# greeter ich odtiaľ nevidí. `labwc -S` skončí spolu s gtkgreet.
+command = "env GSK_RENDERER=cairo WLR_NO_HARDWARE_CURSORS=1 labwc -S 'gtkgreet -l'"
+# Používateľ vytvorený balíkom greetd vo Fedore.
+user = "greetd"

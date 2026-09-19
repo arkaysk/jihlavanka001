@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<labwc_config>
+  <keyboard>
+    <default />
+    <!-- Vývoj: Ctrl+Alt+Backspace ukončí labwc a vráti prihlasovaciu obrazovku
+         (z nej sa dá vstúpiť do konzoly, viď session/latteos-console). -->
+    <keybind key="C-A-BackSpace">
+      <action name="Exit" />
+    </keybind>
+  </keyboard>
+</labwc_config>

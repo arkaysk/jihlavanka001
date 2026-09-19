@@ -10,16 +10,9 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, Gio, GLib, Gdk  # noqa: E402
 
-from latte_common import volumes as vol_mod  # noqa: E402
+from latte_common import theme, volumes as vol_mod  # noqa: E402
 
 ROOT_NAME = "Tento počítač"
-
-CSS = """
-.pane-head { background: rgba(0,0,0,0.05); padding: 4px 6px; }
-.pane.active { border: 2px solid @accent_bg_color; }
-.pane { border: 2px solid transparent; }
-.detail-key { font-size: 12px; }
-"""
 
 
 def free_space(path):
@@ -73,6 +66,11 @@ class Pane(Gtk.Box):
         self.list.connect("row-selected", lambda *_a: self.win.update_detail())
         scroll.set_child(self.list)
         self.append(scroll)
+
+        context = Gtk.GestureClick()
+        context.set_button(3)
+        context.connect("pressed", self.on_context)
+        self.list.add_controller(context)
 
         click = Gtk.GestureClick()
         click.connect("pressed", lambda *_a: self.win.set_active(self))
@@ -142,6 +140,14 @@ class Pane(Gtk.Box):
 
     def on_activate(self, _box, row):
         self.win.set_active(self)
+        self.open_row(row)
+
+    def open_selected(self):
+        row = self.list.get_selected_row()
+        if row is not None:
+            self.open_row(row)
+
+    def open_row(self, row):
         if row.volume is not None:
             self.go_volume(row.volume)
             return
@@ -165,6 +171,72 @@ class Pane(Gtk.Box):
 
     def can_write(self):
         return self.volume is not None and self.path is not None
+
+    def at_fixed_root(self):
+        """Koreň zväzku, ktorý ukazuje len vybrané miesta (systémový zväzok)."""
+        return (
+            self.volume is not None
+            and self.path == self.volume.path
+            and self.volume.entries() is not None
+        )
+
+    # -------- kontextové menu --------
+    def on_context(self, _gesture, _n, x, y):
+        row = self.list.get_row_at_y(int(y))
+        if row is not None and row.volume is not None:
+            return                      # zväzok má vlastné menu (premenovanie)
+        self.win.set_active(self)
+
+        if row is not None and row.target is not None and row.kind != "parent":
+            self.list.select_row(row)
+            model = self.item_menu(row.kind)
+        elif self.can_write() and not self.at_fixed_root():
+            model = self.blank_menu()
+        else:
+            return
+        self.popup_menu(model, x, y)
+
+    def item_menu(self, kind):
+        groups = [[("Otvoriť", self.open_selected)]]
+        if kind == "item":
+            groups.append([
+                ("Premenovať", self.win.do_rename),
+                ("Kopírovať do druhého panela", self.win.do_copy),
+                ("Presunúť do druhého panela", self.win.do_move),
+            ])
+            groups.append([("Do koša", self.win.do_trash)])
+        return groups
+
+    def blank_menu(self):
+        return [[("Nový priečinok", self.win.do_mkdir)]]
+
+    def popup_menu(self, groups, x, y):
+        # Vlastný popover namiesto Gtk.PopoverMenu: ten má v GTK 4.22 pri
+        # prvom otvorení s oddielmi orezanú výšku (posledná položka zmizne).
+        popover = Gtk.Popover()
+        popover.add_css_class("context-menu")
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        for group in groups:
+            if box.get_first_child() is not None:
+                box.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
+            for label, action in group:
+                btn = Gtk.Button(label=label)
+                btn.add_css_class("flat")
+                btn.get_child().set_xalign(0)
+                btn.connect("clicked", lambda _b, a=action: (popover.popdown(), a()))
+                box.append(btn)
+        popover.set_child(box)
+        first = box.get_first_child()
+
+        spot = Gdk.Rectangle()
+        spot.x, spot.y, spot.width, spot.height = int(x), int(y), 1, 1
+        popover.set_parent(self.list)
+        popover.set_has_arrow(False)
+        popover.set_halign(Gtk.Align.START)
+        popover.set_pointing_to(spot)
+        popover.connect("closed", lambda p: GLib.idle_add(p.unparent))
+        popover.popup()
+        first.grab_focus()
 
     # -------- breadcrumb --------
     def crumb_button(self, label, action):
@@ -229,11 +301,14 @@ class Pane(Gtk.Box):
             )
 
     # -------- výpis --------
-    def add_row(self, text, size, date, target, volume=None, is_dir=False):
+    def add_row(self, text, size, date, target, volume=None, is_dir=False, kind="item"):
+        # kind: item = súbor alebo priečinok, fixed = pevné miesto v koreni
+        # systémového zväzku (len otvoriť), parent = riadok „..“
         row = Gtk.ListBoxRow()
         row.target = target
         row.volume = volume
         row.is_dir = is_dir
+        row.kind = kind
         line = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         line.set_margin_top(5)
         line.set_margin_bottom(5)
@@ -292,12 +367,12 @@ class Pane(Gtk.Box):
             custom = self.volume.entries()
             if custom is not None:
                 for label, target in custom:
-                    self.add_row(label, "", mtime(target), target, is_dir=True)
+                    self.add_row(label, "", mtime(target), target, is_dir=True, kind="fixed")
                 self.win.update_detail()
                 return
 
         if self.path != self.root:
-            self.add_row("..", "", "", os.path.dirname(self.path), is_dir=True)
+            self.add_row("..", "", "", os.path.dirname(self.path), is_dir=True, kind="parent")
 
         try:
             items = sorted(
@@ -733,12 +808,8 @@ class App(Gtk.Application):
         super().__init__(application_id="org.latteos.Files")
 
     def do_activate(self):
-        provider = Gtk.CssProvider()
-        provider.load_from_string(CSS)
         win = Window(self)
-        Gtk.StyleContext.add_provider_for_display(
-            win.get_display(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
+        theme.load(win.get_display())
         win.present()
 
 

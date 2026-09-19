@@ -1,0 +1,22 @@
+#!/bin/sh
+# Vstup do relácie LatteOS. Spúšťa ho prihlasovací manažér (latteos.desktop)
+# alebo ručne z konzoly. Nastaví premenné relácie a spustí labwc; komponenty
+# potom spustí systemd (labwc/autostart -> latte-session.target).
+#
+# LD_PRELOAD pre layer-shell tu zámerne nie je: patrí len lište
+# (tools/run-shell.sh), inak by sa nahrával do každej aplikácie.
+# GSK_RENDERER a nastavenia kurzora sú v labwc/environment.
+export XDG_CURRENT_DESKTOP=LatteOS
+export XDG_SESSION_DESKTOP=LatteOS
+export XDG_SESSION_TYPE=wayland
+
+labwc "$@"
+status=$?
+
+# Po skončení kompozitora zastaviť komponenty, inak by ich systemd
+# reštartoval do prázdna, a zabudnúť premenné tejto relácie.
+# Zoznam premenných musí sedieť s labwc/autostart.
+systemctl --user stop latte-session.target
+systemctl --user unset-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP \
+    XDG_SESSION_DESKTOP XDG_SESSION_TYPE GSK_RENDERER XCURSOR_THEME XCURSOR_SIZE
+exit $status

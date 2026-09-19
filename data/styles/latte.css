@@ -1,0 +1,79 @@
+/* LatteOS: jedna téma pre všetky komponenty.
+   Načítava ju latte_common.theme. Farby sú zatiaľ priamo v pravidlách,
+   paleta a typografia sa rozdelia do premenných v bode 3.2. */
+
+/* ---------------------------------------------------------- latte-files */
+.pane-head { background: rgba(0,0,0,0.05); padding: 4px 6px; }
+.pane.active { border: 2px solid @accent_bg_color; }
+.pane { border: 2px solid transparent; }
+.detail-key { font-size: 12px; }
+
+/* ---------------------------------------------------------- latte-shell */
+window.latte-bar, window.latte-overlay { background: transparent; }
+
+.segment {
+    background: rgba(20,16,13,0.80);
+    border: 1px solid rgba(242,234,224,0.14);
+    border-radius: 12px;
+    color: #F2EAE0;
+}
+.corner {
+    background: #0B120C;
+    border: 1px solid rgba(242,234,224,0.18);
+    border-radius: 14px;
+    color: #E9F5EC;
+    padding: 0;
+}
+.corner.right { background: #1B1612; color: #F2EAE0; }
+.corner-label { font-family: monospace; font-size: 10px; }
+.clock { font-size: 26px; }
+.dim { color: #CDBFAF; font-size: 12px; }
+
+/* zoznam otvorených okien */
+.task {
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: #F2EAE0;
+    padding: 6px 10px;
+}
+.task:hover { background: rgba(242,234,224,0.08); }
+.task.active { background: rgba(242,234,224,0.16); }
+.task.minimized { color: #CDBFAF; }
+
+/* popupy v tvare L */
+.map-panel {
+    background: rgba(22,18,14,0.94);
+    border: 1px solid rgba(242,234,224,0.14);
+    border-bottom: none;
+    border-radius: 14px 14px 0 0;
+    color: #F2EAE0;
+}
+.arm {
+    background: rgba(22,18,14,0.94);
+    border-left: 1px solid rgba(242,234,224,0.14);
+    border-right: 1px solid rgba(242,234,224,0.14);
+    color: #F2EAE0;
+}
+.arm-title { font-size: 15px; font-weight: bold; }
+.column {
+    background: #0B120C;
+    border: 1px solid rgba(242,234,224,0.18);
+    border-radius: 0 0 14px 14px;
+    color: #E9F5EC;
+}
+.tabs { background: rgba(8,6,5,0.5); }
+.tab {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    color: #CDBFAF;
+    padding: 12px 16px;
+}
+.tab.active { background: rgba(242,234,224,0.12); color: #F2EAE0; }
+.card-item {
+    background: rgba(242,234,224,0.06);
+    border-radius: 10px;
+    padding: 12px;
+    color: #F2EAE0;
+}

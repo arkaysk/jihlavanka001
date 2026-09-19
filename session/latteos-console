@@ -1,0 +1,4 @@
+#!/bin/sh
+# Vývojový vstup z prihlasovacej obrazovky: textová konzola bez grafického
+# prostredia. Po `exit` sa vráti prihlasovacia obrazovka.
+exec "${SHELL:-/bin/bash}" -l
