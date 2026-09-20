@@ -433,6 +433,65 @@ Každá prepojená stránka má mať tri časti:
 
 Odkaz má odovzdať cieľovú stránku a podľa možnosti aj identifikátor objektu. Napríklad z Obrazovky sa má otvoriť konkrétny monitor, nie iba domovská stránka Správcu zdrojov.
 
+## Vzhľad kontajnerových a cudzích aplikácií
+
+LatteOS môže cudzej aplikácii ponúknuť spoločný vzhľad, ale nemôže jej bezpečne vložiť vlastný bočný panel do okna bez spolupráce aplikácie. Kontajner nemení vnútorné rozloženie programu; iba oddeľuje jeho procesy a súbory.
+
+Preto treba rozlišovať tri úrovne podpory:
+
+1. **Vynútený rám a základný vzhľad**
+  - rám okna, titulok, tlačidlá, farby, svetlý/tmavý režim a písmo;
+  - cez kompozitor, GTK/libadwaita tému, portál a nastavenia kontajnera;
+  - funguje aj pri aplikácii, ktorá LatteOS nepozná.
+2. **Zosúladené štandardné prvky**
+  - štandardné tlačidlá, vstupné polia, zoznamy, dialógy, stavové pruhy a navigačné prvky;
+  - funguje pri aplikácii používajúcej GTK, Qt alebo iný podporovaný toolkit;
+  - aplikácia môže vyzerať ako LatteOS, ale jej vlastné rozloženie zostane jej rozhodnutím.
+3. **Natívna LatteOS integrácia**
+  - presný bočný panel oblastí, vrstvené karty, navigačný pruh a informačný pruh;
+  - aplikácia použije spoločnú knižnicu komponentov alebo LatteOS UI protokol;
+  - vhodné pre App Manager, Nastavenia, Správcu súborov a budúce natívne aplikácie.
+
+Pri Flatpaku treba podporovať štandardné portály a tému, aby aplikácia dostala farebný režim, akcent, písmo a systémové dialógy bez prístupu k hostiteľským súborom. Pri GTK aplikácii sa dá ponúknuť aj LatteOS widgetová knižnica. Pri Qt, Wine/Win32, Android/Waydroid alebo vzdialenom okne sa dá zjednotiť najmä rám, téma a systémové dialógy; presný bočný panel nie.
+
+**Gwenview je konkrétny vzor kompatibilného okna.** Už má ľavý navigačný panel, horný navigačný pruh a hlavnú pracovnú plochu s obrázkom. LatteOS by mu preto nemalo vytvárať druhý panel ani meniť jeho pracovný tok. Namiesto toho má jeho existujúci panel dostať rovnaký vizuálny kontrakt ako `latte-files`:
+
+- panel od horného okraja pracovného obsahu;
+- priehľadnejšie pozadie než hlavná pracovná plocha;
+- rovnaká šírka, okraj a vnútorné odstupy;
+- rovnaký aktívny riadok, hover, ikonografia a stavový bod;
+- rovnaký navigačný pruh so šípkami a spätnou navigáciou;
+- rovnaký informačný alebo stavový pruh pri spodnom okraji.
+
+Výsledkom má byť **Gwenview v LatteOS štýle**, nie vložené okno Gwenview do Správcu súborov a ani prekreslenie cudzieho obsahu filtrom. Qt/KDE adaptér môže upraviť jeho `QMainWindow`, `QToolBar`, `QDockWidget` alebo ekvivalentný navigačný panel. Pri Flatpaku sa adaptér dodá cez KDE/Qt tému, portál a balík kompatibility; samotné obrázky a funkcie Gwenview zostanú nezmenené.
+
+Tento vzor sa má použiť aj pre ďalšie aplikácie s podobnou stavbou:
+
+- **Dolphin** - zariadenia, miesta, záložky a hlavný zoznam;
+- **Kate** - projektový panel, dokumenty a hlavná pracovná plocha;
+- **Okular** - navigačný panel dokumentu a hlavný obsah;
+- **Gwenview** - priečinky, obrázky, metadata a úpravy.
+
+Kompatibilita sa má evidovať v profiloch aplikácií ako napríklad `sidebar = "aligned"`, `navigation = "aligned"`, `status_bar = "aligned"`. Aplikácia, ktorá má vlastný panel, sa nesmie označiť ako „bez podpory“ len preto, že nepoužíva LatteOS widgety. Stačí, ak jej existujúce štruktúry vieme vizuálne zosúladiť.
+
+### Odporúčaný kontrakt pre natívne aplikácie
+
+Spoločné LatteOS okná majú používať tieto voliteľné triedy a komponenty:
+
+- `latte-titlebar` - spoločná výška a vzhľad titulkového pruhu;
+- `latte-navigation-bar` - späť, dopredu, cesta alebo kontextová navigácia;
+- `latte-sidebar` - bočný panel od horného okraja pracovného obsahu;
+- `latte-status-bar` - trvalá informácia o aktuálnom obsahu;
+- `latte-info-bar` - dočasné upozornenie alebo stavová správa;
+- `latte-area-card` - oblasť Softvér, Dáta, Hardvér, Prihlásenie alebo Vzhľad;
+- `latte-layered-navigation` - vrstvené skupiny a odkrytie kariet aktívnej oblasti.
+
+App Manager otvorený z hlavného Nastavenia teda môže využiť presne rovnaký bočný panel a pruhy ako Nastavenia. Cudzia kontajnerová aplikácia môže dostať rovnakú tému a štandardné ovládacie prvky; presné LatteOS rozhranie použije iba vtedy, keď sa k integrácii prihlási.
+
+Voľby pre tieto adaptéry sú v **Vzhľad > Integrácia aplikácií**. Používateľ tam môže samostatne zapnúť alebo vypnúť zosúladenie GTK a Qt/KDE. Portálové hodnoty zostávajú spoločnou systémovou vrstvou pre aplikácie, ktoré ho podporujú.
+
+LatteOS nemá cudzej aplikácii prepisovať jej vlastné grafiky filtrom ani vkladať neviditeľné ovládacie prvky. Namiesto toho má aplikácii ponúknuť verejnú knižnicu, CSS tokeny, portály a jasnú úroveň kompatibility. Tak aplikácia, ktorá podporu využije, vyzerá natívne, a aplikácia bez podpory zostane čitateľná a funkčná.
+
 ## Čo nepatrí do hlavného Nastavenia
 
 - celý katalóg aplikácií a obchodný obsah

@@ -1096,7 +1096,6 @@ class Window(Gtk.ApplicationWindow):
         self.btn_back = tool_button("go-previous-symbolic", "Späť", lambda: self.active.back())
         self.btn_fwd = tool_button("go-next-symbolic", "Dopredu", lambda: self.active.ahead())
         btn_up = tool_button("go-up-symbolic", "O úroveň vyššie (Backspace)", lambda: self.active.up())
-        header.pack_start(linked(self.btn_back, self.btn_fwd, btn_up))
 
         self.title_label = Gtk.Label(label=ROOT_NAME)
         self.title_label.add_css_class("toolbar-title")
@@ -1211,6 +1210,11 @@ class Window(Gtk.ApplicationWindow):
 
         right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
         body.append(right)
+
+        navigation = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        navigation.add_css_class("latte-navigation-bar")
+        navigation.append(linked(self.btn_back, self.btn_fwd, btn_up))
+        right.append(navigation)
 
         self.panes = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, hexpand=True, vexpand=True)
         self.panes.add_css_class("files-panes")

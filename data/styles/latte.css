@@ -9,6 +9,51 @@
    Vzhľad podľa ForkLiftu 4: pruh nástrojov, priehľadnejší bočný panel, menej priehľadné
    panely so zoznamom, oranžová čiara aktívneho panela, inšpektor vpravo. Farby kávy. */
 window.latte-files, window.latte-settings { background: transparent; color: var(--latte-cream); }
+window.latte-process { background: transparent; color: var(--latte-cream); }
+window.latte-process .process-body { background: var(--latte-panel-list); }
+.process-sidebar { background: var(--latte-panel-side); border-right: 1px solid var(--latte-line-soft); padding: 14px 8px 10px; }
+.sidebar-title { color: var(--latte-cream); font-size: 16px; font-weight: 700; padding: 5px 10px 14px; }
+.sidebar-item { font-size: 13px; }
+.process-navigation { background: transparent; }
+.process-navigation row { border-radius: var(--latte-radius-m); margin: 2px 0; padding: 8px 10px; min-height: 34px; }
+.process-navigation row:hover { background: var(--latte-tint-2); }
+.process-navigation row:selected { background: var(--latte-accent-tint); border-left: 3px solid var(--latte-caramel); padding-left: 7px; }
+.process-section { margin: 2px 0; border-radius: var(--latte-radius-m); background: var(--latte-tint-1); }
+.process-section.expanded { background: var(--latte-tint-2); }
+.process-section-head { color: var(--latte-cream); padding: 9px 10px; min-height: 34px; }
+.process-section-head:hover { background: var(--latte-tint-2); }
+.process-section-pages { background: transparent; padding: 0 0 5px; }
+.process-section-pages row { border-radius: var(--latte-radius-s); margin: 1px 5px; padding: 7px 10px 7px 28px; min-height: 28px; }
+.process-section-pages row:hover { background: var(--latte-tint-3); }
+.process-section-pages row:selected { background: var(--latte-accent-tint); border-left: 2px solid var(--latte-caramel); }
+.sidebar-foot { color: var(--latte-cream-dim); font-size: 11px; padding: 10px; }
+.process-action-bar { background: var(--latte-panel-bar); border-bottom: 1px solid var(--latte-line); padding: 8px 16px; min-height: 48px; }
+.content-title { font-size: 15px; font-weight: 700; }
+.process-action-bar button { color: var(--latte-cream); }
+.process-tabs { background: var(--latte-panel-bar); border-bottom: 1px solid var(--latte-line); padding: 4px 12px; }
+.process-tabs button { color: var(--latte-cream-dim); min-width: 140px; }
+.process-tabs button.active { color: var(--latte-cream); background: var(--latte-accent-tint); }
+.process-summary { background: var(--latte-tint-1); border-bottom: 1px solid var(--latte-line-soft); padding: 12px; }
+.metric-name { color: var(--latte-cream-dim); font-size: 11px; }
+.metric-value { font-size: 18px; font-weight: 700; }
+.process-columns { background: var(--latte-panel-bar); border-top: 1px solid var(--latte-line-soft); border-bottom: 1px solid var(--latte-line-soft); padding: 7px 10px; }
+.process-list { background: transparent; }
+.process-list row { border-bottom: 1px solid var(--latte-line-soft); padding: 0 10px; }
+.process-list row:hover { background: var(--latte-tint-1); }
+.process-cell { min-width: 70px; }
+.process-detail, .process-command, .process-status { color: var(--latte-cream-dim); font-size: 11px; }
+.process-command { font-family: monospace; }
+.process-status { padding: 5px 12px; }
+.telemetry-panel, .hardware-facts { background: var(--latte-tint-1); border-radius: var(--latte-radius-l); padding: 16px; }
+.performance-graphs { min-height: 170px; }
+.performance-graphs drawingarea { background: var(--latte-tint-1); border-radius: var(--latte-radius-l); border: 1px solid var(--latte-line-soft); }
+.performance-sources { background: var(--latte-panel-bar); border: 1px solid var(--latte-line-soft); border-radius: var(--latte-radius-m); padding: 4px; }
+.source-button { color: var(--latte-cream-dim); min-width: 96px; }
+.source-button:hover, .source-button:checked { color: var(--latte-cream); background: var(--latte-accent-tint); }
+.fact-name { color: var(--latte-cream-dim); }
+.fact-value { color: var(--latte-cream); font-weight: 700; }
+.page-title { font-size: 20px; font-weight: 700; }
+.page-lead { color: var(--latte-cream-dim); }
 .latte-files .dim-label, .latte-settings .dim-label { color: var(--latte-cream-dim); opacity: 0.8; }
 
 headerbar.files-toolbar {
@@ -35,6 +80,17 @@ headerbar.files-toolbar entry {
     border-radius: var(--latte-radius-l);
     color: var(--latte-cream);
 }
+
+/* Navigácia patrí k pracovnému obsahu, nie do titulkového pruhu. Bočný panel tak začína
+   pri hornom okraji obsahu a šípky ostávajú na strane, ktorú používateľ prehliada. */
+.latte-navigation-bar {
+    background: var(--latte-panel-bar);
+    border-bottom: 1px solid var(--latte-line);
+    min-height: 38px;
+    padding: 4px 8px;
+}
+.latte-navigation-bar .tool-group { margin: 0; }
+.latte-navigation-bar button { min-width: 30px; min-height: 28px; }
 
 /* bočný panel: priehľadnejší ako panely so zoznamom */
 .files-sidebar {

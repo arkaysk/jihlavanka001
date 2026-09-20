@@ -366,6 +366,20 @@ etapa = "3"
 component = "latte-appearance"
 
 [[page]]
+id = "integration"
+title = "Integrácia aplikácií"
+group = "environment"
+icon = "applications-system-symbolic"
+description = "Ako LatteOS zosúlaďuje GTK, Qt/KDE a portálové aplikácie s motívom systému."
+keywords = ["gtk", "qt", "kde", "gwenview", "dolphin", "flatpak", "aplikacie", "tema aplikacii"]
+domain = "appearance"
+sections = ["integration"]
+owner = "latte-appearance"
+status = "ready"
+etapa = "3"
+component = "latte-appearance"
+
+[[page]]
 id = "wallpaper"
 title = "Pozadie"
 group = "environment"

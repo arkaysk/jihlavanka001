@@ -150,7 +150,9 @@ Služba **latte-appearance** z nich vyrába vrstvy pre jednotlivé druhy okien a
 | portal        | xdg-desktop-portal backend `org.freedesktop.impl.portal.desktop.latteos`: farebný režim, akcent, kontrast, písmo, tlačidlá okien | hneď v GTK4, libadwaita, Flatpak |
 | gtk4          | `~/.config/gtk-4.0/gtk.css`: farby libadwaita (svetlý základ a tmavý cez `@media (prefers-color-scheme: dark)`, preto sa prepína aj v bežiacej aplikácii) | nová aplikácia hneď, bežiaca podľa režimu |
 | gtk-settings  | `settings.ini` GTK 3 a 4                                     | po novom spustení aplikácie |
-| gtk3, qt, firefox, chromium, wine | plánované adaptéry                       | zatiaľ nie sú |
+| gtk3 | zosúladené cez GTK settings.ini            | základné voľby GTK 3 |
+| qt, kde | zosúladené cez KDE farebnú schému | Qt/KDE farby, Gwenview/Dolphin/Kate/Okular; platform plugin ešte závisí od systému |
+| firefox, chromium, wine | plánované adaptéry                       | zatiaľ nie sú |
 
 Tlačidlá minimalizovať, maximalizovať a zavrieť majú vo všetkých troch druhoch okien (vlastné komponenty, libadwaita aplikácie,
 rám od labwc) rovnaký vzhľad: plochý symbol, plocha 30x24, odstup 4, pri prejdení myšou zaoblený podklad. GTK a libadwaita to
@@ -196,7 +198,7 @@ Kontrast textu voči pozadiu (AA) sa nekontroluje pri načítaní, ale testom (t
 - Portál nevie doručiť presný akcent: libadwaita ho zaokrúhli na najbližší z deviatich štandardných.
   Presný akcent preto prenáša gtk.css a vlastné komponenty.
 - Zvýrazňovanie kódu v textovom editore má vlastnú schému (GtkSourceView), Prispôsobenie ju nemení.
-- Overené je GTK4/libadwaita; GTK 3, Qt, Firefox, Chromium a Wine sú zatiaľ len v pláne.
+- Overené je GTK4/libadwaita a základné GTK 3/Qt/KDE výstupy. Qt/KDE adaptér generuje štandardnú farebnú schému bez prepisovania `kdeglobals`; úplné automatické načítanie cez `QT_QPA_PLATFORMTHEME=kde` závisí od dostupnosti KDE platform pluginu v systéme. Firefox, Chromium a Wine sú zatiaľ len v pláne.
 
 ### Aktivácia
 

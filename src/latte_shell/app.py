@@ -27,6 +27,7 @@ from latte_shell.toasts import ToastStack  # noqa: E402
 
 FILES_APP = os.path.join(os.path.dirname(__file__), "..", "latte_files", "app.py")
 SETTINGS_APP = os.path.join(os.path.dirname(__file__), "..", "latte_settings", "app.py")
+PROCESS_MANAGER_APP = os.path.join(os.path.dirname(__file__), "..", "latte_process", "app.py")
 
 
 class Desktop(Gtk.ApplicationWindow):
@@ -233,12 +234,16 @@ class Bar(Gtk.ApplicationWindow):
         found, rect = self.clock_segment.compute_bounds(self)
         left = int(rect.get_x()) if found else 12
         self.system_menu = SystemMenu(
-            self.get_application(), left, BAR_HEIGHT + 6, self.system_menu_closed, self.launch_settings
+            self.get_application(), left, BAR_HEIGHT + 6, self.system_menu_closed,
+            self.launch_settings, self.launch_process_manager
         )
         self.system_menu.present()
 
     def system_menu_closed(self):
         self.system_menu = None
+
+    def launch_process_manager(self):
+        subprocess.Popen([sys.executable, os.path.abspath(PROCESS_MANAGER_APP)])
 
     def toggle_popup(self, kind):
         if self.system_menu is not None:

@@ -21,11 +21,12 @@ CONFIRM_MS = 4000               # koľko čaká potvrdenie akcie s confirm
 
 
 class SystemMenu(HoverPopup):
-    def __init__(self, app, left, bottom, on_closed, on_settings):
+    def __init__(self, app, left, bottom, on_closed, on_settings, on_process_manager=None):
         super().__init__(app, left, bottom, "latte-system-menu", on_closed)
         self.confirming = None      # (akcia, tlačidlo, zdroj časovača)
         self.rows = []
         self.on_settings = on_settings
+        self.on_process_manager = on_process_manager or (lambda: None)
 
         panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         panel.add_css_class("system-menu")
@@ -38,6 +39,7 @@ class SystemMenu(HoverPopup):
         # Nastavenia idú pred napájanie: nie sú to akcie, ktoré končia reláciu, preto ani potvrdenie,
         # ani zablokovanie pri behu vypnutia (nie sú v self.rows)
         panel.append(self.settings_row())
+        panel.append(self.process_manager_row())
         separator = Gtk.Separator()
         separator.add_css_class("system-sep")
         panel.append(separator)
@@ -75,9 +77,27 @@ class SystemMenu(HoverPopup):
         button.connect("clicked", lambda _b: self.open_settings())
         return button
 
+    def process_manager_row(self):
+        button = Gtk.Button()
+        button.add_css_class("system-row")
+        row = Gtk.Box(spacing=12)
+        row.append(Gtk.Image.new_from_icon_name("utilities-system-monitor-symbolic"))
+        title = Gtk.Label(label="Správca úloh", xalign=0, hexpand=True)
+        hint = Gtk.Label(label="procesy · senzory", xalign=1)
+        hint.add_css_class("system-hint")
+        row.append(title)
+        row.append(hint)
+        button.set_child(row)
+        button.connect("clicked", lambda _b: self.open_process_manager())
+        return button
+
     def open_settings(self):
         self.close_menu()
         self.on_settings()
+
+    def open_process_manager(self):
+        self.close_menu()
+        self.on_process_manager()
 
     def build_row(self, action):
         button = Gtk.Button()

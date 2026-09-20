@@ -229,6 +229,14 @@ class GeneratorTest(unittest.TestCase):
         self.assertIsNone(plain["gtk-font-name"])
         self.assertIsNone(plain["gtk-xft-dpi"])
 
+    def test_kde_colors_expose_the_latte_roles(self):
+        colors = ap.kde_colors(ap.resolve({}))
+        self.assertIn("[Colors:View]", colors)
+        self.assertIn("[Colors:Window]", colors)
+        self.assertIn("ColorScheme=LatteOS", colors)
+        self.assertIn("BackgroundNormal=", colors)
+        self.assertIn("ForegroundNegative=", colors)
+
     def test_labwc_theme_uses_only_real_labwc_keys(self):
         text = ap.labwc_theme(ap.resolve({}))
         keys = [line.split(":", 1)[0] for line in text.splitlines() if line and not line.startswith("#")]
@@ -464,6 +472,16 @@ class PlanTest(unittest.TestCase):
         os.symlink(real, self.dirs.labwc)
         ap.apply(ap.plan(self.tokens, self.dirs))
         self.assertTrue(os.path.isfile(os.path.join(real, "themerc-override")))
+
+    def test_disabling_adapters_removes_only_their_outputs(self):
+        ap.apply(ap.plan(self.tokens, self.dirs))
+        disabled = ap.resolve({"integration.gtk": False, "integration.qt": False})
+        ap.apply(ap.plan(disabled, self.dirs))
+        self.assertFalse(os.path.exists(os.path.join(self.dirs.data_home, "color-schemes", "LatteOS.colors")))
+        gtk_css = os.path.join(self.dirs.config_home, "gtk-4.0", "gtk.css")
+        self.assertTrue(os.path.exists(gtk_css))
+        with open(gtk_css, encoding="utf-8") as f:
+            self.assertNotIn(ap.BLOCK_BEGIN, f.read())
 
 
 if __name__ == "__main__":

@@ -208,6 +208,7 @@ class Tokens:
     transparency: bool
     corners: str
     titlebar: int = 46          # výška záhlavia okien v px (jeden parameter pre všetky vrstvy)
+    adapters: dict = field(default_factory=lambda: {"gtk": True, "qt": True})
     problems: list = field(default_factory=list)
     variants: dict = field(default_factory=dict)    # režim -> Tokens tohto motívu (pre gtk.css s @media)
 
@@ -240,7 +241,8 @@ def _build(theme, scheme, values):
         font_family=values.get("font.family", ""), font_scale=float(values.get("font.scale", 1.0)),
         buttons=values.get("window.buttons", "all"), contrast=values.get("accessibility.contrast", "normal"),
         transparency=values.get("color.transparency", True) is not False, corners=corners,
-        titlebar=int(values.get("window.titlebar", DEFAULT_TITLEBAR)))
+        titlebar=int(values.get("window.titlebar", DEFAULT_TITLEBAR)),
+        adapters={"gtk": values.get("integration.gtk", True), "qt": values.get("integration.qt", True)})
 
 
 def resolve(values, directories=None):
@@ -390,6 +392,60 @@ def labwc_theme(t):
     head = "# GENEROVANÉ latte-appearance (motív %s, %s). Ručné zmeny sa prepíšu; nastavuje sa v Nastaveniach." % (
         t.theme_id, t.scheme)
     return head + "\n" + "\n".join("%s: %s" % row for row in rows) + "\n"
+
+
+# ---------------------------------------------------------------- Qt/KDE
+def _kde_rgb(color):
+    return ",".join(str(x) for x in parse_hex(color))
+
+
+def kde_colors(t):
+    """KDE color scheme for Qt/KDE applications (KColorScheme and Breeze widgets)."""
+    c = t.colors
+    base = _kde_rgb(c["base"])
+    view = _kde_rgb(to_hex(t.panels["detail"][:3]))
+    bar = _kde_rgb(to_hex(t.panels["bar"][:3]))
+    fg = _kde_rgb(c["fg"])
+    dim = _kde_rgb(c["fg-dim"])
+    accent = _kde_rgb(c["accent"])
+    on_accent = _kde_rgb(c["on-accent"])
+    danger = _kde_rgb(c["danger"])
+
+    def group(name, background, normal, positive, negative=danger):
+        values = {
+            "BackgroundAlternate": background, "BackgroundNormal": background,
+            "DecorationFocus": accent, "DecorationHover": accent,
+            "ForegroundActive": accent, "ForegroundInactive": dim,
+            "ForegroundLink": accent, "ForegroundNegative": negative,
+            "ForegroundNeutral": accent, "ForegroundNormal": normal,
+            "ForegroundPositive": positive, "ForegroundVisited": positive,
+        }
+        return "[Colors:%s]\n%s\n" % (name, "\n".join("%s=%s" % item for item in values.items()))
+
+    return """[ColorEffects:Disabled]
+Color=128,128,128
+ColorAmount=0
+Intensity=0
+Contrast=0
+
+%s
+%s
+%s
+%s
+[General]
+ColorScheme=LatteOS
+Name=LatteOS
+shadeSortColumn=true
+
+[WM]
+activeBackground=%s
+activeBlend=%s
+activeForeground=%s
+inactiveBackground=%s
+inactiveBlend=%s
+inactiveForeground=%s
+""" % (group("Button", bar, fg, fg), group("Selection", accent, on_accent, on_accent),
+       group("View", view, fg, fg), group("Window", base, fg, fg), bar, bar, fg, bar, bar, dim)
 
 
 # ---------------------------------------------------------------- tlačidlá okien
@@ -547,7 +603,7 @@ def merge_ini(text, values, section="Settings"):
     start = end = None
     for i, line in enumerate(lines):
         stripped = line.strip()
-        if stripped == "[%s]" % section:
+        if stripped == "[%s]" % section and start is None:
             start = i
         elif start is not None and end is None and stripped.startswith("[") and stripped.endswith("]"):
             end = i
@@ -601,13 +657,21 @@ class Action:
     path: str
     kind: str                   # block | ini | file
     payload: object             # text bloku | {kľúč: hodnota} | celý text súboru
+    section: str = "Settings"  # oddiel pre ini akcie
+    enabled: bool = True
 
     def expected(self, current):
         """Obsah súboru po použití tejto akcie na súčasný obsah."""
+        if not self.enabled:
+            if self.kind == "block":
+                return strip_block(current)
+            if self.kind == "ini":
+                return merge_ini(current, {k: None for k in self.payload}, self.section)
+            return ""
         if self.kind == "block":
             return merge_block(current, self.payload)
         if self.kind == "ini":
-            return merge_ini(current, self.payload)
+            return merge_ini(current, self.payload, self.section)
         return self.payload
 
 
@@ -626,7 +690,7 @@ ADAPTERS = [
     Adapter("gtk4", "aligned", "GTK4 a libadwaita", "farby cez gtk.css"),
     Adapter("gtk-settings", "aligned", "GTK 3 a 4", "settings.ini: tmavý režim, písmo, tlačidlá okien"),
     Adapter("gtk3", "planned", "GTK 3", "farby cez gtk.css (bez libadwaita premenných)"),
-    Adapter("qt", "planned", "Qt", "platformová téma a farebná paleta"),
+    Adapter("qt", "aligned", "Qt a KDE", "KDE farebná schéma, Qt/KDE panely a štandardné widgety"),
     Adapter("firefox", "planned", "Firefox", "politiky a motív"),
     Adapter("chromium", "planned", "Chromium a Electron", "príznaky a farebný režim z portálu"),
     Adapter("wine", "planned", "Wine", "farby v registri"),
@@ -636,10 +700,17 @@ ADAPTERS = [
 def plan(t, dirs=None):
     dirs = dirs or Dirs.default()
     ini = gtk_ini(t)
-    return [
-        Action("gtk4", os.path.join(dirs.config_home, "gtk-4.0", "gtk.css"), "block", gtk4_css(t)),
-        Action("gtk-settings", os.path.join(dirs.config_home, "gtk-4.0", "settings.ini"), "ini", ini),
-        Action("gtk-settings", os.path.join(dirs.config_home, "gtk-3.0", "settings.ini"), "ini", ini),
+    actions = [
+        Action("gtk4", os.path.join(dirs.config_home, "gtk-4.0", "gtk.css"), "block", gtk4_css(t),
+               enabled=t.adapters.get("gtk", True)),
+        Action("gtk-settings", os.path.join(dirs.config_home, "gtk-4.0", "settings.ini"), "ini", ini,
+               enabled=t.adapters.get("gtk", True)),
+        Action("gtk-settings", os.path.join(dirs.config_home, "gtk-3.0", "settings.ini"), "ini", ini,
+               enabled=t.adapters.get("gtk", True)),
+        Action("qt", os.path.join(dirs.data_home, "color-schemes", "LatteOS.colors"), "file", kde_colors(t),
+               enabled=t.adapters.get("qt", True)),
+    ]
+    return actions + [
         Action("compositor", os.path.join(dirs.labwc, "themerc-override"), "file", labwc_theme(t)),
         Action("compositor", os.path.join(dirs.labwc_theme, "themerc"), "file",
                "# Téma LatteOS: farby sú v themerc-override, tu sú len ikony tlačidiel (generuje latte-appearance).\n"),
@@ -661,7 +732,7 @@ def check(actions):
     for action in actions:
         current = _read(action.path)
         if not os.path.exists(action.path):
-            state = "missing"
+            state = "ok" if not action.enabled else "missing"
         elif action.expected(current) == current:
             state = "ok"
         else:
@@ -677,6 +748,11 @@ def apply(actions):
         current = _read(action.path)
         wanted = action.expected(current)
         if os.path.exists(action.path) and wanted == current:
+            continue
+        if not action.enabled and action.kind == "file":
+            if os.path.exists(action.path):
+                os.unlink(action.path)
+                changed.append(action.path)
             continue
         directory = os.path.dirname(action.path)            # môže byť symlink (napr. ~/.config/labwc)
         os.makedirs(directory, exist_ok=True)
@@ -703,7 +779,7 @@ def release(actions):
         if action.kind == "block":
             new = strip_block(current)
         elif action.kind == "ini":
-            new = merge_ini(current, {k: None for k in action.payload})
+            new = merge_ini(current, {k: None for k in action.payload}, action.section)
         else:
             new = None
         if new is None:
