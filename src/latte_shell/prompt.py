@@ -15,12 +15,12 @@ from gi.repository import Gtk, Gdk, Pango  # noqa: E402
 from gi.repository import Gtk4LayerShell as LayerShell  # noqa: E402
 
 from latte_common import paths, prefs  # noqa: E402
+from latte_shell.geometry import BAR_HEIGHT, SEGMENT  # noqa: E402
 from latte_shell.prompt_modes import MODE_CLASSES, tool_button  # noqa: E402
 
 PROMPT_WIDTH = 420                # najmenšia šírka; inak sa lišta delí so zoznamom okien
 POPUP_MIN_WIDTH = 640
 POPUP_GAP = 6                   # medzera nad lištou
-BAR_HEIGHT = 104
 
 
 def register_icons(display):
@@ -107,7 +107,7 @@ class PromptSegment(Gtk.Box):
         self.popup = None
         self.add_css_class("segment")
         self.add_css_class("prompt-segment")
-        self.set_size_request(PROMPT_WIDTH, 64)
+        self.set_size_request(PROMPT_WIDTH, SEGMENT)
         self.set_hexpand(True)
         self.set_valign(Gtk.Align.CENTER)
 

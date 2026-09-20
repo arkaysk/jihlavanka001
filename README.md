@@ -87,6 +87,7 @@ Ikony plochy sa berú z priečinka Plocha (~/Desktop, ak existuje).
                    `latte-devices list`, `latte-devices display list|set|apply`
 - latte-resources  Správca zdrojov (popup ZDROJE v lište): zariadenia a siete ako dlaždice po skupinách, tlačidlo Nastavenia v ramene L
 - latte-apps       App Manager (plánované)
+- latte-heidelberg Editor dokumentov, začíname md, txt a html s formátovaním (plánované; docs/lista-a-rohy.md, časť 7)
 - latte-shell      lišta a plocha
 - latte-polkit     dialóg na zadanie hesla správcu (polkit agent relácie)
 
@@ -128,6 +129,7 @@ Etapa 1 — Súbory ✅
 1.12	Obľúbené položky v bočnom paneli	✅
 1.13	Štýly zobrazenia: Zoznam, Stredné ikony, Podrobnosti, Miniatúry (náhľady fotiek a videí, inak veľké ikony)	✅
 1.14	Detekcia zdrojov dát: disky, USB, optická mechanika, disketa, zdieľané priečinky (latte_common/devices.py, prvá časť manažéra zariadení)	✅
+1.15	Bočný panel: farba popisu priečinka; skutočné premenovanie nesystémových priečinkov, zväzky len alias (návrh: docs/lista-a-rohy.md, časť 6)	⬜
 Výsledok: správca súborov použiteľný na bežnú prácu bez terminálu.
 
 Etapa 2 — Shell ✅ / 🔸
@@ -142,7 +144,7 @@ Etapa 2 — Shell ✅ / 🔸
 2.8	Prompt segment s prepínacou ikonou: hľadať v priečinkoch / príkazy Linuxu / AI (LM Studio)	✅
 2.9	Schránka s ôsmimi slotmi — latte-clipd (preskočené: chce vlastného klienta wlr-data-control)	⬜
 2.10	Plocha: tapeta ✅ (systémová + používateľská, mení sa za behu), ikony z ~/Desktop ✅, Kôš ✅ (otvorí jeho priečinok). Zostáva: kontextové menu, presúvanie ikon, obnovenie z Koša	🔸
-2.11	Animované rohové dlaždice viazané na stav	⬜
+2.11	Dekoratívne rohové dlaždice: obdĺžnik vo výške lišty, pasívna pokojná textúra (farba, GIF alebo kódovaná scéna; nie viazaná na stav), po kliknutí sa päta rozšíri do kmeňa L; výber v Nastaveniach, strihač videa (návrh: docs/lista-a-rohy.md; hotové kroky R1 a R2: rozmery, obdĺžnikové rohy a matica v ľavej päte)	🔸
 Výsledok: prostredie, v ktorom sa dá pracovať celý deň bez cudzieho desktopu.
 
 Etapa 2b — Relácia a prihlásenie 🔸
@@ -173,6 +175,7 @@ Etapa 3 — Vzhľad 🔸
 3.6	Kontrola prístupnosti: kontrast, veľkosť cieľov, viditeľnosť fokusu	🔸 (kontrast AA dodaných motívov a režim Vysoký kontrast; ciele a fokus zostávajú)
 3.7	Prispôsobenie: jeden zdroj pravdy (appearance.toml + motív), služba latte-appearance, portál, gtk.css, rámy okien v labwc; docs/nastavenia.md	✅ (overené na GTK4/libadwaita)
 3.10	Jedna výška záhlavia všetkých okien (window.titlebar) a jednotné tlačidlá minimalizovať/maximalizovať/zavrieť v komponentoch, libadwaita aplikáciách aj v rámoch od labwc	✅
+3.11	Živá tapeta: kódovaná scéna alebo GIF namiesto obrázka, rovnaký stroj scén ako dekoratívne lišty (docs/lista-a-rohy.md, časť 4)	⬜
 3.8	Adaptéry pre GTK 3, Qt, Firefox, Chromium a Electron, Wine (stav: latte-appearance status)	⬜
 3.9	Profily aplikácií: úroveň vynucovania a značka „vlastný vzhľad“ v prepínači okien (data/appearance-profiles/, dáta a načítanie hotové, zobrazenie v lište zostáva)	🔸
 Výsledok: prostredie vyzerá ako jeden produkt, nie ako sada nástrojov. Vzhľad sa mení z jedného miesta a platí pre všetky okná, kde je to technicky možné; pre ostatné platí náhradné riešenie (rám od kompozitora, poctivá značka), nikdy filter, ktorý by zničil obsah.

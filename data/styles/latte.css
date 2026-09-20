@@ -195,14 +195,27 @@ window.latte-desktop, .latte-wallpaper { background: var(--latte-night); }
     border-radius: var(--latte-radius-xl);
     color: var(--latte-cream);
 }
+/* rohové dlaždice sú pritlačené k okraju obrazovky: okraj a zaoblenie majú len vnútorné strany */
+/* dlaždice lišty sedia na spodnom okraji obrazovky: zaoblené sú len horné rohy */
+window.latte-bar .segment {
+    border-width: 1px 1px 0 1px;
+    border-radius: var(--latte-radius-xl) var(--latte-radius-xl) 0 0;
+}
 .corner {
     background: var(--latte-terminal);
     border: 1px solid var(--latte-outline-strong);
-    border-radius: var(--latte-radius-2xl);
+    border-width: 1px 1px 0 0;
+    border-radius: 0 var(--latte-radius-2xl) 0 0;
     color: var(--latte-terminal-text);
     padding: 0;
 }
-.corner.right { background: var(--latte-corner-right); color: var(--latte-cream); }
+.corner-scrim { background-image: linear-gradient(to top, rgba(4, 10, 6, 0.85), rgba(4, 10, 6, 0.25)); }
+.corner.right {
+    background: var(--latte-corner-right);
+    border-width: 1px 0 0 1px;
+    border-radius: var(--latte-radius-2xl) 0 0 0;
+    color: var(--latte-cream);
+}
 .corner-label { font-family: monospace; font-size: 10px; }
 .clock { font-size: 26px; }
 .dim { color: var(--latte-cream-dim); font-size: 12px; }

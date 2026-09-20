@@ -13,8 +13,10 @@ from gi.repository import Gtk, Gio, GLib  # noqa: E402
 from gi.repository import Gtk4LayerShell as LayerShell  # noqa: E402
 
 from latte_common import theme, wallpaper, widgets  # noqa: E402
-from latte_shell import maps  # noqa: E402
+from latte_shell import bar_texture, maps  # noqa: E402
 from latte_shell.desktop_icons import DesktopIcons, MARGIN  # noqa: E402
+from latte_shell.geometry import (BAR_HEIGHT, CORNER_HEIGHT, CORNER_WIDTH,  # noqa: E402
+                                  ICON_SEGMENT_WIDTH, SEGMENT)
 from latte_shell import notify_center, notify_service  # noqa: E402
 from latte_shell.prompt import PromptSegment, register_icons  # noqa: E402
 from latte_shell.system_menu import SystemMenu  # noqa: E402
@@ -23,8 +25,6 @@ from latte_shell.time_menu import TimeMenu  # noqa: E402
 from latte_shell.time_segment import TimeSegment  # noqa: E402
 from latte_shell.toasts import ToastStack  # noqa: E402
 
-BAR_HEIGHT = 104
-CORNER = 104
 FILES_APP = os.path.join(os.path.dirname(__file__), "..", "latte_files", "app.py")
 SETTINGS_APP = os.path.join(os.path.dirname(__file__), "..", "latte_settings", "app.py")
 
@@ -100,23 +100,27 @@ class Bar(Gtk.ApplicationWindow):
         LayerShell.set_keyboard_mode(self, LayerShell.KeyboardMode.ON_DEMAND)
         LayerShell.set_namespace(self, "latte-shell")
 
-        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        row.set_margin_start(12)
-        row.set_margin_end(12)
-        row.set_margin_bottom(10)
-        row.set_margin_top(8)
+        # všetky dlaždice (rohy aj segmenty) sú pritlačené k spodnému okraju obrazovky
+        # a majú hornú hranu v rovnakej výške; medzi nimi je len vodorovná medzera
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         self.set_child(row)
 
+        middle = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8, hexpand=True)
+        middle.set_margin_start(8)
+        middle.set_margin_end(8)
+
         row.append(self.corner_tile("APP MANAGER", "apps", False))
-        self.clock_segment = TimeSegment(app.center, self.toggle_time_menu)
-        row.append(self.clock_segment)
-        row.append(self.system_segment())
-
-        row.append(TaskList())
-        row.append(PromptSegment(self.launch_files))
-
-        row.append(self.files_segment())
+        row.append(middle)
         row.append(self.corner_tile("ZDROJE", "resources", True))
+
+        self.clock_segment = TimeSegment(app.center, self.toggle_time_menu)
+        middle.append(self.clock_segment)
+        middle.append(self.system_segment())
+
+        middle.append(TaskList())
+        middle.append(PromptSegment(self.launch_files))
+
+        middle.append(self.files_segment())
 
     # ---------- segmenty ----------
     def corner_tile(self, label, kind, right):
@@ -124,8 +128,8 @@ class Bar(Gtk.ApplicationWindow):
         btn.add_css_class("corner")
         if right:
             btn.add_css_class("right")
-        btn.set_size_request(CORNER, 96)
-        btn.set_valign(Gtk.Align.END)
+        btn.set_size_request(CORNER_WIDTH, CORNER_HEIGHT)
+        btn.set_hexpand(False)          # dlaždica má presný rozmer, o voľné miesto sa delí len stred lišty
 
         inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         inner.set_valign(Gtk.Align.CENTER)
@@ -137,14 +141,26 @@ class Bar(Gtk.ApplicationWindow):
         text.add_css_class("corner-label")
         inner.append(icon)
         inner.append(text)
-        btn.set_child(inner)
+        texture = self.get_application().textures.get(kind)
+        if texture is None:
+            btn.set_child(inner)
+        else:
+            # textúra pod ikonou a písmom; jemný tmavý prechod, aby text zostal čitateľný
+            btn.set_overflow(Gtk.Overflow.HIDDEN)       # textúra sa orezáva podľa zaoblenia dlaždice
+            stack = Gtk.Overlay()
+            stack.set_child(texture.view(bar_texture.corner_rect(right), right))
+            scrim = Gtk.Box()
+            scrim.add_css_class("corner-scrim")
+            stack.add_overlay(scrim)
+            stack.add_overlay(inner)
+            btn.set_child(stack)
         btn.connect("clicked", lambda _b, k=kind: self.toggle_popup(k))
         return btn
 
     def icon_segment(self, icon_name, action):
         btn = Gtk.Button()
         btn.add_css_class("segment")
-        btn.set_size_request(64, 64)
+        btn.set_size_request(ICON_SEGMENT_WIDTH, SEGMENT)
         btn.set_valign(Gtk.Align.CENTER)
         icon = Gtk.Image.new_from_icon_name(icon_name)
         icon.set_pixel_size(24)
@@ -251,6 +267,7 @@ class App(Gtk.Application):
         super().__init__(application_id="org.latteos.Shell")
         self.map_windows = {}
         self.bar = None
+        self.textures = {}              # textúry rohových dlaždíc podľa druhu (bar_texture.build)
         self.center = notify_center.Center()
         self.notify_service = notify_service.Service(self.center)
         self.toasts = None
@@ -268,6 +285,7 @@ class App(Gtk.Application):
     def do_activate(self):
         if self.bar is not None:
             return                      # druhé spustenie nevyrobí druhú lištu
+        self.textures = bar_texture.build()
         bar = self.bar = Bar(self)
         theme.load(bar.get_display())
         register_icons(bar.get_display())

@@ -9,6 +9,8 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, GLib  # noqa: E402
 
+from latte_shell.geometry import SEGMENT  # noqa: E402
+
 
 class TimeSegment(Gtk.Box):
     def __init__(self, center, on_open):
@@ -17,7 +19,7 @@ class TimeSegment(Gtk.Box):
         self.add_css_class("segment")
         self.add_css_class("time-segment")
         self.set_valign(Gtk.Align.CENTER)
-        self.set_size_request(-1, 64)
+        self.set_size_request(-1, SEGMENT)
 
         self.clock = Gtk.Label()
         self.clock.add_css_class("clock")

@@ -12,9 +12,8 @@ from gi.repository import Gtk, Gdk, Gio, GLib  # noqa: E402
 from gi.repository import Gtk4LayerShell as LayerShell  # noqa: E402
 
 from latte_common import hardware  # noqa: E402
+from latte_shell.geometry import ARM_HEIGHT, BAR_HEIGHT  # noqa: E402
 
-BAR_HEIGHT = 104
-ARM_HEIGHT = 110
 MAP_WIDTH = 640
 MAP_HEIGHT = 520
 MAP_WIDTH_PINNED = 900
@@ -421,8 +420,6 @@ class MapOverlay(Gtk.Window):
         shape = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         shape.set_valign(Gtk.Align.END)
         shape.set_halign(Gtk.Align.START if kind == "apps" else Gtk.Align.END)
-        shape.set_margin_start(12 if kind == "apps" else 0)
-        shape.set_margin_end(0 if kind == "apps" else 12)
         shape.set_margin_bottom(BAR_HEIGHT)
 
         if kind == "resources":
