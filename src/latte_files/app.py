@@ -1083,6 +1083,7 @@ class Window(Gtk.ApplicationWindow):
         # ---- panel nástrojov (ako v ForkLifte: navigácia, názov, zobrazenie, akcie, hľadanie)
         header = Gtk.HeaderBar()
         header.add_css_class("files-toolbar")
+        header.add_css_class("latte-titlebar")      # výšku určuje Prispôsobenie (latte.css), nie gtk.css
         self.set_titlebar(header)
 
         self.btn_back = tool_button("go-previous-symbolic", "Späť", lambda: self.active.back())
@@ -1235,6 +1236,16 @@ class Window(Gtk.ApplicationWindow):
         self.connect("close-request", lambda *_a: (self.storage.stop(), False)[1])
 
     # ---------- nástroje ----------
+    def open_path(self, path):
+        """Otvorí priečinok (pri súbore jeho priečinok) v aktívnom paneli."""
+        target = path if os.path.isdir(path) else os.path.dirname(path)
+        found = vol_mod.locate(self.volumes, target)
+        if found is None:
+            self.notify("Cesta „%s“ nepatrí žiadnemu zväzku." % target)
+            return
+        volume, root = found
+        self.active.open_location(volume, target, root)
+
     def update_title(self):
         active = getattr(self, "active", None)
         if active is not None:
@@ -1842,12 +1853,21 @@ class Window(Gtk.ApplicationWindow):
 
 class App(Gtk.Application):
     def __init__(self):
-        super().__init__(application_id="org.latteos.Files")
+        super().__init__(application_id="org.latteos.Files",
+                         flags=Gio.ApplicationFlags.HANDLES_OPEN)
 
     def do_activate(self):
         win = Window(self)
         theme.load(win.get_display())
         win.present()
+
+    def do_open(self, files, _n_files, _hint):
+        """latte-files CESTA: okno hneď v danom priečinku (napr. z hľadania v prompte lišty)."""
+        for file in files:
+            win = Window(self)
+            theme.load(win.get_display())
+            win.open_path(file.get_path())
+            win.present()
 
 
 if __name__ == "__main__":

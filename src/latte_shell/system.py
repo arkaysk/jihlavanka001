@@ -1,13 +1,15 @@
-"""Akcie systémového manažéra: odhlásenie a vypnutie relácie (bod 2.5, zatiaľ dve).
+"""Akcie systémového manažéra: odhlásenie, vypnutie relácie a reštart (bod 2.5).
 
-Obe končia reláciu, líšia sa tým, kam sa používateľ dostane:
+Odhlásenie a vypnutie končia reláciu, líšia sa tým, kam sa používateľ dostane:
 - odhlásiť: labwc skončí čisto, latteos-session upratá a používateľ sa vráti na
   prihlasovaciu obrazovku (aj keď sa LatteOS spustil ručne z konzoly, ktorú otvoril greetd);
 - vypnúť: relácia aj grafika skončia a ostane textová konzola servera
   (multi-user.target). Bez greetd (relácia spustená ručne z konzoly) je to to isté
   ako odhlásiť, lebo konzola je tam už teraz.
-Obe spúšťa session/latteos-logout ako samostatnú user službu, lebo lišta skončí spolu
+Tie dve spúšťa session/latteos-logout ako samostatnú user službu, lebo lišta skončí spolu
 s reláciou a poradie krokov musí prežiť.
+Reštart je jednoduché `systemctl reboot` (logind, bez hesla pre aktívnu lokálnu reláciu); ostatné
+prihlásené účty logind zahlási sám, chyba sa ukáže v popupe.
 """
 import os
 import shutil
@@ -25,10 +27,12 @@ class Action:
     id: str
     label: str
     hint: str
+    confirm: bool = False       # prvý klik len vyžiada potvrdenie
 
 
 ACTIONS = [
     Action("console", "Vypnúť", "relácia → konzola"),
+    Action("reboot", "Reštartovať", "počítač", confirm=True),
     Action("logout", "Odhlásiť", "do prihlásenia"),
 ]
 
@@ -58,8 +62,10 @@ def helper_path():
 
 def command(action_id, greetd=None):
     """Príkaz pre akciu. greetd=None znamená zistiť, či beží."""
-    if action_id not in ("logout", "console"):
+    if action_id not in ("logout", "console", "reboot"):
         raise ValueError("neznáma akcia: %s" % action_id)
+    if action_id == "reboot":
+        return ["systemctl", "reboot"]
     if action_id == "console":
         if greetd is None:
             greetd = greetd_active()

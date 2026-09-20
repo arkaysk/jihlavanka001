@@ -14,8 +14,14 @@ from gi.repository import Gtk4LayerShell as LayerShell  # noqa: E402
 
 from latte_common import theme, wallpaper, widgets  # noqa: E402
 from latte_shell import maps  # noqa: E402
+from latte_shell.desktop_icons import DesktopIcons, MARGIN  # noqa: E402
+from latte_shell import notify_center, notify_service  # noqa: E402
+from latte_shell.prompt import PromptSegment, register_icons  # noqa: E402
 from latte_shell.system_menu import SystemMenu  # noqa: E402
 from latte_shell.tasks import TaskList  # noqa: E402
+from latte_shell.time_menu import TimeMenu  # noqa: E402
+from latte_shell.time_segment import TimeSegment  # noqa: E402
+from latte_shell.toasts import ToastStack  # noqa: E402
 
 BAR_HEIGHT = 104
 CORNER = 104
@@ -27,10 +33,10 @@ class Desktop(Gtk.ApplicationWindow):
 
     Berie tapetu z latte_common.wallpaper (používateľská, inak systémová)
     a mení ju hneď, ako sa zmení ~/.config/latteos/appearance.toml.
-    Zatiaľ len na predvolenom monitore.
+    Nad tapetou sú ikony plochy (desktop_icons.py). Zatiaľ len na predvolenom monitore.
     """
 
-    def __init__(self, app):
+    def __init__(self, app, open_files):
         super().__init__(application=app)
         self.add_css_class("latte-desktop")
         self.reload_source = 0
@@ -45,7 +51,14 @@ class Desktop(Gtk.ApplicationWindow):
         LayerShell.set_namespace(self, "latte-wallpaper")
 
         self.picture = widgets.Wallpaper()
-        self.set_child(self.picture)
+        overlay = Gtk.Overlay()
+        overlay.set_child(self.picture)
+        self.icons = DesktopIcons(open_files)
+        self.icons.set_margin_top(MARGIN)
+        self.icons.set_margin_start(MARGIN)
+        self.icons.set_margin_bottom(BAR_HEIGHT + MARGIN)      # plocha siaha aj pod lištu
+        overlay.add_overlay(self.icons)
+        self.set_child(overlay)
         self.reload()
 
         # Sleduje sa adresár, nie súbor: appearance.toml sa zapisuje cez premenovanie
@@ -74,6 +87,7 @@ class Bar(Gtk.ApplicationWindow):
         self.add_css_class("latte-bar")
         self.popup = None
         self.system_menu = None
+        self.time_menu = None
 
         LayerShell.init_for_window(self)
         LayerShell.set_layer(self, LayerShell.Layer.TOP)
@@ -81,6 +95,8 @@ class Bar(Gtk.ApplicationWindow):
         LayerShell.set_anchor(self, LayerShell.Edge.LEFT, True)
         LayerShell.set_anchor(self, LayerShell.Edge.RIGHT, True)
         LayerShell.set_exclusive_zone(self, BAR_HEIGHT)
+        # políčko promptu dostane kláves po kliknutí (bez toho by lišta klávesnicu nedostala)
+        LayerShell.set_keyboard_mode(self, LayerShell.KeyboardMode.ON_DEMAND)
         LayerShell.set_namespace(self, "latte-shell")
 
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -91,11 +107,12 @@ class Bar(Gtk.ApplicationWindow):
         self.set_child(row)
 
         row.append(self.corner_tile("APP MANAGER", "apps", False))
-        self.clock_segment = widgets.ClockSegment()
+        self.clock_segment = TimeSegment(app.center, self.toggle_time_menu)
         row.append(self.clock_segment)
         row.append(self.system_segment())
 
         row.append(TaskList())
+        row.append(PromptSegment(self.launch_files))
 
         row.append(self.files_segment())
         row.append(self.corner_tile("ZDROJE", "resources", True))
@@ -141,8 +158,12 @@ class Bar(Gtk.ApplicationWindow):
         return self.icon_segment("folder-symbolic", lambda _b: self.launch_files())
 
     # ---------- akcie ----------
-    def launch_files(self):
-        subprocess.Popen([sys.executable, os.path.abspath(FILES_APP)])
+    def launch_files(self, path=None):
+        """Správca súborov, prípadne rovno v priečinku `path`."""
+        argv = [sys.executable, os.path.abspath(FILES_APP)]
+        if path:
+            argv.append(path)
+        subprocess.Popen(argv)
 
     def launch_app(self, info):
         try:
@@ -152,12 +173,38 @@ class Bar(Gtk.ApplicationWindow):
         if self.popup is not None:
             self.popup.close_popup()
 
+    def close_menus(self):
+        """Naraz je otvorený najviac jeden popup nad lištou."""
+        if self.system_menu is not None:
+            self.system_menu.close_menu()
+        if self.time_menu is not None:
+            self.time_menu.close_menu()
+        if self.popup is not None:
+            self.popup.close_popup()
+
+    def toggle_time_menu(self, page):
+        if self.time_menu is not None:
+            if self.time_menu.page == page:
+                self.time_menu.close_menu()
+            else:
+                self.time_menu.show_page(page)
+            return
+        self.close_menus()
+        found, rect = self.clock_segment.compute_bounds(self)
+        left = int(rect.get_x()) if found else 12
+        app = self.get_application()
+        self.time_menu = TimeMenu(app, left, BAR_HEIGHT + 6, self.time_menu_closed,
+                                  app.center, app.notify_service, page)
+        self.time_menu.present()
+
+    def time_menu_closed(self):
+        self.time_menu = None
+
     def toggle_system_menu(self):
         if self.system_menu is not None:
             self.system_menu.close_menu()
             return
-        if self.popup is not None:
-            self.popup.close_popup()
+        self.close_menus()
         # popup začína nad hodinami a siaha nad tlačidlo napájania
         found, rect = self.clock_segment.compute_bounds(self)
         left = int(rect.get_x()) if found else 12
@@ -172,6 +219,8 @@ class Bar(Gtk.ApplicationWindow):
     def toggle_popup(self, kind):
         if self.system_menu is not None:
             self.system_menu.close_menu()
+        if self.time_menu is not None:
+            self.time_menu.close_menu()
         app = self.get_application()
         win = app.map_windows.get(kind)
         if win is not None:
@@ -193,6 +242,10 @@ class App(Gtk.Application):
     def __init__(self):
         super().__init__(application_id="org.latteos.Shell")
         self.map_windows = {}
+        self.bar = None
+        self.center = notify_center.Center()
+        self.notify_service = notify_service.Service(self.center)
+        self.toasts = None
 
     def register_map_window(self, kind, win):
         self.map_windows[kind] = win
@@ -201,9 +254,14 @@ class App(Gtk.Application):
         self.map_windows.pop(kind, None)
 
     def do_activate(self):
-        bar = Bar(self)
+        if self.bar is not None:
+            return                      # druhé spustenie nevyrobí druhú lištu
+        bar = self.bar = Bar(self)
         theme.load(bar.get_display())
-        Desktop(self).present()
+        register_icons(bar.get_display())
+        self.toasts = ToastStack(self, self.center)
+        self.notify_service.own_name()
+        Desktop(self, bar.launch_files).present()
         bar.present()
 
 

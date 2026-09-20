@@ -31,7 +31,15 @@ class SystemActionsTest(unittest.TestCase):
 
     def test_unknown_action(self):
         with self.assertRaises(ValueError):
-            system.command("reboot")
+            system.command("poweroff")
+
+    def test_reboot_is_a_plain_logind_call_that_needs_no_helper(self):
+        argv = system.command("reboot")
+        self.assertEqual(argv, ["systemctl", "reboot"])
+        self.assertIsNone(system.unavailable_reason(argv, environ={}))
+
+    def test_only_reboot_asks_for_confirmation(self):
+        self.assertEqual([a.id for a in system.ACTIONS if a.confirm], ["reboot"])
 
     def test_needs_labwc_pid(self):
         argv = system.command("logout")

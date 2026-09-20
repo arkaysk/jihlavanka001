@@ -31,6 +31,7 @@ STATE_TEXT = {
     "no-media": "bez média",
     "locked": "šifrovaný",
     "no-driver": "nedostupná",
+    "no-drive": "bez mechaniky",
 }
 # Skrátené texty stavu (bočný panel je úzky)
 STATE_SHORT = {**STATE_TEXT, "no-fs": "bez súb. systému"}
@@ -39,8 +40,10 @@ STATE_HELP = {
     "no-fs": "Zariadenie nemá súborový systém, nie sú v ňom žiadne súbory. Formátovanie pribudne neskôr.",
     "no-media": "V mechanike nie je médium.",
     "locked": "Zväzok je šifrovaný. Odomykanie zatiaľ nie je podporované.",
-    "no-driver": "Firmvér hlási disketovú mechaniku, ale jadro s ňou nevie pracovať "
-                 "(ovládač floppy nenašiel radič).",
+    "no-driver": "Firmvér hlási radič disketovej mechaniky, ale ovládač floppy nie je načítaný. "
+                 "Načítaš ho príkazom modprobe floppy (balík kernel-modules-extra).",
+    "no-drive": "Radič disketovej mechaniky je prítomný a ovládač načítaný, ale nie je pripojená žiadna "
+                "mechanika (vo VirtualBoxe treba k radiču pridať disketovú mechaniku).",
 }
 
 # Súborové systémy, ktoré nie sú zväzok (výmenná oblasť, členovia LVM/RAID)
@@ -60,7 +63,7 @@ LSBLK_COLUMNS = "NAME,PATH,KNAME,MAJ:MIN,TYPE,RM,RO,TRAN,SIZE,FSTYPE,LABEL,UUID,
 class Device:
     key: str                    # stabilná identita: UUID, inak cesta zariadenia, pri zdieľaní zdroj
     kind: str                   # system | disk | usb | optical | floppy | share
-    state: str                  # mounted | unmounted | no-fs | no-media | locked | no-driver
+    state: str                  # mounted | unmounted | no-fs | no-media | locked | no-driver | no-drive
     node: str = ""              # /dev/sdb1 (pri zdieľanom priečinku prázdne)
     mountpoint: str = None
     size: int = 0               # bajty; 0 = neznáme alebo bez média
@@ -244,8 +247,13 @@ def read_floppy_controller():
     return False
 
 
+def read_floppy_module():
+    """Je načítaný ovládač floppy? (v Fedore je v balíku kernel-modules-extra a sám sa nenačíta)"""
+    return os.path.isdir("/sys/module/floppy")
+
+
 # ---------------------------------------------------------------- všetko dokopy
-def detect(lsblk=None, mountinfo=None, floppy_controller=None):
+def detect(lsblk=None, mountinfo=None, floppy_controller=None, floppy_module=None):
     """Zoznam zdrojov dát. Parametre umožňujú podvrhnúť vstupy v testoch.
 
     Ak lsblk zlyhá, vyhodí RuntimeError; volajúci to musí ukázať (žiadna tichá degradácia).
@@ -256,7 +264,9 @@ def detect(lsblk=None, mountinfo=None, floppy_controller=None):
     if not any(d.kind == "floppy" for d in found):
         present = read_floppy_controller() if floppy_controller is None else floppy_controller
         if present:
-            found.append(Device(key="floppy:controller", kind="floppy", state="no-driver", removable=True))
+            loaded = read_floppy_module() if floppy_module is None else floppy_module
+            found.append(Device(key="floppy:controller", kind="floppy",
+                                state="no-drive" if loaded else "no-driver", removable=True))
 
     found.sort(key=lambda d: (KIND_ORDER[d.kind], d.node, d.key))
     return found

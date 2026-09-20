@@ -1,0 +1,190 @@
+# Strom Nastavení systému (ľavý zoznam ako vo Windows 11). Každá stránka sa napojí na doménu
+# so schémou (data/settings/<doména>.schema.toml); stránky bez domény sú zatiaľ len plán.
+# status: ready = stránka funguje, partial = časť, planned = ešte nie je.
+# etapa = bod z README, ktorý ju dodá.
+
+[group.system]
+title = "Systém"
+[group.devices]
+title = "Zariadenia"
+[group.network]
+title = "Sieť"
+[group.personalization]
+title = "Prispôsobenie"
+[group.apps]
+title = "Aplikácie"
+[group.privacy]
+title = "Súkromie a bezpečnosť"
+[group.time]
+title = "Čas a jazyk"
+[group.accounts]
+title = "Účty"
+[group.updates]
+title = "Aktualizácie a zálohy"
+
+[[page]]
+id = "display"
+title = "Obrazovka"
+group = "system"
+icon = "video-display-symbolic"
+description = "Rozlíšenie, mierka, viac monitorov."
+status = "planned"
+etapa = "8.5"
+
+[[page]]
+id = "sound"
+title = "Zvuk"
+group = "system"
+icon = "audio-speakers-symbolic"
+description = "Hlasitosť, výstupy a vstupy."
+status = "planned"
+etapa = "8.2"
+component = "latte-audiod"
+
+[[page]]
+id = "storage"
+title = "Úložisko a disky"
+group = "system"
+icon = "drive-harddisk-symbolic"
+description = "Disky, výmenné médiá, zdieľané priečinky. Detekcia už beží (latte_common/devices.py)."
+status = "partial"
+etapa = "8.4"
+component = "latte-devices"
+
+[[page]]
+id = "about"
+title = "O systéme a diagnostika"
+group = "system"
+icon = "help-about-symbolic"
+description = "Verzia, schopnosti počítača, hlásenia chýb."
+status = "planned"
+etapa = "8.8"
+component = "latte-diagd"
+
+[[page]]
+id = "bluetooth"
+title = "Bluetooth a zariadenia"
+group = "devices"
+icon = "bluetooth-symbolic"
+status = "planned"
+etapa = "8.1"
+
+[[page]]
+id = "printers"
+title = "Tlačiarne"
+group = "devices"
+icon = "printer-symbolic"
+status = "planned"
+etapa = "8.3"
+component = "latte-deviced"
+
+[[page]]
+id = "keyboard"
+title = "Klávesnica a myš"
+group = "devices"
+icon = "input-keyboard-symbolic"
+status = "planned"
+etapa = "8.5"
+
+[[page]]
+id = "wifi"
+title = "Wi-Fi a VPN"
+group = "network"
+icon = "network-wireless-symbolic"
+status = "planned"
+etapa = "8.1"
+
+[[page]]
+id = "appearance"
+title = "Prispôsobenie"
+group = "personalization"
+icon = "preferences-desktop-appearance-symbolic"
+description = "Farby, motív, písmo, pozadie. Jedna zmena platí pre celé prostredie."
+domain = "appearance"
+status = "ready"
+etapa = "3"
+component = "latte-appearance"
+
+[[page]]
+id = "bar"
+title = "Lišta a prompt"
+group = "personalization"
+icon = "view-app-grid-symbolic"
+description = "Prompt s AI, manažér času."
+domain = "prompt"
+status = "partial"
+etapa = "2.8"
+component = "latte-shell"
+
+[[page]]
+id = "lockscreen"
+title = "Obrazovka uzamknutia a prihlásenie"
+group = "personalization"
+icon = "system-lock-screen-symbolic"
+status = "planned"
+etapa = "2b.6"
+component = "latte-greeter"
+
+[[page]]
+id = "apps"
+title = "Aplikácie"
+group = "apps"
+icon = "view-grid-symbolic"
+description = "Nainštalované aplikácie, predvolené aplikácie, Flatpak."
+status = "planned"
+etapa = "4"
+component = "latte-apps"
+
+[[page]]
+id = "permissions"
+title = "Oprávnenia aplikácií"
+group = "privacy"
+icon = "security-high-symbolic"
+description = "Čo môže ktorá aplikácia, sieť po aplikáciách."
+status = "planned"
+etapa = "4.5"
+component = "latte-perms"
+
+[[page]]
+id = "clock"
+title = "Čas a dátum"
+group = "time"
+icon = "preferences-system-time-symbolic"
+domain = "clock"
+status = "partial"
+etapa = "2.6"
+component = "latte-shell"
+
+[[page]]
+id = "language"
+title = "Jazyk a región"
+group = "time"
+icon = "preferences-desktop-locale-symbolic"
+status = "planned"
+etapa = "8.5"
+
+[[page]]
+id = "users"
+title = "Používatelia a heslá"
+group = "accounts"
+icon = "system-users-symbolic"
+status = "planned"
+etapa = "8.5"
+
+[[page]]
+id = "updates"
+title = "Aktualizácie systému"
+group = "updates"
+icon = "software-update-available-symbolic"
+status = "planned"
+etapa = "8.6"
+component = "latte-updated"
+
+[[page]]
+id = "backup"
+title = "Zálohovanie a obnova"
+group = "updates"
+icon = "document-save-symbolic"
+status = "planned"
+etapa = "8.7"
+component = "latte-snapshotd"

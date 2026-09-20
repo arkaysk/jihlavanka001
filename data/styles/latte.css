@@ -1,48 +1,9 @@
 /* LatteOS: jedna téma pre všetky komponenty (správca súborov, lišta, polkit,
    prihlasovacia obrazovka). Načítava ju latte_common.theme.
 
-   Farby a tvary sú v premenných na :root. Pravidlá nižšie ich len používajú,
-   takže zmena vzhľadu (napr. hranatejšie rohy podľa mockupu) je zmena tu hore. */
-
-:root {
-    /* paleta: teplá káva, krémová, karamel */
-    --latte-cream: #F2EAE0;
-    --latte-cream-dim: #CDBFAF;
-    --latte-caramel: #D9913B;
-    --latte-espresso: #1A1410;
-    --latte-danger: #E8846B;
-    --latte-night: #0B0F26;             /* podklad, kým nie je načítaná tapeta */
-    --latte-terminal: #0B120C;          /* rohové dlaždice */
-    --latte-terminal-text: #E9F5EC;
-    --latte-corner-right: #1B1612;
-
-    /* krémová v priehľadnosti: výplne, zvýraznenie a čiary */
-    --latte-tint-1: rgba(242,234,224,0.06);
-    --latte-tint-2: rgba(242,234,224,0.08);
-    --latte-tint-3: rgba(242,234,224,0.14);
-    --latte-tint-4: rgba(242,234,224,0.20);
-    --latte-line-soft: rgba(242,234,224,0.08);
-    --latte-line: rgba(242,234,224,0.10);
-    --latte-outline: rgba(242,234,224,0.14);
-    --latte-outline-strong: rgba(242,234,224,0.18);
-    --latte-accent-tint: rgba(217,145,59,0.36);
-
-    /* panely: bočný panel je priehľadnejší ako panely so zoznamom */
-    --latte-panel-bar: rgba(24,19,15,0.90);
-    --latte-panel-side: rgba(26,20,16,0.68);
-    --latte-panel-list: rgba(32,25,20,0.94);
-    --latte-panel-detail: rgba(28,22,17,0.90);
-    --latte-panel-popup: rgba(22,18,14,0.94);
-    --latte-panel-segment: rgba(20,16,13,0.80);
-    --latte-panel-tabs: rgba(8,6,5,0.5);
-
-    /* tvary */
-    --latte-radius-s: 6px;
-    --latte-radius-m: 8px;
-    --latte-radius-l: 10px;
-    --latte-radius-xl: 12px;
-    --latte-radius-2xl: 14px;
-}
+   Farby a tvary sú v premenných --latte-*, ktoré tu NIE sú: generuje ich
+   latte_common/appearance.py z motívu (data/themes/) a z nastavení Prispôsobenia
+   a theme.py ich pridá pred toto CSS. Pravidlá nižšie ich len používajú. */
 
 /* ---------------------------------------------------------- latte-files
    Vzhľad podľa ForkLiftu 4: pruh nástrojov, priehľadnejší bočný panel, menej priehľadné
@@ -55,8 +16,9 @@ headerbar.files-toolbar {
     border-bottom: 1px solid var(--latte-line);
     box-shadow: none;
     color: var(--latte-cream);
-    min-height: 50px;
 }
+/* výška záhlavia je jeden parameter pre všetky okná (Prispôsobenie); minus čiara pod záhlavím */
+headerbar.latte-titlebar { min-height: calc(var(--latte-titlebar-height) - 1px); }
 .toolbar-title { font-size: 15px; font-weight: 700; }
 .tool-group {
     background: var(--latte-tint-2);
@@ -64,7 +26,7 @@ headerbar.files-toolbar {
     padding: 1px;
     margin: 0 4px;
 }
-.tool-group button { border-radius: var(--latte-radius-m); color: var(--latte-cream); min-width: 30px; }
+.tool-group button { border-radius: var(--latte-radius-m); color: var(--latte-cream); min-width: 30px; min-height: 20px; }   /* 30 px s výplňou (štvorec): záhlavie sa zmestí do 46 px */
 .tool-group button:hover { background: var(--latte-tint-3); }
 .tool-group button:checked { background: var(--latte-tint-4); }
 .tool-group button:disabled { opacity: 0.35; }
@@ -316,6 +278,7 @@ window.latte-greeter { background: var(--latte-night); color: var(--latte-cream)
     color: var(--latte-cream);
 }
 .system-row:hover { background: var(--latte-tint-3); }
+.system-row.confirm { background: var(--latte-accent-tint); }
 .system-row:disabled { opacity: 0.45; }
 .system-hint { font-family: monospace; font-size: 11px; color: var(--latte-cream-dim); }
 .system-message { color: var(--latte-danger); font-size: 12px; }
@@ -325,3 +288,135 @@ window.latte-greeter { background: var(--latte-night); color: var(--latte-cream)
     color: var(--latte-cream-dim);
     margin-top: 6px;
 }
+
+/* ---------------------------------------------------------- prompt v lište
+   Segment s prepínacou ikonou (src/latte_shell/prompt.py) a popup nad ním
+   (výsledky hľadania, výstup terminálu, rozhovor s AI: prompt_modes.py). */
+.prompt-segment { padding: 0 10px 0 12px; }
+.prompt-mode {
+    background: var(--latte-tint-2);
+    border: 1px solid var(--latte-outline);
+    border-radius: var(--latte-radius-l);
+    color: var(--latte-cream);
+    padding: 0;
+    min-width: 38px;
+    min-height: 38px;
+}
+.prompt-mode:hover { background: var(--latte-tint-3); }
+.prompt-segment.mode-terminal .prompt-mode { background: var(--latte-terminal); color: var(--latte-terminal-text); }
+.prompt-segment.mode-ai .prompt-mode { background: var(--latte-accent-tint); border-color: var(--latte-caramel); }
+.prompt-entry, .prompt-entry:focus {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    outline: none;
+    color: var(--latte-cream);
+    font-size: 15px;
+    min-height: 38px;
+}
+.prompt-segment.mode-terminal .prompt-entry { font-family: monospace; font-size: 14px; }
+.prompt-prefix { font-family: monospace; font-size: 13px; color: var(--latte-caramel); margin-left: 6px; }
+
+.prompt-popup {
+    background: var(--latte-panel-popup);
+    border: 1px solid var(--latte-outline);
+    border-radius: var(--latte-radius-2xl);
+    color: var(--latte-cream);
+}
+.prompt-head { padding: 8px 8px 8px 14px; border-bottom: 1px solid var(--latte-line); }
+.prompt-title { font-weight: 700; font-size: 13px; }
+.prompt-tool { min-width: 28px; min-height: 28px; padding: 0; color: var(--latte-cream-dim); border-radius: var(--latte-radius-m); }
+.prompt-tool:hover { background: var(--latte-tint-3); color: var(--latte-cream); }
+.prompt-status { color: var(--latte-cream-dim); font-size: 12px; padding: 6px 14px; }
+
+.prompt-results { background: transparent; }
+.prompt-results row { border-radius: var(--latte-radius-m); margin: 2px 6px; }
+.prompt-results row:hover { background: var(--latte-tint-2); }
+.prompt-results row:selected { background: var(--latte-accent-tint); color: var(--latte-cream); }
+.prompt-hit { padding: 6px 8px; min-height: 40px; }
+
+textview.prompt-terminal, textview.prompt-terminal text {
+    background: var(--latte-terminal);
+    color: var(--latte-terminal-text);
+    font-size: 13px;
+}
+
+.ai-chat { padding: 12px; }
+.ai-msg { border-radius: var(--latte-radius-l); padding: 8px 12px; }
+.ai-msg.user { background: var(--latte-accent-tint); margin-left: 48px; }
+.ai-msg.assistant { background: var(--latte-tint-2); margin-right: 48px; }
+.ai-msg.error { background: var(--latte-tint-1); color: var(--latte-danger); border: 1px solid var(--latte-danger); }
+
+/* ---------------------------------------------------------- manažér času a oznámenia
+   Segment času v lište (time_segment.py), popup nad ním (time_menu.py), bubliny (toasts.py). */
+.time-segment { padding: 0; }
+.time-part {
+    background: transparent;
+    border: none;
+    border-radius: var(--latte-radius-xl);
+    color: var(--latte-cream);
+    padding: 0 12px;
+    box-shadow: none;
+}
+.time-part:hover { background: var(--latte-tint-2); }
+.bell-count {
+    background: var(--latte-caramel);
+    color: var(--latte-espresso);
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 0 6px;
+    min-width: 6px;
+}
+
+.time-menu {
+    background: var(--latte-panel-popup);
+    border: 1px solid var(--latte-outline);
+    border-radius: var(--latte-radius-2xl);
+    color: var(--latte-cream);
+}
+.time-menu .tabs { border-radius: var(--latte-radius-2xl) var(--latte-radius-2xl) 0 0; }
+.time-page { padding: 14px 16px; }
+.time-big { font-size: 38px; font-weight: 300; }
+.zone-row { background: var(--latte-tint-1); border-radius: var(--latte-radius-l); padding: 8px 12px; }
+.zone-time { font-size: 22px; }
+.time-entry {
+    background: var(--latte-tint-2);
+    border-radius: var(--latte-radius-l);
+    color: var(--latte-cream);
+    min-height: 34px;
+}
+.time-menu calendar { background: transparent; color: var(--latte-cream); border: none; }
+.time-menu calendar label:selected, .time-menu calendar label.today {
+    background: var(--latte-caramel);
+    color: var(--latte-espresso);
+    border-radius: var(--latte-radius-s);
+}
+.time-menu switch { background: var(--latte-tint-3); }
+.time-menu switch:checked { background: var(--latte-caramel); }
+
+.toast {
+    background: var(--latte-panel-popup);
+    border: 1px solid var(--latte-outline);
+    border-radius: var(--latte-radius-xl);
+    color: var(--latte-cream);
+    padding: 10px 10px 10px 12px;
+}
+.toast.critical { border-color: var(--latte-danger); }
+.toast-summary { font-weight: 700; }
+.toast-action {
+    background: var(--latte-tint-3);
+    border: none;
+    border-radius: var(--latte-radius-m);
+    color: var(--latte-cream);
+    padding: 4px 12px;
+    min-height: 26px;
+}
+.toast-action:hover { background: var(--latte-accent-tint); }
+
+/* ---------------------------------------------------------- ikony plochy (desktop_icons.py) */
+.desktop-icons { background: transparent; }
+.desktop-icons flowboxchild { border-radius: var(--latte-radius-l); padding: 8px 4px; }
+.desktop-icons flowboxchild:hover { background: var(--latte-tint-2); }
+.desktop-icons flowboxchild:selected { background: var(--latte-accent-tint); }
+.desktop-label { color: var(--latte-cream); font-size: 12px; text-shadow: 0 1px 3px rgba(0,0,0,0.9); }

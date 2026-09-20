@@ -25,11 +25,13 @@ for f in "$ROOT"/src/latte_common/*.py; do install -m644 "$f" "$LIB/latte_common
 for f in "$ROOT"/src/latte_greeter/*.py; do install -m644 "$f" "$LIB/latte_greeter/"; done
 chmod 755 "$LIB/latte_greeter/app.py"
 
-# téma a systémové tapety
-rm -rf "$SHARE/styles" "$SHARE/wallpapers"
-install -d -m755 "$SHARE/styles" "$SHARE/wallpapers"
+# téma (štýly, motívy, schémy nastavení, ktoré latte_common/theme.py potrebuje) a systémové tapety
+rm -rf "$SHARE/styles" "$SHARE/wallpapers" "$SHARE/themes" "$SHARE/settings"
+install -d -m755 "$SHARE/styles" "$SHARE/wallpapers" "$SHARE/themes" "$SHARE/settings"
 install -m644 "$ROOT"/data/styles/latte.css "$SHARE/styles/"
 for f in "$ROOT"/data/wallpapers/*; do install -m644 "$f" "$SHARE/wallpapers/"; done
+for d in "$ROOT"/data/themes/*/; do install -d -m755 "$SHARE/themes/$(basename "$d")"; install -m644 "$d"* "$SHARE/themes/$(basename "$d")/"; done
+install -m644 "$ROOT"/data/settings/*.toml "$SHARE/settings/"
 
 # záznamy o skončení relácií: každý používateľ smie prepísať len svoj súbor (sticky bit)
 install -d -m755 /var/lib/latteos

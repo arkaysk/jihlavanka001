@@ -1,0 +1,6 @@
+[profile]
+id = "gnome-text-editor"
+name = "Textový editor"
+match = ["org.gnome.TextEditor"]
+toolkit = "gtk4"
+note = "Záhlavie, tlačidlá a akcent preberie; farby zvýrazňovania kódu určuje schéma editora (GtkSourceView)."

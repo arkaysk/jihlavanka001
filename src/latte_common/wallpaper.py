@@ -9,12 +9,10 @@ Používateľská tapeta je súbor v priestore používateľa. Cestu k nej drž�
 príkaz latte-wallpaper. Plocha berie používateľskú tapetu a ak chýba alebo sa
 nedá prečítať, systémovú.
 """
-import json
 import os
 import sys
-import tomllib
 
-from latte_common import paths
+from latte_common import paths, settings
 from latte_common.volumes import CONFIG_DIR
 
 SYSTEM_DEFAULT = "latteos-wallpaper1.jpg"
@@ -29,42 +27,26 @@ def system_path():
     return os.path.join(paths.data_dir(), "wallpapers", SYSTEM_DEFAULT)
 
 
+def _store():
+    """Doména „appearance“ (schéma data/settings/appearance.schema.toml) v adresári CONFIG_DIR."""
+    return settings.Registry().store("appearance", directory=CONFIG_DIR)
+
+
 def load_appearance():
-    """Nastavenie vzhľadu používateľa: {"wallpaper": cesta alebo None, "fit": ...}."""
-    result = {"wallpaper": None, "fit": "cover"}
-    try:
-        with open(appearance_file(), "rb") as f:
-            data = tomllib.load(f)
-    except FileNotFoundError:
-        return result
-    except (OSError, tomllib.TOMLDecodeError) as err:
-        print("latte-wallpaper: %s sa nedá prečítať: %s" % (appearance_file(), err), file=sys.stderr)
-        return result
-    section = data.get("wallpaper")
-    if isinstance(section, dict):
-        path = section.get("path")
-        if isinstance(path, str) and os.path.isabs(path):
-            result["wallpaper"] = path
-        if section.get("fit") in FITS:
-            result["fit"] = section["fit"]
-    return result
+    """Nastavenie pozadia: {"wallpaper": cesta alebo None, "fit": ...}. Neplatné hodnoty sa
+    ignorujú (Store ich nahlási na stderr a použije predvolené)."""
+    store = _store()
+    return {"wallpaper": store.get("wallpaper.path") or None, "fit": store.get("wallpaper.fit")}
 
 
 def save_appearance(wallpaper=None, fit="cover"):
-    """Zapíše nastavenie; wallpaper=None vráti systémovú tapetu."""
-    os.makedirs(CONFIG_DIR, exist_ok=True)
-    lines = ["# Vzhľad LatteOS pre tohto používateľa", ""]
+    """Zapíše nastavenie; wallpaper=None vráti systémovú tapetu. Ostatné nastavenia vzhľadu
+    (farby, motív, písmo) v súbore ostanú."""
+    store = _store()
     if wallpaper:
-        lines += [
-            "[wallpaper]",
-            "path = " + json.dumps(wallpaper, ensure_ascii=False),
-            "fit = " + json.dumps(fit),
-            "",
-        ]
-    tmp = appearance_file() + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write("\n".join(lines))
-    os.replace(tmp, appearance_file())
+        store.set_many({"wallpaper.path": wallpaper, "wallpaper.fit": fit})
+    else:
+        store.reset("wallpaper.path", "wallpaper.fit")
 
 
 def user_path():

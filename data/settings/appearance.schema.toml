@@ -1,0 +1,108 @@
+# Schéma domény „appearance“ (Prispôsobenie). Súbor používateľa: ~/.config/latteos/appearance.toml
+# Formát schém a pravidlá sú v docs/nastavenia.md.
+
+[domain]
+id = "appearance"
+title = "Prispôsobenie"
+description = "Vzhľad celého prostredia: farby, motív, písmo, tapeta. Zmena sa prejaví hneď."
+file = "appearance.toml"
+owner = "latte-appearance"
+scope = "user"
+
+[section.theme]
+title = "Motív"
+[section.color]
+title = "Farby"
+[section.shape]
+title = "Tvar"
+[section.font]
+title = "Písmo"
+[section.window]
+title = "Okná"
+[section.accessibility]
+title = "Zjednodušenie ovládania"
+[section.wallpaper]
+title = "Pozadie"
+
+[key."theme.id"]
+type = "string"
+default = "latte"
+label = "Motív"
+description = "Balík farieb a tvarov z data/themes/. Neznámy motív sa nahradí predvoleným."
+
+[key."color.scheme"]
+type = "enum"
+choices = ["dark", "light"]
+default = "dark"
+label = "Farebný režim"
+description = "Tmavý alebo svetlý variant motívu. Prenáša sa aj do aplikácií, ktoré sa riadia portálom."
+
+[key."color.accent"]
+type = "color"
+default = ""
+allow_empty = true
+label = "Farba zvýraznenia"
+description = "Prázdne = farba motívu."
+
+[key."color.transparency"]
+type = "bool"
+default = true
+label = "Efekty priehľadnosti"
+description = "Polopriehľadné panely a lišta. Vypnutie ich urobí plnofarebnými."
+
+[key."shape.corners"]
+type = "enum"
+choices = ["round", "square"]
+default = "round"
+label = "Rohy"
+
+[key."font.family"]
+type = "string"
+default = ""
+allow_empty = true
+label = "Písmo"
+description = "Prázdne = systémové písmo."
+
+[key."font.scale"]
+type = "float"
+default = 1.0
+min = 0.8
+max = 1.6
+step = 0.05
+label = "Veľkosť textu"
+
+[key."window.buttons"]
+type = "enum"
+choices = ["all", "minimize-close", "close"]
+default = "all"
+label = "Tlačidlá v záhlaví okna"
+description = "Ktoré tlačidlá majú okná aplikácií (minimalizovať, maximalizovať, zavrieť)."
+
+[key."window.titlebar"]
+type = "int"
+default = 46
+min = 46
+max = 64
+step = 2
+unit = "px"
+label = "Výška záhlavia okien"
+description = "Hrúbka horného pruhu všetkých okien: komponentov LatteOS, aplikácií GTK4 a libadwaita aj rámu, ktorý kreslí kompozitor."
+
+[key."accessibility.contrast"]
+type = "enum"
+choices = ["normal", "high"]
+default = "normal"
+label = "Kontrast"
+
+[key."wallpaper.path"]
+type = "path"
+default = ""
+allow_empty = true
+label = "Obrázok pozadia"
+description = "Prázdne = systémová tapeta motívu."
+
+[key."wallpaper.fit"]
+type = "enum"
+choices = ["cover", "contain", "fill"]
+default = "cover"
+label = "Prispôsobenie obrázka"

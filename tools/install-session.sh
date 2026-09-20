@@ -13,6 +13,16 @@ for unit in "$ROOT"/session/systemd/user/*; do
 done
 ln -sf "$ROOT/tools/run-shell.sh" "$BIN/latte-shell"
 ln -sf "$ROOT/tools/run-polkit.sh" "$BIN/latte-polkit"
+ln -sf "$ROOT/tools/run-appearance.sh" "$BIN/latte-appearance"
+
+# Portál: náš backend pre Settings (vzhľad z jedného miesta, docs/nastavenia.md). Zmena sa
+# prejaví po odhlásení a prihlásení alebo po: systemctl --user restart xdg-desktop-portal
+DATA=${XDG_DATA_HOME:-$HOME/.local/share}
+CONF=${XDG_CONFIG_HOME:-$HOME/.config}
+mkdir -p "$CONF/xdg-desktop-portal" "$DATA/xdg-desktop-portal/portals" "$DATA/dbus-1/services"
+ln -sf "$ROOT/session/portal/latteos-portals.conf" "$CONF/xdg-desktop-portal/latteos-portals.conf"
+ln -sf "$ROOT/session/portal/latteos.portal" "$DATA/xdg-desktop-portal/portals/latteos.portal"
+ln -sf "$ROOT/session/dbus/org.freedesktop.impl.portal.desktop.latteos.service" "$DATA/dbus-1/services/"
 ln -sf "$ROOT/session/latteos-session" "$BIN/latteos-session"
 ln -sf "$ROOT/session/latteos-diag" "$BIN/latteos-diag"
 ln -sf "$ROOT/session/latteos-start" "$BIN/latteos-start"

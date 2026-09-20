@@ -10,42 +10,25 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import gi
 gi.require_version("Gtk", "4.0")
-gi.require_version("Gtk4LayerShell", "1.0")
-from gi.repository import Gtk, Gdk, Gio, GLib  # noqa: E402
-from gi.repository import Gtk4LayerShell as LayerShell  # noqa: E402
+from gi.repository import Gtk, Gio, GLib  # noqa: E402
 
 from latte_common import build  # noqa: E402
 from latte_shell import system  # noqa: E402
+from latte_shell.popup import HoverPopup  # noqa: E402
 
 WIDTH = 330
-WAIT_FOR_POINTER_MS = 2500      # kurzor do popupu nevošiel: zavrieť
-LEAVE_DELAY_MS = 250            # krátke vybehnutie z okraja nezavrie
+CONFIRM_MS = 4000               # koľko čaká potvrdenie akcie s confirm
 
 
-class SystemMenu(Gtk.Window):
+class SystemMenu(HoverPopup):
     def __init__(self, app, left, bottom, on_closed):
-        super().__init__(application=app)
-        self.on_closed = on_closed
-        self.closed = False
-        self.entered = False
-        self.leave_source = 0
+        super().__init__(app, left, bottom, "latte-system-menu", on_closed)
+        self.confirming = None      # (akcia, tlačidlo, zdroj časovača)
         self.rows = []
-        self.add_css_class("latte-overlay")
-
-        LayerShell.init_for_window(self)
-        LayerShell.set_layer(self, LayerShell.Layer.OVERLAY)
-        LayerShell.set_anchor(self, LayerShell.Edge.BOTTOM, True)
-        LayerShell.set_anchor(self, LayerShell.Edge.LEFT, True)
-        LayerShell.set_margin(self, LayerShell.Edge.LEFT, left)
-        LayerShell.set_margin(self, LayerShell.Edge.BOTTOM, bottom)
-        LayerShell.set_exclusive_zone(self, -1)
-        LayerShell.set_keyboard_mode(self, LayerShell.KeyboardMode.ON_DEMAND)
-        LayerShell.set_namespace(self, "latte-system-menu")
 
         panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         panel.add_css_class("system-menu")
         panel.set_size_request(WIDTH, -1)
-        self.set_child(panel)
 
         title = Gtk.Label(label="Systémový manažér", xalign=0)
         title.add_css_class("system-title")
@@ -67,16 +50,7 @@ class SystemMenu(Gtk.Window):
         foot.append(kind)
         panel.append(foot)
 
-        motion = Gtk.EventControllerMotion()
-        motion.connect("enter", self.on_enter)
-        motion.connect("leave", self.on_leave)
-        panel.add_controller(motion)
-
-        keys = Gtk.EventControllerKey()
-        keys.connect("key-pressed", self.on_key)
-        self.add_controller(keys)
-
-        GLib.timeout_add(WAIT_FOR_POINTER_MS, self.on_wait_expired)
+        self.set_panel(panel)
 
     def build_row(self, action):
         button = Gtk.Button()
@@ -88,46 +62,46 @@ class SystemMenu(Gtk.Window):
         row.append(title)
         row.append(hint)
         button.set_child(row)
-        button.connect("clicked", lambda _b, a=action: self.run(a))
+        button.connect("clicked", lambda _b, a=action, b=button: self.clicked(a, b))
+        button.title_label = title
+        button.hint_label = hint
         self.rows.append(button)
         return button
 
-    # ---------- skrývanie ----------
-    def on_enter(self, *_args):
-        self.entered = True
-        if self.leave_source:
-            GLib.source_remove(self.leave_source)
-            self.leave_source = 0
+    # ---------- potvrdenie ----------
+    def clicked(self, action, button):
+        if not action.confirm or (self.confirming and self.confirming[0] is action):
+            self.cancel_confirm()
+            self.run(action)
+            return
+        self.cancel_confirm()
+        button.add_css_class("confirm")
+        button.title_label.set_text("Potvrdiť: " + action.label)
+        button.hint_label.set_text("ešte raz")
+        source = GLib.timeout_add(CONFIRM_MS, self.expire_confirm)
+        self.confirming = (action, button, source)
 
-    def on_leave(self, *_args):
-        if self.entered and not self.leave_source:
-            self.leave_source = GLib.timeout_add(LEAVE_DELAY_MS, self.close_from_timer)
+    def cancel_confirm(self):
+        """Vráti tlačidlo do pôvodného stavu a zruší časovač."""
+        if self.confirming is None:
+            return
+        action, button, source = self.confirming
+        self.confirming = None
+        if source:
+            GLib.source_remove(source)
+        button.remove_css_class("confirm")
+        button.title_label.set_text(action.label)
+        button.hint_label.set_text(action.hint)
 
-    def on_wait_expired(self):
-        if not self.entered:
-            self.close_menu()
-        return False
-
-    def close_from_timer(self):
-        self.leave_source = 0
-        self.close_menu()
-        return False
-
-    def on_key(self, _ctrl, keyval, _code, _state):
-        if keyval == Gdk.KEY_Escape:
-            self.close_menu()
-            return True
+    def expire_confirm(self):
+        if self.confirming is not None:
+            self.confirming = self.confirming[:2] + (0,)      # zdroj sa po False odstráni sám
+            self.cancel_confirm()
         return False
 
     def close_menu(self):
-        if self.closed:
-            return
-        self.closed = True
-        if self.leave_source:
-            GLib.source_remove(self.leave_source)
-            self.leave_source = 0
-        self.on_closed()
-        self.destroy()
+        self.cancel_confirm()
+        super().close_menu()
 
     # ---------- akcie ----------
     def show_message(self, text):

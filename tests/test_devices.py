@@ -32,8 +32,9 @@ ZRAM = node("zram0", "disk", fstype="swap", uuid="ded7010b", mountpoints=["[SWAP
 VBOXSF = "294 42 0:66 / /media/sf_ProjectLatteOS rw,nodev,relatime shared:569 - vboxsf ProjectLatteOS rw,gid=987"
 
 
-def detect(*nodes, mountinfo="", floppy=False):
-    return devices.detect(lsblk={"blockdevices": list(nodes)}, mountinfo=mountinfo, floppy_controller=floppy)
+def detect(*nodes, mountinfo="", floppy=False, module=False):
+    return devices.detect(lsblk={"blockdevices": list(nodes)}, mountinfo=mountinfo,
+                          floppy_controller=floppy, floppy_module=module)
 
 
 class DetectTest(unittest.TestCase):
@@ -98,11 +99,18 @@ class DetectTest(unittest.TestCase):
         self.assertEqual([(d.kind, d.state) for d in detect(fd)], [("floppy", "unmounted")])
 
     def test_floppy_controller_without_driver(self):
-        found = detect(SDA, floppy=True)
+        found = detect(SDA, floppy=True, module=False)
         floppy = [d for d in found if d.kind == "floppy"]
         self.assertEqual(len(floppy), 1)
         self.assertEqual(floppy[0].state, "no-driver")
         self.assertFalse(floppy[0].mountable)
+        self.assertIn("modprobe floppy", devices.STATE_HELP["no-driver"])
+
+    def test_floppy_controller_with_driver_but_no_drive(self):
+        floppy = [d for d in detect(SDA, floppy=True, module=True) if d.kind == "floppy"]
+        self.assertEqual([d.state for d in floppy], ["no-drive"])
+        self.assertFalse(floppy[0].mountable)
+        self.assertEqual(floppy[0].state_text, "bez mechaniky")
 
     def test_no_floppy_when_firmware_says_absent(self):
         self.assertEqual([d for d in detect(SDA, floppy=False) if d.kind == "floppy"], [])

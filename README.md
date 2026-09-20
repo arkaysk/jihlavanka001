@@ -5,7 +5,7 @@ Skrýva vnútro Linuxu, zjednocuje aplikácie do jedného modelu
 a nepredstiera ochranu, ktorú nemá.
 
 ## Stav
-Prototyp. Prvý komponent: latte-files.
+Prototyp. Prvý komponent: latte-files; lišta má prompt (hľadať, terminál, AI), oznámenia, manažér času a ikony na ploche.
 
 ## Spustenie
     python3 src/latte_files/app.py
@@ -22,6 +22,14 @@ Dialóg pre heslo zobrazuje latte-polkit, ktorý spúšťa session/labwc/autosta
 
 Testy:
     python3 -m unittest discover -s tests
+
+Vzhľad (Prispôsobenie): jedno miesto pre celé prostredie, pozri docs/nastavenia.md.
+    latte-appearance set color.scheme light        # tmavý/svetlý režim, platí hneď (aj v bežiacich aplikáciách GTK4)
+    latte-appearance set color.accent '#3A9BD9'    # vlastný akcent; reset ho vráti
+    latte-appearance status | show | themes | profiles | apply | release
+Služba latte-appearance (portál pre režim, akcent a písmo; gtk.css; rámy okien v labwc) sa spúšťa s reláciou.
+Po `tools/install-session.sh` sa treba znovu prihlásiť alebo urobiť `systemctl --user restart xdg-desktop-portal`.
+Vývoj bez inštalácie: tools/run-appearance.sh. Motívy: data/themes/<id>/theme.toml (vlastné v ~/.local/share/latteos/themes/).
 
 Závislosti (Fedora), okrem GTK4, gtk4-layer-shell, labwc:
     udisks2 polkit                  pripájanie diskov a práca ako správca
@@ -58,6 +66,17 @@ používateľská je súbor v priestore používateľa a jej cestu drží ~/.con
 Kým nie sú Nastavenia systému:
     latte-wallpaper set ~/Obrázky/moja.jpg [cover|contain|fill]    # zmena platí hneď
     latte-wallpaper reset                                           # späť na systémovú
+
+Prompt v lište: malá ikona vľavo prepína režim (klik, koliesko myši alebo Ctrl+1/2/3): lupa hľadá súbory
+a priečinky (domov a pripojené zväzky, bez diakritiky, Enter otvorí), znak konzoly spúšťa príkazy Linuxu
+(výstup v popupe nad lištou, `cd` platí ďalej, Ctrl+C zastaví, vim/top/ssh/sudo sa otvoria v okne foot),
+iskry sú AI. AI beží lokálne v LM Studiu (predvolene http://192.168.56.1:1234, použije sa načítaný model).
+Nastavenie, ak je iné, v ~/.config/latteos/prompt.toml:
+    ai_url = "http://192.168.56.1:1234"
+    ai_model = "qwen/qwen3-4b-thinking-2507"     # nepovinné; bez neho model, čo je v LM Studiu načítaný
+Časové pásma v manažéri času: ~/.config/latteos/clock.toml (zones = "Europe/London,Asia/Tokyo"), dajú sa
+pridať aj v popupe. Oznámenia prijíma latte-shell na org.freedesktop.Notifications; skúška: notify-send "Ahoj" "text".
+Ikony plochy sa berú z priečinka Plocha (~/Desktop, ak existuje).
 
 ## Komponenty
 - latte-files      správca súborov so zväzkami
@@ -112,12 +131,12 @@ Etapa 2 — Shell ✅ / 🔸
 2.2	Rohové dlaždice, hodiny, tlačidlá	✅
 2.3	Popupy v tvare L, zatvorenie klikom mimo, pripnutie do okna	✅
 2.4	Zoznam otvorených okien v strede lišty (protokol wlr-foreign-toplevel)	✅
-2.5	Systémový manažér: popup nad tlačidlom napájania (skryje sa, keď z neho odídeš kurzorom). Hotové: Vypnúť (relácia → konzola) a Odhlásiť (→ prihlásenie). Zostáva: reštart, nastavenia	🔸
-2.6	Manažér času: hodiny → pásma, zvonček → oznámenia, dátum → kalendár	⬜
-2.7	Oznámenia (démon org.freedesktop.Notifications) — latte-shell	⬜
-2.8	Prompt/search segment s prepínačom: hľadať / terminál / AI	⬜
-2.9	Schránka s ôsmimi slotmi — latte-clipd	⬜
-2.10	Plocha: tapeta ✅ (systémová + používateľská, mení sa za behu), ikony, Kôš	🔸
+2.5	Systémový manažér: popup nad tlačidlom napájania (skryje sa, keď z neho odídeš kurzorom). Hotové: Vypnúť (relácia → konzola), Reštartovať (s potvrdením) a Odhlásiť (→ prihlásenie). Zostáva: nastavenia (čakajú na etapu 8)	🔸
+2.6	Manažér času: hodiny → pásma, zvonček → oznámenia (Nerušiť), dátum → kalendár	✅
+2.7	Oznámenia (démon org.freedesktop.Notifications) — latte-shell: bubliny vpravo hore, zoznam pod zvončekom, akcie, Nerušiť	✅ (overiť na živej zbernici: notify-send)
+2.8	Prompt segment s prepínacou ikonou: hľadať v priečinkoch / príkazy Linuxu / AI (LM Studio)	✅
+2.9	Schránka s ôsmimi slotmi — latte-clipd (preskočené: chce vlastného klienta wlr-data-control)	⬜
+2.10	Plocha: tapeta ✅ (systémová + používateľská, mení sa za behu), ikony z ~/Desktop ✅, Kôš ✅ (otvorí jeho priečinok). Zostáva: kontextové menu, presúvanie ikon, obnovenie z Koša	🔸
 2.11	Animované rohové dlaždice viazané na stav	⬜
 Výsledok: prostredie, v ktorom sa dá pracovať celý deň bez cudzieho desktopu.
 
@@ -142,12 +161,16 @@ Výsledok: prostredie sa spúšťa prihlásením, pád jedného komponentu nezho
 Etapa 3 — Vzhľad 🔸
 Úloha	Stav
 3.1	data/styles/latte.css — jedna téma pre všetky komponenty	✅
-3.2	Paleta a typografia podľa prototypu (teplá káva, krémová, karamel)	🔸 (farby a polomery sú premenné v latte.css; typografia zostáva)
+3.2	Paleta a typografia podľa prototypu (teplá káva, krémová, karamel)	🔸 (farby a polomery sú v motíve data/themes/latte/theme.toml, tmavý aj svetlý variant; typografia zostáva)
 3.3	Vlastná sada ikon (~30 kusov)	⬜
 3.4	Tapeta a prihlasovacia obrazovka v jednej téme (spoločné latte.css, widgety, tapeta)	✅
 3.5	Polopriehľadné panely so šumom (náhrada za sklo, kým nie je vlastný kompozitor)	⬜
-3.6	Kontrola prístupnosti: kontrast, veľkosť cieľov, viditeľnosť fokusu	⬜
-Výsledok: prostredie vyzerá ako jeden produkt, nie ako sada nástrojov.
+3.6	Kontrola prístupnosti: kontrast, veľkosť cieľov, viditeľnosť fokusu	🔸 (kontrast AA dodaných motívov a režim Vysoký kontrast; ciele a fokus zostávajú)
+3.7	Prispôsobenie: jeden zdroj pravdy (appearance.toml + motív), služba latte-appearance, portál, gtk.css, rámy okien v labwc; docs/nastavenia.md	✅ (overené na GTK4/libadwaita)
+3.10	Jedna výška záhlavia všetkých okien (window.titlebar) a jednotné tlačidlá minimalizovať/maximalizovať/zavrieť v komponentoch, libadwaita aplikáciách aj v rámoch od labwc	✅
+3.8	Adaptéry pre GTK 3, Qt, Firefox, Chromium a Electron, Wine (stav: latte-appearance status)	⬜
+3.9	Profily aplikácií: úroveň vynucovania a značka „vlastný vzhľad“ v prepínači okien (data/appearance-profiles/, dáta a načítanie hotové, zobrazenie v lište zostáva)	🔸
+Výsledok: prostredie vyzerá ako jeden produkt, nie ako sada nástrojov. Vzhľad sa mení z jedného miesta a platí pre všetky okná, kde je to technicky možné; pre ostatné platí náhradné riešenie (rám od kompozitora, poctivá značka), nikdy filter, ktorý by zničil obsah.
 
 Etapa 4 — App Manager, natívne aplikácie ⬜
 Úloha
@@ -207,6 +230,8 @@ Etapa 8 — Systémové nastavenia bez terminálu ⬜
 8.6	Aktualizácie systému — latte-updated
 8.7	Zálohovanie a obnova používateľských dát — latte-snapshotd (bez snapshotov, iba kópia)
 8.8	Diagnostika: zobraziť chybu, ručne odoslať — latte-diagd
+8.9	Schéma systémových nastavení: jeden súbor na doménu, schémy a strom stránok v data/settings/ (latte_common/settings.py, docs/nastavenia.md)	✅
+8.10	Aplikácia Nastavenia: okno skladané zo schém (Registry), stránka Prispôsobenie ako prvá	⬜
 Výsledok: splnené kritérium „bežný používateľ nepotrebuje terminál ani raz".
 
 Etapa 9 — Sprievodca a vydanie ⬜
@@ -269,7 +294,6 @@ Etapy 5, 6 a 7 sú nezávislé. Dajú sa robiť v ľubovoľnom poradí alebo str
 
 Čo sa dá odložiť bez straty
 animácie a sklo (čakajú na vlastný kompozitor),
-AI v prompte (bod 2.8 môže mať zatiaľ iba hľadanie a terminál),
 schránka s ôsmimi slotmi (stačí systémová),
 obľúbené položky, náhľady súborov, vyhľadávanie v súboroch.
 Čo sa odložiť nedá

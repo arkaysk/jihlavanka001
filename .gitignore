@@ -3,3 +3,5 @@ __pycache__/
 .venv/
 *.swp
 .vscode/
+# generuje latte-appearance (~/.config/labwc je symlink na session/labwc)
+session/labwc/themerc-override
