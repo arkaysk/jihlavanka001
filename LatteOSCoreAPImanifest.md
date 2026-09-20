@@ -478,6 +478,43 @@ Model:
 
 ---
 
+### Window placement, restoration and rules
+
+LatteOS má podporovať dve odlišné vrstvy správania:
+
+1. **Automatic restoration**
+   - aplikácia si alebo compositor podľa možností pamätá posledný monitor/output, workspace a stav okna
+   - pri opätovnom spustení sa aplikácia môže objaviť tam, kde bola naposledy používaná
+
+2. **Explicit Window Rules**
+   - používateľ môže definovať pravidlo pre konkrétnu aplikáciu alebo typ okna
+   - napríklad monitor, workspace, veľkosť, maximalizáciu, fullscreen alebo always-on-top
+   - pravidlo má vyššiu prioritu než automatická obnova, ak používateľ výslovne určil iné správanie
+
+Window Rules teda nemajú duplikovať bežnú obnovu poslednej pozície. Sú to používateľom definované výnimky a preferencie.
+
+### Window tiling
+
+LatteOS má poskytovať integrované tiling rozhranie pre klasické aj produktívne viacokenné pracovné plochy.
+
+Minimálne:
+- vizuálne snap zóny
+- rozdelenie obrazovky na viac oblastí
+- automatické prispôsobenie okien zóne
+- keyboard shortcuts
+- multi-monitor
+- workspace integration
+- možnosť uložiť layout
+- možnosť kombinovať tiling s klasickým voľným umiestnením okien
+
+Tiling je súčasť Window API a shell UX, nie samostatný compositor fork.
+
+### Always on top
+
+Always-on-top má byť systémová window action dostupná z jednotného LatteOS window menu a podľa možností aj cez Window API.
+
+---
+
 # 16. Process API
 
 Process Manager má zobrazovať reálne Linuxové procesy.
@@ -587,6 +624,51 @@ Príklady domén:
 - storage
 
 GUI nemá obsahovať business logiku jednotlivých subsystémov.
+
+---
+
+# 20A. Universal Search / Prompt Bar
+
+LatteOS má mať jedno centrálne vstupné pole, ktoré nie je iba vyhľadávačom súborov.
+
+Používateľ môže do rovnakého baru zadať napríklad:
+
+    wifi
+
+a dostať relevantné výsledky z viacerých zdrojov:
+- aplikácie
+- súbory
+- Settings a konkrétne nastavenia
+- systémové funkcie
+- zariadenia
+- posledné položky
+- dostupné akcie
+
+Search má používať jednotný index/registry model a nemá byť obmedzený na filesystem.
+
+### Režimy vstupu
+
+Ten istý UI prvok sa môže prepnúť medzi:
+
+1. **Search mode**
+   - aplikácie
+   - súbory
+   - nastavenia
+   - systémové objekty
+   - akcie
+
+2. **AI Prompt mode**
+   - zadanie príkazu lokálnej AI
+   - AI pracuje nad povolenými LatteOS objektmi a capability modelom
+   - AI nemá automaticky získavať nové oprávnenia
+
+3. **Command mode**
+   - priame zadávanie Linuxových príkazov
+   - výsledok sa má zobrazovať ako terminálový výstup alebo bezpečne vykonaná systémová akcia podľa príslušných oprávnení
+
+Tieto režimy používajú rovnaké vstupné miesto, ale majú odlišný execution model.
+
+Search nesmie implicitne vykonávať deštruktívne akcie iba preto, že používateľ napísal text. Výsledok môže byť objekt, návrh akcie alebo explicitná požiadavka na vykonanie.
 
 ---
 
@@ -1348,6 +1430,20 @@ Ak je aplikácia native, Flatpak, Wine, Android alebo VM, používateľ nemusí 
 
 ---
 
+### Definition of Done: extended system integration
+
+- [ ] Universal Search vyhľadáva aplikácie, súbory, nastavenia a systémové objekty.
+- [ ] Search bar má oddelený Search, AI Prompt a Command mode.
+- [ ] AI nemôže rozširovať svoje capability iba spracovaním používateľského promptu.
+- [ ] Command mode zachováva štandardné Linuxové oprávnenia a bezpečnostné hranice.
+- [ ] Window Tiling funguje na jednom aj viacerých monitoroch.
+- [ ] Explicit Window Rules sú oddelené od automatickej obnovy poslednej pozície.
+- [ ] System Monitor má System Timeline.
+- [ ] Security Center má Security Timeline.
+- [ ] File Locksmith vie identifikovať používajúci proces podľa dostupnosti.
+- [ ] Hardware Health je oddelený od Device Managera.
+- [ ] diagnostika vie vysvetliť pozorované systémové problémy bez predstierania kauzality.
+
 # 39. Definition of Done: Arabica 1.0
 
 - [ ] systém sa dá nainštalovať
@@ -1608,10 +1704,198 @@ Detail procesu môže podľa dostupnosti zobrazovať executable, package, signat
 
 ---
 
+# 42A. System Monitor 2.0: timelines, consumers and diagnostics
+
+### System Timeline
+
+System Monitor má poskytovať časovú os systémových udalostí a zmien zdrojov.
+
+Má prepájať podľa dostupnosti:
+- spustenie a ukončenie procesu
+- zmenu CPU/RAM/GPU záťaže
+- diskové a sieťové špičky
+- zmeny teploty a spotreby
+- autorun zmeny
+- bezpečnostné udalosti
+- zmeny zariadení
+- kritické systémové udalosti
+
+Cieľom nie je vytvoriť iba log viewer. Timeline má umožniť spätne pochopiť súvislosti, napríklad:
+
+    spustená aplikácia
+        ↓
+    zvýšenie GPU load
+        ↓
+    zvýšenie teploty
+        ↓
+    zvýšenie otáčok ventilátora
+
+Udalosti musia mať zdroj a čas. Ak je kauzalita iba odhadovaná, UI ju nesmie prezentovať ako dokázaný fakt.
+
+### Security Timeline
+
+Security Center má nad udalosťami Defendera poskytovať samostatnú časovú os bezpečnostných udalostí.
+
+Príklad reťazca:
+
+    stiahnutý súbor
+        ↓
+    spustenie
+        ↓
+    vytvorenie autorun položky
+        ↓
+    masové zmeny súborov
+        ↓
+    neobvyklá CPU záťaž
+        ↓
+    Defender alert
+
+Timeline má zobrazovať jednotlivé pozorované udalosti, ich zdroj, dôkazy a vykonané opatrenie. Nemá spätne vytvárať falošnú istotu o príčine iba na základe časovej blízkosti.
+
+### File Locksmith / What is using this?
+
+Pri operácii, ktorá zlyhá preto, že objekt používa iný proces, má LatteOS ponúknuť informačný dialóg namiesto všeobecného:
+
+    Retry / Cancel
+
+Dialog má podľa dostupnosti uviesť:
+- ktorý proces objekt používa
+- PID
+- aplikáciu
+- používateľa
+- otvorený súbor alebo resource
+- ako dlho je resource používaný
+
+Ponúknuté akcie môžu byť:
+- retry
+- cancel
+- focus/activate application
+- zobraziť proces v System Monitor
+- bezpečne ukončiť proces, ak to oprávnenia dovoľujú
+
+Rovnaký mechanizmus sa má použiť aj pre všeobecnú funkciu **What is using this?** pre súbory, zariadenia a ďalšie systémové objekty.
+
+### Application Repair
+
+App Manager/System Monitor môže ponúknuť diagnostickú opravu aplikácie:
+- overenie inštalácie
+- kontrola dostupnosti runtime
+- kontrola základných oprávnení
+- reset LatteOS-managed konfigurácie
+- diagnostický report
+
+User data nesmie byť odstránené implicitne.
+
+### Installation Source Transparency
+
+Pri každej aplikácii má byť zrozumiteľne viditeľné:
+- odkiaľ pochádza
+- aký package/runtime používa
+- či je podpísaná alebo overiteľná
+- úroveň izolácie
+- požadované capability
+- autorun/persistence
+- aktualizačný zdroj
+
+Používateľ nemá byť nútený rozumieť rozdielu medzi native package, Flatpak, AppImage alebo Wine kontajnerom, ale LatteOS mu nesmie tieto rozdiely zatajiť.
+
+### Dependency Inspector
+
+Pre aplikácie má byť možné zobraziť podľa dostupnosti:
+- runtime
+- shared libraries
+- grafické backendy
+- fonty
+- portály
+- závislosti balíka
+- reverse dependencies
+
+Cieľom je vysvetliť, prečo aplikácia funguje alebo zlyháva, nie vytvoriť druhý package manager.
+
+### Advanced Power Profiles
+
+LatteOS má poskytovať systémové power profiles nad existujúcimi Linux backendmi:
+- Performance
+- Balanced
+- Quiet
+- Battery Saver
+- Custom
+
+Pravidlá môžu reagovať napríklad na:
+- napájanie zo siete/batérie
+- fullscreen aplikáciu
+- konkrétnu aplikáciu
+- nečinnosť
+
+LatteOS nemá obchádzať kernel/driver power management vlastnými nebezpečnými mechanizmami.
+
+### Hardware Health Center
+
+Device Manager odpovedá na otázku **čo je v počítači**.
+
+Hardware Health odpovedá na otázku **v akom stave to je**.
+
+Podľa dostupnosti:
+- SSD/HDD SMART
+- teplota a health
+- opotrebovanie/TBW
+- chybové počítadlá
+- GPU teplota/hotspot
+- VRAM
+- GPU fan/power/clocks
+- CPU frekvencia/teplota/package power
+- thermal throttling
+- RAM a ďalšie relevantné health údaje
+
+Táto vrstva sa má opierať o existujúce Linuxové backendy a nemá duplikovať Device Manager.
+
+### Why is my PC slow?
+
+System Monitor môže ponúknuť diagnostický workflow, ktorý koreluje:
+- CPU
+- RAM
+- swap
+- disk
+- GPU
+- teploty/throttling
+- background processes
+- startup
+- storage health
+
+Výstup má byť vysvetlenie pozorovaných príznakov a relevantných dôkazov, nie nepriehľadné jednočíselné skóre.
+
+### Session Snapshot / Work Session
+
+LatteOS môže ukladať pracovný kontext:
+- otvorené aplikácie
+- okná
+- workspace
+- monitor
+- window layout
+- podporované taby/dokumenty
+- wallpaper/session state
+
+Obnova závisí od toho, čo aplikácia a desktopový štandard podporujú. LatteOS nemá predstierať, že vie obnoviť stav, ktorý aplikácia neposkytuje.
+
+---
+
 # 43. Ďalšie kandidáty pre LatteOS
 
 ### Desktop
 - clipboard history
+- universal search / prompt bar
+- recent files
+- global shortcut manager
+- workspace manager
+- window tiling
+- explicit window rules
+- always-on-top
+- per-monitor/per-application scaling
+- night light/color temperature
+- screen profiles
+- session restore
+- session snapshot / work session
+- system timeline
 - universal search
 - recent files
 - global shortcut manager
@@ -1625,6 +1909,9 @@ Detail procesu môže podľa dostupnosti zobrazovať executable, package, signat
 
 ### Files
 - batch rename
+- File Locksmith / What is using this?
+- application repair integration
+- dependency/source inspection
 - file tags
 - colored folder labels
 - saved searches
@@ -1641,6 +1928,17 @@ Detail procesu môže podľa dostupnosti zobrazovať executable, package, signat
 - backup center
 - update center
 - driver/device information
+- advanced power profiles
+- Hardware Health Center
+- battery health
+- disk health/S.M.A.R.T.
+- boot diagnostics
+- recovery environment
+- "Why is my PC slow?" diagnostics
+- graphical firewall frontend
+- backup center
+- update center
+- driver/device information
 - power profiles
 - battery health
 - disk health/S.M.A.R.T.
@@ -1649,6 +1947,7 @@ Detail procesu môže podľa dostupnosti zobrazovať executable, package, signat
 
 ### Security
 - application permissions center
+- Security Timeline
 - sandbox viewer
 - executable trust information
 - package signature information
@@ -1701,9 +2000,17 @@ Výrazné LatteOS-specific funkcie:
 - System Defender
 - rozšírený System Monitor
 - Live Wallpaper
+- Universal Search / Prompt Bar
+- Window Tiling
+- Window Rules
+- System Timeline
+- Security Timeline
+- File Locksmith / What is using this?
+- Hardware Health Center
 - wellbeing
 - pokročilé file tools
 - diagnostika
+- Installation Source Transparency
 
 ### Future
 - Android
