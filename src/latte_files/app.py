@@ -16,7 +16,7 @@ gi.require_version("Graphene", "1.0")
 gi.require_version("Pango", "1.0")
 from gi.repository import Gtk, Gio, GLib, Gdk, GdkPixbuf, Graphene, Pango  # noqa: E402
 
-from latte_common import fileops, favorites, jobs, prefs, storage, theme, thumbnails  # noqa: E402
+from latte_common import fileops, favorites, jobs, places, prefs, storage, theme, thumbnails  # noqa: E402
 from latte_common import volumes as vol_mod  # noqa: E402
 
 ROOT_NAME = "Tento počítač"
@@ -413,7 +413,7 @@ class Pane(Gtk.Box):
             else:
                 self.go_root()
             return
-        self.go_path(os.path.dirname(self.path))
+        self.go_path(places.parent(self.path))
 
     def rebind(self):
         """Po zmene zoznamu zväzkov: nová inštancia toho istého zväzku. Ak zmizol
@@ -435,7 +435,7 @@ class Pane(Gtk.Box):
             return ROOT_NAME
         if self.path == self.volume.path:
             return self.volume.name
-        return os.path.basename(self.path) or self.path
+        return places.title(self.path)
 
     # -------- otvorenie --------
     def on_activate(self, _box, row):
@@ -567,11 +567,8 @@ class Pane(Gtk.Box):
                 self.text_path.set_text(ROOT_NAME)
             else:
                 base = os.path.dirname(self.root) if self.root != self.volume.path else self.volume.path
-                rel = os.path.relpath(self.path, base)
-                self.text_path.set_text(
-                    self.volume.name if self.path == self.volume.path
-                    else self.volume.name + "/" + rel
-                )
+                names = [n for n, _p in places.parts(base, self.path)]
+                self.text_path.set_text("/".join([self.volume.name] + names))
             return
 
         self.crumbs.append(self.crumb_button(ROOT_NAME, lambda _b: self.go_root()))
@@ -596,12 +593,7 @@ class Pane(Gtk.Box):
         else:
             base = vol.path
 
-        rel = os.path.relpath(self.path, base)
-        if rel == ".":
-            return
-        current = base
-        for part in rel.split(os.sep):
-            current = os.path.join(current, part)
+        for part, current in places.parts(base, self.path):
             self.crumbs.append(Gtk.Label(label="›"))
             self.crumbs.append(
                 self.crumb_button(part, lambda _b, p=current: self.go_path(p))
@@ -738,6 +730,8 @@ class Pane(Gtk.Box):
             self.head_icon.set_from_icon_name("computer")
         elif self.path == self.volume.path:
             self.head_icon.set_from_icon_name(self.volume.icon_name)
+        elif self.path == places.trash_files():
+            self.head_icon.set_from_icon_name("user-trash-full" if places.count_trashed() else "user-trash")
         else:
             self.head_icon.set_from_icon_name("folder-open")
         self.win.update_title()
@@ -765,7 +759,7 @@ class Pane(Gtk.Box):
                 return
 
         if self.path != self.root:
-            self.add_row("..", "", "", os.path.dirname(self.path), is_dir=True, kind="parent")
+            self.add_row("..", "", "", places.parent(self.path), is_dir=True, kind="parent")
 
         if self.admin:
             self.list_as_admin()
@@ -801,6 +795,8 @@ class Pane(Gtk.Box):
         self.fill_entries(entries)
 
     def fill_entries(self, entries):
+        if self.path == places.home() and not self.admin:
+            self.add_trash_row()
         for e in self.sorted_entries(entries):
             if e["name"].startswith("."):
                 continue
@@ -809,6 +805,14 @@ class Pane(Gtk.Box):
                 e["path"], is_dir=e["is_dir"], kind_text=kind_of(e["name"], e["is_dir"]),
                 size_bytes=e["size"])
         self.finish_refresh()
+
+    def add_trash_row(self):
+        """Kôš ako zložka v súkromnom priestore (skutočne leží v ~/.local/share/Trash/files)."""
+        count = places.count_trashed()
+        icon = Gtk.Image.new_from_icon_name("user-trash-full" if count else "user-trash")
+        self.add_row(places.TRASH_NAME, "", mtime(places.trash_files()), places.trash_files(), is_dir=True,
+                     kind="fixed", kind_text="Kôš · " + count_text(count, "položka", "položky", "položiek"),
+                     icon=icon)
 
     def finish_refresh(self):
         self.update_status()
@@ -1077,6 +1081,9 @@ class Window(Gtk.ApplicationWindow):
         self.add_css_class("latte-files")
         self.set_default_size(1280, 760)
         self.volumes = vol_mod.list_volumes()
+        trash_problem = places.ensure_trash()
+        if trash_problem:
+            print("latte-files:", trash_problem, file=sys.stderr)
         self.mode = "simple"        # simple | dual | classic
         self.prefs = prefs.load("files")
 

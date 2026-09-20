@@ -20,6 +20,7 @@ from latte_common import paths
 TYPES = ("bool", "int", "float", "string", "enum", "color", "path")
 APPLY = ("live", "session", "restart")          # kedy sa zmena prejaví
 SCOPES = ("user", "system")
+URI_SCHEME = "settings"
 STATUSES = ("ready", "partial", "planned")
 ADMIN_DIR = "/etc/latteos"
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -49,6 +50,7 @@ class Key:
     label: str = ""
     description: str = ""
     choices: tuple = ()
+    choice_labels: tuple = ()   # texty volieb pre Nastavenia (rovnaký počet ako choices); prázdne = ukáže sa samotná voľba
     minimum: float = None
     maximum: float = None
     step: float = None
@@ -64,6 +66,12 @@ class Key:
     @property
     def name(self):
         return self.id.split(".", 1)[1] if "." in self.id else self.id
+
+    def choice_label(self, value):
+        """Text voľby pre človeka („dark“ -> „Tmavý“)."""
+        if value in self.choices and self.choice_labels:
+            return self.choice_labels[self.choices.index(value)]
+        return str(value)
 
     def validate(self, value):
         """Vráti hodnotu v kanonickom tvare alebo vyhodí SettingsError."""
@@ -166,11 +174,13 @@ def parse_domain(data, source="<schéma>"):
         key = Key(
             id=key_id, domain=domain.id, type=spec["type"], default=spec["default"],
             label=spec.get("label", key_id), description=spec.get("description", ""),
-            choices=tuple(spec.get("choices", ())), minimum=spec.get("min"), maximum=spec.get("max"),
+            choices=tuple(spec.get("choices", ())), choice_labels=tuple(spec.get("labels", ())), minimum=spec.get("min"), maximum=spec.get("max"),
             step=spec.get("step"), unit=spec.get("unit", ""), apply=spec.get("apply", "live"),
             allow_empty=bool(spec.get("allow_empty", False)), hidden=bool(spec.get("hidden", False)))
         if key.type == "enum" and not key.choices:
             raise SettingsError("%s: enum bez choices" % where)
+        if key.choice_labels and len(key.choice_labels) != len(key.choices):
+            raise SettingsError("%s: labels a choices majú rôzny počet" % where)
         try:
             key.default = key.validate(key.default)
         except SettingsError as err:
@@ -183,13 +193,24 @@ def parse_domain(data, source="<schéma>"):
 class Page:
     id: str
     title: str
-    group: str
+    group: str                  # oblasť: software | data | hardware | account | environment | system
     status: str = "planned"     # ready | partial | planned
     icon: str = ""
     domain: str = ""            # doména so schémou; prázdne, kým stránka nemá nastavenia v súbore
+    sections: tuple = ()        # ktoré oddiely schémy stránka ukazuje (prázdne = všetky)
     description: str = ""
+    keywords: tuple = ()        # synonymá pre vyhľadávanie („wifi“ nájde Sieť)
+    contents: tuple = ()        # čo stránka bude obsahovať (ukáže sa, kým je plánovaná)
+    owner: str = ""             # špecializovaný správca, ktorý vlastní operácie
+    view: str = ""              # vlastný obsah stránky v aplikácii Nastavenia (about, storage)
+    launch: str = ""            # čo otvorí „Spravovať v ...“ (files)
     etapa: str = ""             # bod z README, ktorý ju dodá
     component: str = ""
+
+    @property
+    def uri(self):
+        """Odkaz na stránku, napr. settings://hardware/display."""
+        return "%s://%s/%s" % (URI_SCHEME, self.group, self.id)
 
 
 class Registry:
@@ -199,6 +220,7 @@ class Registry:
         self.directory = directory or schema_dir()
         self.domains = {}
         self.groups = {}        # id skupiny -> názov (v poradí)
+        self.group_notes = {}   # id skupiny -> krátky popis oblasti
         self.pages = []
         self._load()
 
@@ -227,17 +249,25 @@ class Registry:
         data = self._read(index)
         for gid, group in (data.get("group") or {}).items():
             self.groups[gid] = group.get("title", gid)
+            self.group_notes[gid] = group.get("description", "")
         for spec in data.get("page", []):
             page = Page(
                 id=spec["id"], title=spec["title"], group=spec.get("group", ""), status=spec.get("status", "planned"),
-                icon=spec.get("icon", ""), domain=spec.get("domain", ""), description=spec.get("description", ""),
-                etapa=spec.get("etapa", ""), component=spec.get("component", ""))
+                icon=spec.get("icon", ""), domain=spec.get("domain", ""), sections=tuple(spec.get("sections", ())),
+                description=spec.get("description", ""), keywords=tuple(spec.get("keywords", ())),
+                contents=tuple(spec.get("contents", ())), owner=spec.get("owner", ""), view=spec.get("view", ""),
+                launch=spec.get("launch", ""), etapa=spec.get("etapa", ""), component=spec.get("component", ""))
             if page.status not in STATUSES:
                 raise SettingsError("stránka %s: neznámy status %r" % (page.id, page.status))
             if page.domain and page.domain not in self.domains:
                 raise SettingsError("stránka %s: doména %s nemá schému" % (page.id, page.domain))
             if page.group not in self.groups:
                 raise SettingsError("stránka %s: neznáma skupina %r" % (page.id, page.group))
+            if page.sections:
+                known = {k.section for k in self.domains[page.domain].keys.values()} if page.domain else set()
+                for name in page.sections:
+                    if name not in known:
+                        raise SettingsError("stránka %s: doména %s nemá oddiel %r" % (page.id, page.domain, name))
             self.pages.append(page)
 
     def domain(self, domain_id):
@@ -259,6 +289,50 @@ class Registry:
 
     def store(self, domain_id, **kw):
         return Store(self.domain(domain_id), **kw)
+
+    def page_sections(self, page):
+        """[(oddiel, názov, [Key, ...])] ovládacích prvkov stránky (len jej oddiely, ak ich má určené)."""
+        if not page.domain:
+            return []
+        return [(name, title, keys) for name, title, keys in self.domains[page.domain].grouped()
+                if not page.sections or name in page.sections]
+
+    def area_pages(self, group_id):
+        return [p for p in self.pages if p.group == group_id]
+
+    @staticmethod
+    def split_object(target):
+        """settings://hardware/display/DP-1 -> („settings://hardware/display“, „DP-1“); bez objektu je druhé prázdne."""
+        text = (target or "").strip()
+        head = text[:len(URI_SCHEME) + 3] if text.startswith(URI_SCHEME + "://") else ""
+        parts = [p for p in text[len(head):].split("/") if p]
+        if len(parts) == 3:
+            return head + "/".join(parts[:2]), parts[2]
+        return text, ""
+
+    def resolve(self, target):
+        """Odkaz na miesto v Nastaveniach: („page“, Page), („area“, id oblasti) alebo None.
+
+        Berie settings://oblasť/stránka, oblasť/stránka, samotné id stránky alebo oblasti.
+        """
+        text = (target or "").strip()
+        prefix = URI_SCHEME + "://"
+        if text.startswith(prefix):
+            text = text[len(prefix):]
+        parts = [p for p in text.split("/") if p]
+        if not parts or len(parts) > 2:
+            return None
+        if len(parts) == 2:
+            for page in self.pages:
+                if page.group == parts[0] and page.id == parts[1]:
+                    return ("page", page)
+            return None
+        if parts[0] in self.groups:
+            return ("area", parts[0])
+        for page in self.pages:
+            if page.id == parts[0]:
+                return ("page", page)
+        return None
 
 
 # ---------------------------------------------------------------- TOML zápis

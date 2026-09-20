@@ -97,7 +97,67 @@ class SchemaValidationTest(unittest.TestCase):
         for gid, _title, pages in registry.by_group():
             self.assertIn(gid, registry.groups)
         ready = [p for p in registry.pages if p.status == "ready"]
-        self.assertTrue(all(p.domain for p in ready), "stránka „ready“ musí mať doménu")
+        self.assertTrue(all(p.domain or p.view for p in ready), "stránka „ready“ musí mať doménu alebo vlastný obsah")
+
+    def test_tree_follows_the_six_areas_of_the_design(self):
+        registry = settings.Registry()
+        self.assertEqual(list(registry.groups), ["software", "data", "hardware", "account", "environment", "system"])
+        for gid in registry.groups:
+            self.assertTrue(registry.area_pages(gid), "oblasť %s je prázdna" % gid)
+            self.assertTrue(registry.group_notes[gid], "oblasť %s nemá popis" % gid)
+        for page in registry.pages:
+            self.assertTrue(page.description, "%s nemá popis" % page.id)
+            if page.status == "planned":
+                self.assertTrue(page.contents, "plánovaná stránka %s musí povedať, čo bude obsahovať" % page.id)
+
+    def test_pages_of_one_domain_do_not_share_a_section(self):
+        registry = settings.Registry()
+        seen = {}
+        for page in registry.pages:
+            for section, _title, keys in registry.page_sections(page):
+                for key in keys:
+                    self.assertNotIn(key.id, seen, "%s je na stránkach %s aj %s" % (key.id, seen.get(key.id), page.id))
+                    seen[key.id] = page.id
+        # každé viditeľné nastavenie Prispôsobenia je niekde v Nastaveniach
+        for key in registry.domain("appearance").keys.values():
+            if not key.hidden:
+                self.assertIn(key.id, seen)
+
+    def test_page_uri_and_resolve(self):
+        registry = settings.Registry()
+        page = registry.page("theme")
+        self.assertEqual(page.uri, "settings://environment/theme")
+        self.assertEqual(registry.resolve(page.uri), ("page", page))
+        self.assertEqual(registry.resolve("environment/theme"), ("page", page))
+        self.assertEqual(registry.resolve("theme"), ("page", page))
+        self.assertEqual(registry.resolve("settings://hardware"), ("area", "hardware"))
+        for bad in ("", None, "settings://", "hardware/theme", "a/b/c", "nie-je"):
+            self.assertIsNone(registry.resolve(bad), repr(bad))
+
+    def test_choice_labels_match_choices(self):
+        registry = settings.Registry()
+        scheme = registry.domain("appearance").key("color.scheme")
+        self.assertEqual(scheme.choice_label("light"), "Svetlý")
+        self.assertEqual(scheme.choice_label("neznáme"), "neznáme")
+        for domain in registry.domains.values():
+            for key in domain.keys.values():
+                if key.type == "enum":
+                    self.assertEqual(len(key.choice_labels), len(key.choices), key.id)
+
+    def test_labels_with_wrong_count_are_refused(self):
+        data = {"domain": SCHEMA["domain"], "key": {"a": {"type": "enum", "choices": ["x", "y"], "labels": ["X"], "default": "x"}}}
+        with self.assertRaises(settings.SettingsError):
+            settings.parse_domain(data)
+
+    def test_page_with_unknown_section_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            for name in os.listdir(settings.schema_dir()):
+                with open(os.path.join(settings.schema_dir(), name), "rb") as src, open(os.path.join(d, name), "wb") as dst:
+                    dst.write(src.read())
+            with open(os.path.join(d, "index.toml"), "a", encoding="utf-8") as f:
+                f.write('\n[[page]]\nid = "zle"\ntitle = "Zlé"\ngroup = "system"\ndomain = "appearance"\nsections = ["nie-je"]\n')
+            with self.assertRaises(settings.SettingsError):
+                settings.Registry(d)
 
 
 class StoreTest(unittest.TestCase):

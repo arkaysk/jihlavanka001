@@ -14,6 +14,8 @@ done
 ln -sf "$ROOT/tools/run-shell.sh" "$BIN/latte-shell"
 ln -sf "$ROOT/tools/run-polkit.sh" "$BIN/latte-polkit"
 ln -sf "$ROOT/tools/run-appearance.sh" "$BIN/latte-appearance"
+ln -sf "$ROOT/tools/run-settings.sh" "$BIN/latte-settings"
+ln -sf "$ROOT/tools/run-devices.sh" "$BIN/latte-devices"
 
 # Portál: náš backend pre Settings (vzhľad z jedného miesta, docs/nastavenia.md). Zmena sa
 # prejaví po odhlásení a prihlásení alebo po: systemctl --user restart xdg-desktop-portal
@@ -34,6 +36,8 @@ systemctl --user daemon-reload
 echo "Hotovo. Reláciu spustíš z konzoly príkazom: latteos-session"
 echo "Vývoj lišty: systemctl --user restart latte-shell"
 echo "Tapeta plochy: latte-wallpaper set SÚBOR   (späť: latte-wallpaper reset)"
+echo "Nastavenia systému: latte-settings [settings://oblasť/stránka]  (aj z menu napájania v lište)"
+echo "Správca zariadení: latte-devices list | display list | display set VÝSTUP 1920x1080 --save"
 echo "Diagnostika poslednej relácie: latteos-diag"
 echo "Vývoj prihlasovacej obrazovky v okne: tools/run-greeter.sh"
 echo "Výber relácie v prihlasovacom manažéri vyžaduje root:"

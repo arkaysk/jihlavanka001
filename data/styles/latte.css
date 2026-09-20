@@ -8,8 +8,8 @@
 /* ---------------------------------------------------------- latte-files
    Vzhľad podľa ForkLiftu 4: pruh nástrojov, priehľadnejší bočný panel, menej priehľadné
    panely so zoznamom, oranžová čiara aktívneho panela, inšpektor vpravo. Farby kávy. */
-window.latte-files { background: transparent; color: var(--latte-cream); }
-.latte-files .dim-label { color: var(--latte-cream-dim); opacity: 0.8; }
+window.latte-files, window.latte-settings { background: transparent; color: var(--latte-cream); }
+.latte-files .dim-label, .latte-settings .dim-label { color: var(--latte-cream-dim); opacity: 0.8; }
 
 headerbar.files-toolbar {
     background: var(--latte-panel-bar);
@@ -109,6 +109,80 @@ headerbar.files-toolbar entry {
 .function-bar button { color: var(--latte-cream-dim); font-size: 12px; min-height: 26px; }
 .function-bar button:hover { color: var(--latte-cream); }
 
+/* ---------------------------------------------------------- latte-settings
+   Nastavenia systému (src/latte_settings/). Používajú pravidlá správcu súborov vyššie (pruh nástrojov,
+   .files-sidebar, .pane, .files-inspector), aby to bola ďalšia časť toho istého prostredia. Tu je len to,
+   čo je nové: vrstvené karty oblastí, riadky nastavení a stavové symboly. */
+.area-card {
+    margin: 4px 8px;
+    border-radius: var(--latte-radius-l);
+    background: var(--latte-tint-1);
+    border-left: 3px solid transparent;
+}
+.area-card.active { background: var(--latte-tint-2); border-left-color: var(--latte-caramel); }
+.area-card.compact { background: transparent; }
+.area-card.compact.active { background: var(--latte-tint-2); }
+.area-head {
+    background: transparent;
+    border: none;
+    border-radius: var(--latte-radius-l);
+    box-shadow: none;
+    color: var(--latte-cream);
+    padding: 9px 10px;
+    min-height: 34px;
+}
+.area-head:hover { background: var(--latte-tint-2); }
+.area-title { font-size: 12px; font-weight: 700; letter-spacing: 0.5px; }
+.area-summary { font-size: 11px; color: var(--latte-cream-dim); }
+.area-card.compact .area-head { padding: 6px 10px; min-height: 28px; }
+.area-pages { background: transparent; padding: 0 0 6px 0; }
+.status-glyph { font-weight: 700; min-width: 16px; color: var(--latte-cream-dim); }
+.status-glyph.ok { color: var(--latte-cream); }
+.status-glyph.attention { color: var(--latte-caramel); }
+.status-glyph.problem { color: var(--latte-danger); }
+
+.settings-page { padding: 22px 28px 32px 28px; }
+.page-title { font-size: 22px; font-weight: 700; }
+.page-lead { color: var(--latte-cream-dim); margin-top: 4px; }
+.settings-group {
+    background: var(--latte-tint-1);
+    border-radius: var(--latte-radius-l);
+}
+.settings-row { padding: 12px 14px; }
+.settings-row + .settings-row { border-top: 1px solid var(--latte-line-soft); }
+.settings-row.flash { background: var(--latte-accent-tint); }
+.link-row { border-radius: 0; color: var(--latte-cream); }
+.link-row:hover { background: var(--latte-tint-2); }
+.settings-group > .link-row:first-child { border-radius: var(--latte-radius-l) var(--latte-radius-l) 0 0; }
+.settings-group > .link-row:last-child { border-radius: 0 0 var(--latte-radius-l) var(--latte-radius-l); }
+.settings-group > .link-row:only-child { border-radius: var(--latte-radius-l); }
+.row-title { font-weight: 600; }
+.row-note { font-size: 12px; color: var(--latte-cream-dim); }
+.row-error { font-size: 12px; color: var(--latte-danger); }
+.settings-group switch { background: var(--latte-tint-3); }
+.settings-group switch:checked { background: var(--latte-caramel); }
+progressbar.usage trough, progressbar.usage progress { min-height: 8px; border-radius: var(--latte-radius-s); }
+progressbar.usage trough { background: var(--latte-tint-3); }
+progressbar.usage progress { background: var(--latte-caramel); }
+progressbar.usage.problem progress { background: var(--latte-danger); }
+.latte-settings button.suggested-action {
+    background: var(--latte-caramel);
+    color: var(--latte-espresso);
+    border-radius: var(--latte-radius-l);
+}
+.monitor-head { padding: 4px 4px 12px 4px; }
+.monitor-block { margin-top: 18px; }
+.monitor-block.flash .settings-group { background: var(--latte-accent-tint); }
+.notice {
+    background: var(--latte-accent-tint);
+    border-radius: var(--latte-radius-l);
+    padding: 10px 14px;
+    margin: 16px 0 0 0;
+    color: var(--latte-cream);
+}
+.notice.danger { background: var(--latte-tint-1); border: 1px solid var(--latte-danger); color: var(--latte-danger); }
+.pane > revealer > .notice { margin: 8px 16px 0 16px; }
+
 /* ---------------------------------------------------------- latte-shell */
 window.latte-bar, window.latte-overlay { background: transparent; }
 
@@ -166,6 +240,44 @@ window.latte-desktop, .latte-wallpaper { background: var(--latte-night); }
     border-radius: 0 0 var(--latte-radius-2xl) var(--latte-radius-2xl);
     color: var(--latte-terminal-text);
 }
+.device-tile {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--latte-radius-l);
+    box-shadow: none;
+    color: var(--latte-cream);
+    padding: 10px 6px 8px 6px;
+}
+.device-tile:hover { background: var(--latte-tint-2); }
+.device-tile.selected { background: var(--latte-accent-tint); border-color: var(--latte-caramel); }
+.tile-icon { background: var(--latte-tint-2); border-radius: var(--latte-radius-xl); color: var(--latte-cream); }
+.device-tile.selected .tile-icon { background: var(--latte-caramel); color: var(--latte-espresso); }
+/* skupina zariadení jednej kategórie: karta okolo nadpisu a dlaždíc (dlaždice sú samostatné, aby sa dali neskôr ťahať) */
+.group-card {
+    background: var(--latte-tint-1);
+    border: 1px solid var(--latte-line-soft);
+    border-radius: var(--latte-radius-xl);
+    padding: 10px 10px 8px 10px;
+}
+.group-count {
+    background: var(--latte-tint-2);
+    border-radius: 999px;
+    color: var(--latte-cream-dim);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 8px;
+}
+.tile-name { font-size: 12px; font-weight: 600; }
+.tile-sub { font-size: 11px; color: var(--latte-cream-dim); }
+.arm-action {
+    background: var(--latte-caramel);
+    color: var(--latte-espresso);
+    border: none;
+    border-radius: var(--latte-radius-l);
+    font-weight: 700;
+    box-shadow: none;
+}
+.arm-action:disabled { background: var(--latte-tint-3); color: var(--latte-cream-dim); opacity: 0.6; }
 .tabs { background: var(--latte-panel-tabs); }
 .tab {
     background: transparent;
@@ -280,6 +392,9 @@ window.latte-greeter { background: var(--latte-night); color: var(--latte-cream)
 .system-row:hover { background: var(--latte-tint-3); }
 .system-row.confirm { background: var(--latte-accent-tint); }
 .system-row:disabled { opacity: 0.45; }
+.system-row.settings { background: var(--latte-accent-tint); }
+.system-row.settings:hover { background: var(--latte-tint-3); }
+.system-sep { background: var(--latte-line-soft); min-height: 1px; margin: 2px 4px; }
 .system-hint { font-family: monospace; font-size: 11px; color: var(--latte-cream-dim); }
 .system-message { color: var(--latte-danger); font-size: 12px; }
 .system-foot {

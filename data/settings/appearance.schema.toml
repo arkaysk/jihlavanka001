@@ -33,6 +33,7 @@ description = "Balík farieb a tvarov z data/themes/. Neznámy motív sa nahrad�
 [key."color.scheme"]
 type = "enum"
 choices = ["dark", "light"]
+labels = ["Tmavý", "Svetlý"]
 default = "dark"
 label = "Farebný režim"
 description = "Tmavý alebo svetlý variant motívu. Prenáša sa aj do aplikácií, ktoré sa riadia portálom."
@@ -53,6 +54,7 @@ description = "Polopriehľadné panely a lišta. Vypnutie ich urobí plnofarebn�
 [key."shape.corners"]
 type = "enum"
 choices = ["round", "square"]
+labels = ["Zaoblené", "Ostré"]
 default = "round"
 label = "Rohy"
 
@@ -74,6 +76,7 @@ label = "Veľkosť textu"
 [key."window.buttons"]
 type = "enum"
 choices = ["all", "minimize-close", "close"]
+labels = ["Všetky", "Minimalizovať a zavrieť", "Iba zavrieť"]
 default = "all"
 label = "Tlačidlá v záhlaví okna"
 description = "Ktoré tlačidlá majú okná aplikácií (minimalizovať, maximalizovať, zavrieť)."
@@ -91,6 +94,7 @@ description = "Hrúbka horného pruhu všetkých okien: komponentov LatteOS, apl
 [key."accessibility.contrast"]
 type = "enum"
 choices = ["normal", "high"]
+labels = ["Normálny", "Vysoký"]
 default = "normal"
 label = "Kontrast"
 
@@ -104,5 +108,6 @@ description = "Prázdne = systémová tapeta motívu."
 [key."wallpaper.fit"]
 type = "enum"
 choices = ["cover", "contain", "fill"]
+labels = ["Vyplniť", "Vmestiť", "Roztiahnuť"]
 default = "cover"
 label = "Prispôsobenie obrázka"

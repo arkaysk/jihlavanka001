@@ -63,7 +63,7 @@ inak sa po odhlásení ukáže prihlasovanie. Bez greetd je oboje len odhláseni
 
 Tapeta: systémová je v data/wallpapers/ (používa ju prihlasovanie a plocha bez vlastnej tapety),
 používateľská je súbor v priestore používateľa a jej cestu drží ~/.config/latteos/appearance.toml.
-Kým nie sú Nastavenia systému:
+Tapetu nastavíš v Nastaveniach (Prostredie › Pozadie); z terminálu:
     latte-wallpaper set ~/Obrázky/moja.jpg [cover|contain|fill]    # zmena platí hneď
     latte-wallpaper reset                                           # späť na systémovú
 
@@ -78,9 +78,14 @@ Nastavenie, ak je iné, v ~/.config/latteos/prompt.toml:
 pridať aj v popupe. Oznámenia prijíma latte-shell na org.freedesktop.Notifications; skúška: notify-send "Ahoj" "text".
 Ikony plochy sa berú z priečinka Plocha (~/Desktop, ak existuje).
 
+Ďalší používatelia (arkay, kenshi): `su -c 'sh tools/create-users.sh'` (bežné účty, súkromný domov, vlastný Kôš; pozri docs/nastavenia.md).
+
 ## Komponenty
 - latte-files      správca súborov so zväzkami
-- latte-resources  mapa zdrojov (popup ZDROJE v lište; zdroje dát dodáva latte_common/devices.py)
+- latte-settings   Nastavenia systému (tlačidlo Nastavenia v menu napájania v lište; pozri docs/nastavenia.md)
+- latte-devices    Správca zariadení: všetok hardvér po skupinách a monitory (latte_common/hardware.py, outputs.py, displays.py);
+                   `latte-devices list`, `latte-devices display list|set|apply`
+- latte-resources  Správca zdrojov (popup ZDROJE v lište): zariadenia a siete ako dlaždice po skupinách, tlačidlo Nastavenia v ramene L
 - latte-apps       App Manager (plánované)
 - latte-shell      lišta a plocha
 - latte-polkit     dialóg na zadanie hesla správcu (polkit agent relácie)
@@ -231,7 +236,7 @@ Etapa 8 — Systémové nastavenia bez terminálu ⬜
 8.7	Zálohovanie a obnova používateľských dát — latte-snapshotd (bez snapshotov, iba kópia)
 8.8	Diagnostika: zobraziť chybu, ručne odoslať — latte-diagd
 8.9	Schéma systémových nastavení: jeden súbor na doménu, schémy a strom stránok v data/settings/ (latte_common/settings.py, docs/nastavenia.md)	✅
-8.10	Aplikácia Nastavenia: okno skladané zo schém (Registry), stránka Prispôsobenie ako prvá	⬜
+8.10	Aplikácia Nastavenia: okno skladané zo schém (Registry), stránka Prispôsobenie ako prvá	🔸
 Výsledok: splnené kritérium „bežný používateľ nepotrebuje terminál ani raz".
 
 Etapa 9 — Sprievodca a vydanie ⬜

@@ -72,11 +72,42 @@ napr. vlastný akcent), `hidden = true` (interný kľúč, v Nastaveniach sa nez
 
 ## Strom Nastavení (`data/settings/index.toml`)
 
-Zoznam skupín (ľavý zoznam ako vo Windows 11) a stránok. Stránka má `id`, `title`, `group`, `icon`, `description`
-a `status`: `ready` (funguje), `partial` (časť), `planned` (ešte nie je; ukáže sa ako plán s odkazom na etapu z README).
-Ak má stránka `domain`, jej ovládacie prvky sa skladajú zo schémy.
+Strom sleduje návrh main_setting_v2.md: **päť oblastí a Systém** (`software`, `data`, `hardware`, `account`,
+`environment`, `system`). Oblasť je to, čo vidí používateľ; technické domény so schémami sa do nej mapujú cez stránky
+(jedna doména môže mať viac stránok: Prispôsobenie je v Prostredí ako Motív a farby, Písmo, Pozadie, Okná, Prístupnosť).
 
-## Ako pripraviť Nastavenia (budúca aplikácia)
+Stránka (`[[page]]`) má `id`, `title`, `group` (oblasť), `icon`, `description` a `status`: `ready` (funguje), `partial` (časť),
+`planned` (ešte nie je; ukáže sa plán z `contents` a etapa z README). Adresa stránky je `settings://oblasť/stránka`
+(`Page.uri`, `Registry.resolve` prijme aj samotné id).
+
+| Pole       | Význam |
+|------------|--------|
+| `domain`, `sections` | Doména so schémou a ktoré jej oddiely stránka ukazuje (bez `sections` všetky). Ovládacie prvky sa skladajú zo schémy. |
+| `owner`    | Špecializovaný správca, ktorý operácie vlastní (App Manager, Správca zdrojov, ...). Nastavenia ich len ukážu. |
+| `launch`   | Čo otvorí tlačidlo „Spravovať v ...“ (zatiaľ `files`). |
+| `view`     | Vlastný obsah stránky v aplikácii (`about`, `storage`), keď nejde o schému. |
+| `keywords` | Synonymá pre vyhľadávanie, bez diakritiky („wifi“ nájde Sieť). |
+| `contents` | Čo stránka bude obsahovať; ukáže sa, kým je plánovaná. |
+
+Oblasť (`[group.<id>]`) má `title` a `description`.
+
+## Aplikácia Nastavenia (`src/latte_settings/`)
+
+Spustenie: tlačidlo **Nastavenia** v menu napájania v lište, alebo `latte-settings [settings://oblasť/stránka]`
+(`tools/run-settings.sh`). Druhé spustenie použije už otvorené okno a prejde na zadané miesto.
+
+- `model.py` je logika bez GTK (hľadanie, stavy oblastí, nedávne stránky), pokrytá tests/test_settings_model.py.
+- `controls.py` skladá riadok z kľúča schémy podľa typu (bool, enum, číslo, farba, cesta, text). Zapisuje len cez `Store.set`/`reset`,
+  neplatná hodnota sa ukáže pod riadkom a neuloží sa. Riadok sa obnoví sám, ak súbor zmení niekto iný.
+- `pages.py` sú stránky (domov, prehľad oblasti, zo schémy, plán, O LatteOS, Úložisko, výsledky hľadania) a inšpektor vpravo.
+- `app.py` je okno: vrstvené karty oblastí vľavo, obsah, inšpektor. Vzhľad preberá pravidlá správcu súborov z `data/styles/latte.css`
+  (pruh nástrojov, `.files-sidebar`, `.pane`, `.files-inspector`); nové sú `.area-card`, `.settings-*`, `.status-glyph`.
+
+Pravidlá, ktoré kód dodržiava: Nastavenia integrujú stav a navigáciu, nie implementácie (operácie inej komponenty ukážu len ako odkaz);
+stav nikdy nenesie iba farba (symbol `● ! × ↻ ○` + text); oblasť bez skutočného údaju ukáže „Zatiaľ len plán“, nie vymyslené OK;
+hlavné karty sa neposúvajú, posúva sa len zoznam stránok vnútri aktívnej karty.
+
+## Skladanie stránky zo schémy
 
 Nastavenia nemusia poznať jednotlivé kľúče, stačí:
 
@@ -84,24 +115,25 @@ Nastavenia nemusia poznať jednotlivé kľúče, stačí:
 from latte_common import settings
 
 registry = settings.Registry()
-for group_id, title, pages in registry.by_group():          # ľavý strom
+for group_id, title, pages in registry.by_group():          # oblasti a ich stránky
     ...
-page = registry.page("appearance")
+page = registry.page("theme")
 store = registry.store(page.domain)
-for section_id, section_title, keys in store.domain.grouped():   # ovládacie prvky stránky
+for section_id, section_title, keys in registry.page_sections(page):   # len oddiely tejto stránky
     for key in keys:
         store.get(key.id), store.source(key.id), store.locked(key.id)
-        # key.type, key.choices, key.minimum/maximum, key.label, key.description -> vyberie sa widget
+        # key.type, key.choices, key.choice_label(v), key.minimum/maximum, key.label, key.description -> vyberie sa widget
 store.set("color.scheme", "light")                           # overí, zapíše, a komponenty zmenu prevezmú
 ```
 
 Nikto ďalší sa neinformuje ručne: komponenty aj služba `latte-appearance` sledujú súbor a prekreslia sa sami.
-Nová stránka = nová schéma a riadok v index.toml; kód Nastavení sa nemení.
+Nová stránka = nová schéma a riadok v index.toml; kód Nastavení sa nemení. Texty volieb enumu dáva `labels` v schéme
+(rovnaký počet ako `choices`).
 
 ### Pridanie novej domény
 
 1. `data/settings/<doména>.schema.toml` so schémou.
-2. Stránka v `data/settings/index.toml` (`domain = "<doména>"`).
+2. Stránka (alebo viac, s `sections`) v `data/settings/index.toml` (`domain = "<doména>"`).
 3. Komponent číta cez `Registry().store("<doména>")`, nie vlastným parserom; na živú zmenu `settings.watch([súbor], on_change)`.
 4. Test v tests/ (vzor: tests/test_settings.py).
 
@@ -171,3 +203,47 @@ Kontrast textu voči pozadiu (AA) sa nekontroluje pri načítaní, ale testom (t
 `tools/install-session.sh` nalinkuje službu a portál. Potom sa treba znovu prihlásiť (alebo
 `systemctl --user restart xdg-desktop-portal`). Vývoj bez inštalácie: `tools/run-appearance.sh`.
 Skúška zmeny: `latte-appearance set color.scheme light`, návrat `latte-appearance reset`.
+
+## Správca zariadení a Obrazovky
+
+Cesta od hardvéru k nastaveniu: **detekcia → skupiny → stránka Nastavení → uloženie → použitie pri prihlásení**.
+
+| Vrstva | Modul | Čo robí |
+|--------|-------|---------|
+| detekcia | `latte_common/hardware.py` | Inventár všetkého hardvéru bez práv správcu (sysfs, /proc, `lspci`, `lsblk`) a monitorov od kompozitora. Každé zariadenie je v jednej skupine podľa toho, čo robí (USB klávesnica je Vstup, USB disk je Disk). Čo sa nedá zistiť, ide do `problems`, nič sa nehlási potichu. |
+| monitory | `latte_common/outputs.py` | Klient protokolu `wlr-output-management` (bez závislostí, ako `foreign_toplevel.py`): zoznam monitorov s režimami z EDID a zmena režimu, mierky a otočenia. |
+| model a uloženie | `latte_common/displays.py` | Identita monitora (výrobca-model-sériové číslo, nie port), ponuka rozlíšení a frekvencií, odporúčané hodnoty, `~/.config/latteos/displays.toml`. |
+| stránka | `latte_settings/display.py` | Hardvér › Obrazovky. Použitie vyžaduje potvrdenie do 15 s, inak sa zmena vráti (aj pri zatvorení okna). Enter = ponechať, Esc = vrátiť. |
+| príkazy | `latte_devices/app.py` | `latte-devices list [--json]`, `display list`, `display set VÝSTUP 1920x1080@60 [--scale] [--transform] [--save]`, `display apply`. |
+
+**Prečo sa ukladá:** labwc si nastavenie výstupov nepamätá, `session/labwc/autostart` preto pri prihlásení spustí
+`latte-devices display apply`. Uložený režim, ktorý monitor už nemá, sa nepoužije a ohlási sa; monitor, ktorý nie je zapojený, sa preskočí.
+
+**Správca zdrojov (ZDROJE v lište)** ukazuje zariadenia ako dlaždice (veľká ikona v zaoblenom štvorci, názov, stav) po skupinách
+v dvoch stĺpcoch. Záložka **Zariadenia**: obrazovky, grafické karty, zvukové karty, sieťové karty (Ethernet aj Wi-Fi), optické
+mechaniky, disky, klávesnice a myši, kamery, Bluetooth, napájanie, počítač (procesor, pamäť), čipset. Záložka **Siete**: sieťové karty,
+pripojenia a VPN (z NetworkManagera cez `nmcli`, len na čítanie). Ukazuje **zariadenia, nie ich obsah**: žiadne zdieľané priečinky,
+zväzky ani súbory (to je Správca súborov). Vlastné ikony (grafická karta, procesor, pamäť) sú v data/icons/, ostatné z témy.
+
+**Prístup k nastaveniam zariadenia** (Správca zdrojov, ZDROJE v lište): klepnutím sa zariadenie vyberie a v ramene L sa objaví veľké
+tlačidlo **Nastavenia** (cieľ pre prst, funguje aj myšou a klávesnicou). Rýchlejšie cesty pre myš: dvojklik a pravý klik
+(kontextové menu), pre dotyk dvojité klepnutie a dlhé podržanie. Každá skupina vie, kam patrí (`hardware.GROUPS`), pri monitore sa otvorí
+rovno ten monitor: `settings://hardware/display/<konektor>` (tretia časť adresy je objekt stránky, `Registry.split_object`).
+
+Skúška bez GUI: v izolovanom labwc (`WLR_BACKENDS=headless`) `latte-devices display set HEADLESS-1 1280x720 --scale 1.5 --save`.
+Testy: tests/test_outputs.py (protokol proti falošnému kompozitoru), test_displays.py, test_hardware.py.
+
+## Kôš v súkromnom priestore
+
+Skutočný Kôš je podľa freedesktop v `~/.local/share/Trash/files`, používateľovi sa ale neukazuje technická cesta.
+`latte_common/places.py` ho v Správcovi súborov zloží na zložku **Kôš** v jeho súkromnom priestore:
+`Tento počítač › System › home › meno › Kôš`. V domovskej zložke je Kôš aj ako zložka s počtom položiek, záhlavie okna hovorí „Kôš“
+a „..“ z Koša vedie do domova. Skutočné umiestnenie sa nemení (funguje `Gio.File.trash` aj iné aplikácie). Kôš (`files`, `info`,
+mód 0700) sa pripraví pri štarte Správcu súborov, ak chýba. Každý používateľ má svoj Kôš vo svojom domove, ktorý iný účet nevidí.
+
+## Používatelia
+
+Vytváranie účtov vyžaduje roota, preto to robí skript, nie aplikácia: `su -c 'sh tools/create-users.sh'` vytvorí **arkay** a **kenshi**
+(bežné účty bez práv správcu, domov 0700, vlastný Kôš, na konci sa pýta heslo). Existujúci účet nemení. Iný zoznam:
+`USERS="anna:Anna Nováková,peter:Peter" sh tools/create-users.sh`. Prihlasovacia obrazovka ich ukáže sama (UID od 1000, s platným shellom).
+Test skriptu s falošnými príkazmi: tests/test_create_users.py.

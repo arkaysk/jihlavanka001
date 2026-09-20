@@ -26,6 +26,7 @@ from latte_shell.toasts import ToastStack  # noqa: E402
 BAR_HEIGHT = 104
 CORNER = 104
 FILES_APP = os.path.join(os.path.dirname(__file__), "..", "latte_files", "app.py")
+SETTINGS_APP = os.path.join(os.path.dirname(__file__), "..", "latte_settings", "app.py")
 
 
 class Desktop(Gtk.ApplicationWindow):
@@ -165,6 +166,13 @@ class Bar(Gtk.ApplicationWindow):
             argv.append(path)
         subprocess.Popen(argv)
 
+    def launch_settings(self, target=None):
+        """Nastavenia systému, prípadne rovno na stránke (settings://oblasť/stránka)."""
+        argv = [sys.executable, os.path.abspath(SETTINGS_APP)]
+        if target:
+            argv.append(target)
+        subprocess.Popen(argv)
+
     def launch_app(self, info):
         try:
             info.launch([], None)
@@ -209,7 +217,7 @@ class Bar(Gtk.ApplicationWindow):
         found, rect = self.clock_segment.compute_bounds(self)
         left = int(rect.get_x()) if found else 12
         self.system_menu = SystemMenu(
-            self.get_application(), left, BAR_HEIGHT + 6, self.system_menu_closed
+            self.get_application(), left, BAR_HEIGHT + 6, self.system_menu_closed, self.launch_settings
         )
         self.system_menu.present()
 
@@ -231,7 +239,7 @@ class Bar(Gtk.ApplicationWindow):
             self.popup.close_popup()
             if same:
                 return
-        self.popup = maps.MapOverlay(app, kind, self.launch_app, self.popup_closed)
+        self.popup = maps.MapOverlay(app, kind, self.launch_app, self.popup_closed, self.launch_settings)
         self.popup.present()
 
     def popup_closed(self):
@@ -246,6 +254,10 @@ class App(Gtk.Application):
         self.center = notify_center.Center()
         self.notify_service = notify_service.Service(self.center)
         self.toasts = None
+
+    def launch_settings(self, target=None):
+        if self.bar is not None:
+            self.bar.launch_settings(target)
 
     def register_map_window(self, kind, win):
         self.map_windows[kind] = win

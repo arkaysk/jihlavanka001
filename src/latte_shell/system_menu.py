@@ -21,10 +21,11 @@ CONFIRM_MS = 4000               # koľko čaká potvrdenie akcie s confirm
 
 
 class SystemMenu(HoverPopup):
-    def __init__(self, app, left, bottom, on_closed):
+    def __init__(self, app, left, bottom, on_closed, on_settings):
         super().__init__(app, left, bottom, "latte-system-menu", on_closed)
         self.confirming = None      # (akcia, tlačidlo, zdroj časovača)
         self.rows = []
+        self.on_settings = on_settings
 
         panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         panel.add_css_class("system-menu")
@@ -33,6 +34,13 @@ class SystemMenu(HoverPopup):
         title = Gtk.Label(label="Systémový manažér", xalign=0)
         title.add_css_class("system-title")
         panel.append(title)
+
+        # Nastavenia idú pred napájanie: nie sú to akcie, ktoré končia reláciu, preto ani potvrdenie,
+        # ani zablokovanie pri behu vypnutia (nie sú v self.rows)
+        panel.append(self.settings_row())
+        separator = Gtk.Separator()
+        separator.add_css_class("system-sep")
+        panel.append(separator)
 
         for action in system.ACTIONS:
             panel.append(self.build_row(action))
@@ -51,6 +59,25 @@ class SystemMenu(HoverPopup):
         panel.append(foot)
 
         self.set_panel(panel)
+
+    def settings_row(self):
+        button = Gtk.Button()
+        button.add_css_class("system-row")
+        button.add_css_class("settings")
+        row = Gtk.Box(spacing=12)
+        row.append(Gtk.Image.new_from_icon_name("emblem-system-symbolic"))
+        title = Gtk.Label(label="Nastavenia", xalign=0, hexpand=True)
+        hint = Gtk.Label(label="systém a vzhľad", xalign=1)
+        hint.add_css_class("system-hint")
+        row.append(title)
+        row.append(hint)
+        button.set_child(row)
+        button.connect("clicked", lambda _b: self.open_settings())
+        return button
+
+    def open_settings(self):
+        self.close_menu()
+        self.on_settings()
 
     def build_row(self, action):
         button = Gtk.Button()

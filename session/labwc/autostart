@@ -18,3 +18,9 @@ if command -v latte-polkit >/dev/null 2>&1; then
         latte-polkit &
     fi
 fi
+
+# Uložené nastavenie monitorov (Nastavenia › Obrazovky): labwc si rozlíšenie, mierku a otočenie sám
+# nepamätá, preto ich pri každom prihlásení použijeme znova. Bez uloženého súboru sa nestane nič.
+if command -v latte-devices >/dev/null 2>&1; then
+    latte-devices display apply &
+fi
