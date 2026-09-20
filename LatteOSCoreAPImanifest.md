@@ -1404,3 +1404,311 @@ A pri vydaní Arabica má platiť:
 > Ak aplikácia funguje na štandardnom Linuxe a používa štandardné Linuxové rozhrania, LatteOS ju má vedieť zaradiť do svojho prostredia bez toho, aby jej vývojár musel písať špeciálnu verziu pre LatteOS.
 
 Toto je hranica medzi témou nad Linuxom a skutočným desktopovým operačným prostredím.
+
+
+---
+
+# 41. Rozšírenie platformy podľa IDEAS.md
+
+## 41.1 Live Wallpaper API
+
+LatteOS má natívne podporovať živé pozadie ako prvotriedny desktopový objekt, nie ako hack spúšťajúci okno pod ostatnými oknami.
+
+Podporované režimy:
+- statické pozadie
+- animované pozadie
+- video
+- interaktívne pozadie
+- viacmonitorové pozadie
+- workspace-specific pozadie
+
+Core má riešiť FPS limit, spotrebu GPU/CPU, pozastavenie pri fullscreen aplikácii a úsporný režim.
+
+Model:
+    Wallpaper Provider → Latte Wallpaper API → Desktop / Output
+
+Externý provider môže byť samostatná aplikácia.
+
+## 41.2 Latte System Defender
+
+LatteOS má obsahovať vlastnú doplnkovú bezpečnostnú vrstvu založenú predovšetkým na behaviorálnej analýze.
+
+Má sledovať podľa dostupných oprávnení napríklad:
+- neobvyklý rast počtu procesov
+- náhle masové čítanie alebo prepisovanie súborov
+- podozrivé šifrovanie dokumentov
+- neobvyklú CPU/GPU záťaž
+- správanie typické pre mining
+- nové alebo meniace sa autorun položky
+- neobvyklé sieťové spojenia
+- manipuláciu s inými procesmi
+- spúšťanie binárnych súborov z neobvyklých umiestnení
+- zmeny kritických systémových súborov
+- náhle zmeny oprávnení
+
+Stavy:
+    known / trusted / unknown / suspicious / blocked / confirmed malicious
+
+Neznámy proces nesmie byť automaticky označený za malware. Defender má poskytovať rizikové signály, dôkazy a vysvetlenie.
+
+Model:
+    Process / File / Network telemetry
+        ↓
+    Latte Defender
+        ↓
+    Risk assessment
+        ↓
+    User notification
+        ↓
+    optional containment
+
+Má využívať existujúce Linuxové mechanizmy tam, kde sú vhodné, napríklad systemd, audit, fanotify/inotify, podpisy balíkov, Flatpak sandbox a portals. Automatické blokovanie musí byť konzervatívne, auditovateľné a vratné.
+
+## 41.3 Latte Security Center
+
+Defender má mať používateľské centrum zobrazujúce:
+- stav ochrany
+- posledné udalosti
+- podozrivé procesy a súbory
+- autorun zmeny
+- sieťové anomálie
+- sandbox/capability udalosti
+- vykonané zásahy
+- dôvod zásahu
+- možnosť obnovy
+
+Každá udalosť má obsahovať: what, why, source, evidence, risk, action, recovery.
+
+## 41.4 Heidelberg
+
+Heidelberg je natívny LatteOS dokumentový viewer/editor.
+
+Natívne editovanie:
+- TXT, MD, JSON, XML, HTML, CSS, CSV, TOML, YAML
+
+Štruktúrované dokumenty:
+- RTF, ODT, DOC/DOCX podľa parsera
+
+Čítanie/import:
+- EPUB, MOBI, PDF
+
+Obmedzená externá podpora:
+- Apple Pages
+
+Ak LatteOS nevie formát kvalitne editovať, má radšej ponúknuť import/export alebo externú aplikáciu než predstierať plnú kompatibilitu.
+
+## 41.5 Latte Basic Apps
+
+### Core
+- text/document viewer
+- text editor
+- calculator
+- image viewer
+- screenshot
+- archive manager
+- terminal
+- system information
+- system monitor
+- settings
+
+### Essential/Optional
+- calendar
+- tasks
+- notes
+- media player
+- PDF reader
+- ebook reader
+
+Nemusia byť všetky súčasťou minimálneho base image. App Manager môže poskytovať oficiálny LatteOS Essential Apps balík.
+
+## 41.6 Games
+
+LatteOS môže mať oficiálny voliteľný balík open-source alebo inak legálne redistribuovateľných hier.
+
+Quake II je kandidát iba podľa konkrétnej licencie a redistribuovateľnosti dát. Ak je redistribuovateľný engine, ale nie herné dáta, App Manager môže ponúknuť engine a vyžiadať si vlastné dáta používateľa.
+
+## 41.7 Media integration
+
+LatteOS nemusí vytvárať vlastný prehrávač len kvôli značke. Má však poskytovať jednotnú systémovú integráciu pre:
+- media keys
+- MPRIS
+- notifikácie
+- artwork
+- panel/media controls
+- fullscreen state
+- power behavior
+
+VLC a ďalšie kompatibilné prehrávače sa tým môžu správať ako prirodzená súčasť desktopu bez LatteOS-specific verzie.
+
+## 41.8 Calendar, Tasks a Wellbeing
+
+LatteOS môže poskytovať API služby pre:
+- Calendar: udalosti, pripomienky, časové pásma, notifikácie
+- Tasks: úlohy, termíny, priority, pripomienky
+- Wellbeing: čas aktívneho používania, čas v aplikáciách, fullscreen/session čas, pracovné bloky, prestávky, voliteľné limity
+
+Tieto služby majú byť API-first.
+
+---
+
+# 42. Latte System Monitor 2.0
+
+Existujúci Process Manager nemá byť kópiou Windows Task Managera. Má kombinovať:
+- Task Manager
+- Autoruns
+- CPU-Z
+- HWiNFO
+- základný system monitoring
+- diagnostiku
+
+Device Manager zostáva samostatný.
+
+### Processes
+- strom procesov
+- proces → aplikácia
+- CPU, RAM, GPU, VRAM podľa dostupnosti
+- disk I/O, network I/O
+- command line, executable path
+- package/source
+- runtime
+- sandbox
+- parent/children
+- user/system/helper classification
+
+### Autorun
+Zjednotiť:
+- XDG autostart
+- systemd user/system services
+- systemd timers
+- cron podľa dostupnosti
+- session hooks
+- Flatpak autostart
+
+Pri každej položke zobrazovať pôvod, vlastníka, definíciu, príkaz, typ a bezpečnosť zásahu.
+
+### Resources
+- krátka história
+- CPU load
+- disk throughput a IOPS podľa dostupnosti
+- network throughput
+- GPU load a memory
+- teploty
+- ventilátory
+- spotreba
+- swap
+- batéria
+
+### Hardware correlation
+    Application → Process → GPU/device → thermal/power effect
+
+System Monitor a Device Manager sa tým prepoja dátami, ale zostanú samostatnými nástrojmi.
+
+### Diagnostics
+Detail procesu môže podľa dostupnosti zobrazovať executable, package, signature/source, runtime, sandbox, parent/children, startup origin, network/file/hardware activity a security events.
+
+---
+
+# 43. Ďalšie kandidáty pre LatteOS
+
+### Desktop
+- clipboard history
+- universal search
+- recent files
+- global shortcut manager
+- workspace manager
+- window tiling
+- window rules
+- per-monitor/per-application scaling
+- night light/color temperature
+- screen profiles
+- session restore
+
+### Files
+- batch rename
+- file tags
+- colored folder labels
+- saved searches
+- duplicate finder
+- storage analyzer
+- checksum/hash
+- snapshots
+- previous versions
+- undo history
+
+### System
+- graphical service manager
+- graphical firewall frontend
+- backup center
+- update center
+- driver/device information
+- power profiles
+- battery health
+- disk health/S.M.A.R.T.
+- boot diagnostics
+- recovery environment
+
+### Security
+- application permissions center
+- sandbox viewer
+- executable trust information
+- package signature information
+- firewall integration
+- security event history
+- removable-media policy
+- USB device trust
+- suspicious autorun detection
+- ransomware behavior detection
+
+### Productivity
+- notes
+- tasks
+- calendar
+- focus mode
+- wellbeing
+- clipboard
+- quick capture
+- document preview
+- universal recent-items system
+
+### Hardware / enthusiast
+- CPU topology
+- NUMA information where applicable
+- RAM details
+- PCI topology
+- USB topology
+- storage health
+- SMART
+- GPU details
+- sensors
+- supported fan control
+- power consumption
+- display EDID/details
+- audio devices
+- network adapter details
+
+---
+
+# 44. Prioritization toward Arabica
+
+### Arabica Core
+Funkcie potrebné na kompletné desktopové prostredie.
+
+### Arabica Essential Apps
+Malé systémové aplikácie, ktoré používateľ očakáva okamžite.
+
+### Arabica Plus
+Výrazné LatteOS-specific funkcie:
+- System Defender
+- rozšírený System Monitor
+- Live Wallpaper
+- wellbeing
+- pokročilé file tools
+- diagnostika
+
+### Future
+- Android
+- Wine/Proton
+- microVM
+- pokročilý capability broker
+- hardware-specific integrations
+- pokročilá AI integrácia
