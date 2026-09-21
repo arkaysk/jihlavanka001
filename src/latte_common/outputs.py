@@ -303,14 +303,12 @@ class Client:
         cfg = self._new_id()
         self.result[cfg] = None
         self._send(self.manager, MGR_CREATE_CONFIGURATION, struct.pack("=II", cfg, self.serial or 0))
-        head_objects = []
         for head in self.monitors():
             change = changes.get(head.name, {})
             if not change.get("enabled", head.enabled):
                 self._send(cfg, CFG_DISABLE_HEAD, struct.pack("=I", head.id))
                 continue
             entry = self._new_id()
-            head_objects.append(entry)
             self._send(cfg, CFG_ENABLE_HEAD, struct.pack("=II", entry, head.id))
             self._set_mode(entry, head, change.get("mode"))
             self._send(entry, CH_SET_POSITION, struct.pack("=ii", head.x, head.y))
@@ -323,8 +321,8 @@ class Client:
         while self.result[cfg] is None:
             self._pump(deadline)
         outcome = self.result.pop(cfg)
-        for entry in head_objects:
-            self._send(entry, CH_DESTROY)
+        # Hlavy konfigurácie (zwlr_output_configuration_head_v1) kompozitor po výsledku zruší sám; naše
+        # destroy by bolo „invalid object“ a zhodilo by spojenie pri ďalšej zmene na tom istom klientovi.
         self._send(cfg, CFG_DESTROY)
         if outcome == CFG_SUCCEEDED:
             return None

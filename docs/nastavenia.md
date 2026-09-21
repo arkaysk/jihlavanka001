@@ -68,7 +68,9 @@ apply = "live"               # live = hneď | session = po novom prihlásení | 
 ```
 
 Ďalšie polia: `min`, `max`, `step`, `unit` (čísla), `allow_empty = true` (prázdny text znamená „nenastavené“,
-napr. vlastný akcent), `hidden = true` (interný kľúč, v Nastaveniach sa nezobrazí).
+napr. vlastný akcent), `hidden = true` (interný kľúč, v Nastaveniach sa nezobrazí), `control = "slider"`
+(číslo s `min` a `max` sa mení posuvníkom a zmena sa zapisuje priebežne, najviac desaťkrát za sekundu,
+takže sa počas ťahania hneď prejaví; napr. `bar.height`).
 
 ## Strom Nastavení (`data/settings/index.toml`)
 
@@ -83,6 +85,7 @@ Stránka (`[[page]]`) má `id`, `title`, `group` (oblasť), `icon`, `description
 | Pole       | Význam |
 |------------|--------|
 | `domain`, `sections` | Doména so schémou a ktoré jej oddiely stránka ukazuje (bez `sections` všetky). Ovládacie prvky sa skladajú zo schémy. |
+| `include` | Oddiely iných domén, ktoré stránka ukazuje pred svojou doménou: `["appearance:bar"]`. Stránka tak nemusí mať jednu doménu (Lišta ukazuje výšku z `appearance` a nad tým prompt). Každý riadok si berie Store zo svojho kľúča (`Key.domain`). Vyžaduje aj vlastnú `domain`. |
 | `owner`    | Špecializovaný správca, ktorý operácie vlastní (App Manager, Správca zdrojov, ...). Nastavenia ich len ukážu. |
 | `launch`   | Čo otvorí tlačidlo „Spravovať v ...“ (zatiaľ `files`). |
 | `view`     | Vlastný obsah stránky v aplikácii (`about`, `storage`), keď nejde o schému. |
@@ -216,10 +219,19 @@ Cesta od hardvéru k nastaveniu: **detekcia → skupiny → stránka Nastavení 
 | monitory | `latte_common/outputs.py` | Klient protokolu `wlr-output-management` (bez závislostí, ako `foreign_toplevel.py`): zoznam monitorov s režimami z EDID a zmena režimu, mierky a otočenia. |
 | model a uloženie | `latte_common/displays.py` | Identita monitora (výrobca-model-sériové číslo, nie port), ponuka rozlíšení a frekvencií, odporúčané hodnoty, `~/.config/latteos/displays.toml`. |
 | stránka | `latte_settings/display.py` | Hardvér › Obrazovky. Použitie vyžaduje potvrdenie do 15 s, inak sa zmena vráti (aj pri zatvorení okna). Enter = ponechať, Esc = vrátiť. |
-| príkazy | `latte_devices/app.py` | `latte-devices list [--json]`, `display list`, `display set VÝSTUP 1920x1080@60 [--scale] [--transform] [--save]`, `display apply`. |
+| príkazy | `latte_devices/app.py` | `latte-devices list [--json]`, `display list`, `display set VÝSTUP 1920x1080@60 [--scale] [--transform] [--save]`, `display apply`, `display safe`. |
 
 **Prečo sa ukladá:** labwc si nastavenie výstupov nepamätá, `session/labwc/autostart` preto pri prihlásení spustí
 `latte-devices display apply`. Uložený režim, ktorý monitor už nemá, sa nepoužije a ohlási sa; monitor, ktorý nie je zapojený, sa preskočí.
+
+**Rozlíšenie pri prihlásení a bez uloženej voľby:** grafika bez EDID (VirtualBox, QEMU) hlási ako preferovaný záložný
+640 × 480, na ktorom by ostala prihlasovacia obrazovka aj plocha. Preto `displays.safe_modes` vyberie preferovaný režim monitora,
+ak je použiteľný (aspoň 1024 × 600), inak najväčšie rozlíšenie do 1920 × 1080; kompozitor ho pred použitím vyskúša (test-only
+konfigurácia) a pri odmietnutí ide na ďalšie. Rozlíšenia pod 1024 × 600 sa v Nastaveniach neponúkajú (`MIN_WIDTH`, `MIN_HEIGHT`).
+- **Prihlasovacia obrazovka:** `session/latte-greeter` volá `latte-devices display safe` pred greeterom (používateľova voľba je
+  v jeho domovskom adresári, ktorý greeter nevidí, a nemá sa pri prihlásení riadiť ňou). Kód sa kopíruje do /usr/local/lib/latteos
+  inštalátorom `tools/install-greeter.sh`, po zmene ho spusti znova.
+- **Plocha:** `display apply` použije uloženú voľbu; monitor bez nej (alebo s režimom, ktorý už nemá) dostane to isté bezpečné rozlíšenie.
 
 **Správca zdrojov (ZDROJE v lište)** ukazuje zariadenia ako dlaždice (veľká ikona v zaoblenom štvorci, názov, stav) po skupinách
 v dvoch stĺpcoch. Záložka **Zariadenia**: obrazovky, grafické karty, zvukové karty, sieťové karty (Ethernet aj Wi-Fi), optické

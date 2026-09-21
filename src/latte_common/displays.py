@@ -24,7 +24,9 @@ TRANSFORM_LABELS = {
     "270": "Na výšku, otočené o 270°",
 }
 TRANSFORMS = tuple(TRANSFORM_LABELS)     # ostatné (zrkadlené) režimy Nastavenia zatiaľ neponúkajú
-RATE_TOLERANCE = 50                      # mHz: 59940 a 60000 sú pre uloženie rôzne režimy, 59940 a 59950 nie
+MIN_WIDTH, MIN_HEIGHT = 1024, 600        # menšie rozlíšenie (640 × 480, 800 × 600) sa neponúka ani nevolí samo
+SAFE_PIXELS = 1920 * 1080                # strop pre automatickú voľbu, keď monitor nehlási použiteľný preferovaný režim
+RATE_TOLERANCE = 50                     # mHz: 59940 a 60000 sú pre uloženie rôzne režimy, 59940 a 59950 nie
 
 
 # ---------------------------------------------------------------- identita a popis
@@ -66,17 +68,41 @@ def dpi(head):
 
 
 # ---------------------------------------------------------------- ponuka režimov
+def usable(width, height):
+    return width >= MIN_WIDTH and height >= MIN_HEIGHT
+
+
 def resolutions(head):
-    """[(šírka, výška)] od najväčšieho."""
+    """[(šírka, výška)] od najväčšieho. Rozlíšenia pod MIN_WIDTH × MIN_HEIGHT sa neponúkajú (okno
+    Nastavení ani lišta sa naň nezmestia); ak monitor nemá žiadne väčšie, ponúknu sa všetky."""
     found = {(m.width, m.height) for m in head.modes.values() if m.width and m.height}
-    return sorted(found, key=lambda r: (r[0] * r[1], r[0]), reverse=True)
+    good = {r for r in found if usable(*r)}
+    return sorted(good or found, key=lambda r: (r[0] * r[1], r[0]), reverse=True)
+
+
+def safe_modes(head):
+    """[(šírka, výška, refresh)] od najvhodnejšieho pre prihlasovaciu obrazovku a prvé spustenie.
+
+    Najprv preferovaný režim monitora, ak je použiteľný. Virtuálne grafiky bez EDID (VirtualBox, QEMU)
+    ako preferovaný hlásia záložných 640 × 480, ten sa preskočí. Potom najväčšie rozlíšenia do SAFE_PIXELS:
+    vyššie (4K na pixman vykresľovaní) prihlásenie zbytočne spomaľuje."""
+    result = []
+    for mode in head.modes.values():
+        if mode.preferred and usable(mode.width, mode.height):
+            result.append((mode.width, mode.height, mode.refresh))
+    for width, height in resolutions(head):
+        if usable(width, height) and width * height <= SAFE_PIXELS:
+            candidate = (width, height, recommended_rate(head, width, height))
+            if candidate not in result:
+                result.append(candidate)
+    return result
 
 
 def recommended_resolution(head):
-    """Preferovaný režim monitora (výrobca ho zapísal do EDID), inak najväčšie rozlíšenie."""
-    for mode in head.modes.values():
-        if mode.preferred:
-            return (mode.width, mode.height)
+    """Bezpečné rozlíšenie (safe_modes: preferovaný režim monitora, ak je použiteľný), inak najväčšie."""
+    safe = safe_modes(head)
+    if safe:
+        return safe[0][:2]
     found = resolutions(head)
     return found[0] if found else None
 
@@ -256,9 +282,7 @@ def plan_saved(heads, saved):
         head = by_id.get(ident)
         if head is None or not head.enabled:
             continue
-        exists = any((m.width, m.height, m.refresh) == (want["width"], want["height"], want["refresh"])
-                     for m in head.modes.values())
-        if not exists and head.modes:
+        if not has_mode(head, want) and head.modes:
             notes.append("%s: uložený režim %s už monitor nemá, ostáva súčasný"
                          % (title(head), format_resolution(want["width"], want["height"])))
             change = change_for(head, *current_state(head)[:3], want["scale"], want["transform"])
@@ -269,15 +293,51 @@ def plan_saved(heads, saved):
     return changes, notes
 
 
+def has_mode(head, want):
+    return any((m.width, m.height, m.refresh) == (want["width"], want["height"], want["refresh"])
+               for m in head.modes.values())
+
+
+def safe_change(client, head):
+    """Zmena režimu na najvhodnejšie rozlíšenie zo safe_modes, ktoré kompozitor prijme (skúša ich bez
+    použitia). {} = netreba (už také je) alebo sa nič nepodarilo a monitor ostane, ako je."""
+    current = head.current
+    for mode in safe_modes(head):
+        if current is not None and (current.width, current.height, current.refresh) == mode:
+            return {}
+        if client.apply({head.name: {"mode": mode}}, test_only=True) is None:
+            return {"mode": mode}
+    return {}
+
+
+def apply_safe():
+    """Prihlasovacia obrazovka: každý zapnutý monitor dostane najvyššie bezpečné rozlíšenie. Vráti [správy]."""
+    with outputs.Client() as client:
+        changes = {}
+        for head in client.monitors():
+            change = safe_change(client, head) if head.enabled else {}
+            if change:
+                changes[head.name] = change
+        error = client.apply(changes) if changes else None
+    return ["rozlíšenie prihlasovacej obrazovky sa nepodarilo nastaviť: %s" % error] if error else []
+
+
 def apply_saved(path=None):
-    """Použije uložené voľby na zapojené monitory. Vráti [správy] (prázdne = nič sa nemenilo alebo hotovo)."""
+    """Použije uložené voľby na zapojené monitory; monitor bez uloženej (alebo použiteľnej) voľby dostane
+    bezpečné rozlíšenie ako prihlasovacia obrazovka. Vráti [správy] (prázdne = nič sa nemenilo alebo hotovo)."""
     saved, problems = load_saved(path)
     messages = list(problems)
-    if not saved:
-        return messages
     with outputs.Client() as client:
-        changes, notes = plan_saved(client.monitors(), saved)
+        heads = client.monitors()
+        changes, notes = plan_saved(heads, saved)
         messages += notes
+        for ident, head in identify(heads).items():
+            want = saved.get(ident)
+            if not head.enabled or (want is not None and has_mode(head, want)):
+                continue
+            mode = safe_change(client, head)
+            if mode:
+                changes.setdefault(head.name, {}).update(mode)
         if changes:
             error = client.apply(changes)
             if error:

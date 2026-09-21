@@ -186,30 +186,35 @@ class SchemaView(View):
 
     def __init__(self, window, page):
         self.window = window
-        self.store = window.store(page.domain)
+        self.stores = []                # stránka môže ukazovať oddiely aj z iných domén (Page.include)
+        for domain_id, _sections in window.registry.page_sources(page):
+            if window.store(domain_id) not in self.stores:
+                self.stores.append(window.store(domain_id))
         self.rows = {}
         blocks = []
-        if self.store.problems:
+        problems = [p for store in self.stores for p in store.problems]
+        if problems:
             blocks.append(notice("Súbor s nastaveniami má chyby, použili sa predvolené hodnoty:\n"
-                                 + "\n".join(self.store.problems), danger=True))
+                                 + "\n".join(problems), danger=True))
         for _section, title, keys in window.registry.page_sections(page):
             rows = []
             for key in keys:
-                row = KeyRow(self.store, key)
+                row = KeyRow(window.store(key.domain), key)
                 self.rows[key.id] = row
                 rows.append(row)
             if title:
                 blocks.append(group_title(title))
             blocks.append(settings_group(rows))
-        foot = label("Hodnoty sa ukladajú do %s." % short_path(self.store.path), "row-note")
+        foot = label("Hodnoty sa ukladajú do %s." % ", ".join(short_path(s.path) for s in self.stores), "row-note")
         foot.set_margin_top(16)
         blocks.append(foot)
         self.widget, _body = scrolled_page(page.title, page.description, *blocks)
         # súbor môže zmeniť aj iný nástroj (latte-appearance set ...): riadky si zobrazia nové hodnoty
-        self.monitor = settings.watch([self.store.domain.file], self.on_external)
+        self.monitor = settings.watch([s.domain.file for s in self.stores], self.on_external)
 
     def on_external(self):
-        self.store.reload()
+        for store in self.stores:
+            store.reload()
         for row in self.rows.values():
             row.refresh()
 
@@ -412,13 +417,21 @@ class Inspector(Gtk.Box):
         self.line("Adresa", page.uri, mono=True)
 
         if page.domain:
-            store = self.window.store(page.domain)
+            stores = []                 # stránka môže ukazovať aj oddiely iných domén (Page.include)
+            for domain_id, _sections in self.window.registry.page_sources(page):
+                if self.window.store(domain_id) not in stores:
+                    stores.append(self.window.store(domain_id))
             heading = label("HODNOTY", "section-title")
             self.body.append(heading)
-            self.line("Súbor", short_path(store.path), mono=True)
+            for store in stores:
+                self.line("Súbor", short_path(store.path), mono=True)
             self.line("Vrstvy", "predvolené < správca < používateľ")
-            if store.domain.owner:
-                self.line("Používa", store.domain.owner)
+            owners = []
+            for store in stores:
+                if store.domain.owner and store.domain.owner not in owners:
+                    owners.append(store.domain.owner)
+            if owners:
+                self.line("Používa", ", ".join(owners))
         if page.launch:
             button = Gtk.Button(label="Spravovať v: %s" % MANAGER_NAMES.get(page.launch, page.owner))
             button.add_css_class("suggested-action")

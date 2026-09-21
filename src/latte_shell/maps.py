@@ -12,13 +12,42 @@ from gi.repository import Gtk, Gdk, Gio, GLib  # noqa: E402
 from gi.repository import Gtk4LayerShell as LayerShell  # noqa: E402
 
 from latte_common import hardware  # noqa: E402
-from latte_shell.geometry import ARM_HEIGHT, BAR_HEIGHT  # noqa: E402
+from latte_shell import bar_texture  # noqa: E402
+from latte_shell import geometry  # noqa: E402
+from latte_shell.geometry import ARM_HEIGHT, POPUP_WIDTH  # noqa: E402
+from latte_shell.reveal import CLOSE_MS, OPEN_MS, Reveal, Tween, phases  # noqa: E402
 
-MAP_WIDTH = 640
+MAP_WIDTH = POPUP_WIDTH
 MAP_HEIGHT = 520
 MAP_WIDTH_PINNED = 900
 MAP_HEIGHT_PINNED = 640
-COLUMN = 104
+ARM_TEXT_GAP = 24               # medzera medzi pätou L a textom v kmeni
+# Názov a tlačidlo do podrobností sú až v otvorenom popupe (zatvorená dlaždica má len ikonu, ako ostatné
+# položky lišty): druh dlaždice -> názov; druh -> (ikona, text tlačidla)
+NAMES = {"apps": "App Manager", "resources": "Správca zariadení"}
+DETAILS = {"apps": ("system-software-install-symbolic", "Inštalácia aplikácií"),
+           "resources": ("view-list-symbolic", "Podrobnosti")}
+
+
+def details_button(kind, on_details):
+    """Tlačidlo z ramena popupu do podrobností (App Manager: inštalácia, Správca zariadení: všetky zariadenia)."""
+    icon, text = DETAILS[kind]
+    button = Gtk.Button()
+    button.add_css_class("arm-link")
+    line = Gtk.Box(spacing=10)
+    line.append(Gtk.Image.new_from_icon_name(icon))
+    line.append(Gtk.Label(label=text))
+    button.set_child(line)
+    button.set_valign(Gtk.Align.CENTER)
+    button.set_size_request(-1, 56)                 # veľký cieľ pre prst
+    button.connect("clicked", lambda _b: on_details(kind))
+    return button
+
+
+def name_label(kind):
+    label = Gtk.Label(label=NAMES[kind].upper(), xalign=0)
+    label.add_css_class("arm-name")
+    return label
 GROUP_COLUMNS = 2               # skupiny zariadení vedľa seba
 TILES_PER_ROW = 3               # dlaždíc v riadku skupiny
 GROUP_GAP = 12                  # medzera medzi kartami skupín
@@ -217,13 +246,14 @@ class ResourcesBar(Gtk.Box):
     Rovnaký panel je v pripnutom okne pod mapou. Bez výberu ukáže súhrn a čo sa nepodarilo zistiť.
     """
 
-    def __init__(self, inventory, on_settings):
+    def __init__(self, inventory, on_settings, on_details=None):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
         self.inventory = inventory
         self.on_settings = on_settings
         self.item = None
         col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, hexpand=True)
         col.set_valign(Gtk.Align.CENTER)
+        col.append(name_label("resources"))
         self.title = Gtk.Label(xalign=0, ellipsize=3)
         self.title.add_css_class("arm-title")
         self.line1 = Gtk.Label(xalign=0, ellipsize=3)
@@ -234,6 +264,8 @@ class ResourcesBar(Gtk.Box):
         col.append(self.line1)
         col.append(self.line2)
         self.append(col)
+        if on_details is not None:
+            self.append(details_button("resources", on_details))
         self.button = Gtk.Button()
         self.button.add_css_class("arm-action")
         line = Gtk.Box(spacing=10)
@@ -329,29 +361,33 @@ class MapPanel(Gtk.Box):
         self.body.append(content)
 
 
-def arm_box(kind, content=None):
-    """Vodorovné rameno L so súhrnom. content: hotový obsah (zdroje: ResourcesBar)."""
-    arm = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
+def arm_box(kind, content=None, textured=False, on_details=None):
+    """Vodorovné rameno L (kmeň) so súhrnom. content: hotový obsah (zdroje: ResourcesBar).
+
+    Pozadie ramena zaberá celú šírku popupu. Text je odsadený od okraja, pri ktorom je päta L (dlaždica
+    lišty pod ramenom): od jej šírky a medzery, aby nebol nad ňou.
+    """
+    arm = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
     arm.add_css_class("arm")
+    if textured:
+        arm.add_css_class("arm-textured")
     arm.set_size_request(-1, ARM_HEIGHT)
+    foot = geometry.corner_width() + ARM_TEXT_GAP
+    near, far = (foot, 20) if kind == "apps" else (20, foot)         # odsadenie od ľavého a pravého okraja
     if content is not None:
-        arm.set_margin_start(20)
-        arm.set_margin_end(COLUMN + 40)
         content.set_hexpand(True)
+        content.set_margin_start(near)
+        content.set_margin_end(far)
         arm.append(content)
         return arm
 
     if kind == "apps":
-        arm.set_margin_start(COLUMN + 40)
-        arm.set_margin_end(20)
         lines = [
             "[POČET] aplikácií · [MIESTO]",
             "App Manager ponúka [POČET] natívnych a [POČET] kontajnerových aplikácií",
             "[POČET] bežiacich procesov",
         ]
     else:
-        arm.set_margin_start(20)
-        arm.set_margin_end(COLUMN + 40)
         lines = [
             "[POČET] zariadení · [SIEŤ]",
             "Ťahom zariadenia na okno ho pridelíte aplikácii",
@@ -360,6 +396,8 @@ def arm_box(kind, content=None):
 
     col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, hexpand=True)
     col.set_valign(Gtk.Align.CENTER)
+    col.set_margin_start(near)
+    col.append(name_label(kind))
     first = Gtk.Label(label=lines[0], xalign=0)
     first.add_css_class("arm-title")
     col.append(first)
@@ -368,32 +406,64 @@ def arm_box(kind, content=None):
         lbl.add_css_class("dim")
         col.append(lbl)
     arm.append(col)
+    if on_details is not None:
+        button = details_button(kind, on_details)
+        button.set_margin_start(18)
+        button.set_margin_end(far)
+        arm.append(button)
+    else:
+        col.set_margin_end(far)
     return arm
 
 
-def column_box(label_text):
-    """Zvislá časť L v rohu obrazovky."""
-    col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-    col.add_css_class("column")
-    col.set_size_request(COLUMN, BAR_HEIGHT)
-    lbl = Gtk.Label(label=label_text)
-    lbl.add_css_class("corner-label")
-    lbl.set_valign(Gtk.Align.END)
-    lbl.set_vexpand(True)
-    lbl.set_margin_bottom(14)
-    col.append(lbl)
-    return col
+def trunk_content(arm, texture, right):
+    """Kmeň L: rameno s textúrou pod textom (ak dlaždica nejakú má), inak samotné rameno.
+
+    Textúra je výsek toho istého plátna, ktoré ukazuje päta v lište, takže na seba plynule nadväzujú.
+    """
+    if texture is None:
+        arm.set_size_request(MAP_WIDTH, ARM_HEIGHT)
+        return arm
+    stack = Gtk.Overlay()
+    stack.set_size_request(MAP_WIDTH, ARM_HEIGHT)
+    stack.set_child(texture.view(bar_texture.trunk_rect, right, awake=True))
+    stack.add_overlay(arm)
+    return stack
 
 
 # ---------------------------------------------------------------- popup
-class MapOverlay(Gtk.Window):
-    """Celoobrazovková vrstva: klik mimo L ju zavrie."""
+class TrunkWindow(Gtk.Window):
+    """Kmeň L v samostatnom okne nad lištou.
 
-    def __init__(self, app, kind, on_launch, on_closed, on_settings=None):
+    Textúra sa hýbe, takže sa jeho povrch prekresľuje každú snímku. Softvérové vykresľovanie pritom
+    prekreslí celý povrch okna, nie len zmenenú časť; keby kmeň bol v okne popupu, prekresľoval by sa
+    s ním aj panel s mriežkou aplikácií (namerané: 21 % namiesto 4 % jedného jadra). Okno popupu preto
+    zostáva statické a kmeň má vlastný malý povrch.
+    """
+
+    def __init__(self, app, child, right):
+        super().__init__(application=app)
+        self.add_css_class("latte-overlay")
+        LayerShell.init_for_window(self)
+        LayerShell.set_layer(self, LayerShell.Layer.OVERLAY)
+        LayerShell.set_anchor(self, LayerShell.Edge.BOTTOM, True)
+        LayerShell.set_anchor(self, LayerShell.Edge.RIGHT if right else LayerShell.Edge.LEFT, True)
+        LayerShell.set_margin(self, LayerShell.Edge.BOTTOM, geometry.bar_height())
+        LayerShell.set_exclusive_zone(self, -1)
+        LayerShell.set_namespace(self, "latte-popup-trunk")
+        self.set_child(child)
+
+
+class MapOverlay(Gtk.Window):
+    """Celoobrazovková vrstva s panelom mapy: klik mimo L ju zavrie. Kmeň L je v okne TrunkWindow."""
+
+    def __init__(self, app, kind, on_launch, on_closed, on_settings=None, on_details=None):
         super().__init__(application=app)
         self.kind = kind
         self.on_closed = on_closed
         self.on_settings = on_settings
+        self.on_details = on_details
+        self.closing = False
         self.add_css_class("latte-overlay")
 
         LayerShell.init_for_window(self)
@@ -420,33 +490,64 @@ class MapOverlay(Gtk.Window):
         shape = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         shape.set_valign(Gtk.Align.END)
         shape.set_halign(Gtk.Align.START if kind == "apps" else Gtk.Align.END)
-        shape.set_margin_bottom(BAR_HEIGHT)
+        shape.set_margin_bottom(geometry.bar_height() + ARM_HEIGHT)          # pod panelom je miesto pre okno kmeňa
 
+        texture = getattr(app, "textures", {}).get(kind)
+        right = kind != "apps"
         if kind == "resources":
             self.inventory = hardware.scan()
-            self.bar = ResourcesBar(self.inventory, self.open_settings)
+            self.bar = ResourcesBar(self.inventory, self.open_settings, self.open_details)
             panel = MapPanel(kind, self.pin, on_launch, inventory=self.inventory,
                              on_select=self.bar.show_item, on_open=self.open_settings)
-            arm = arm_box(kind, self.bar)
+            arm = arm_box(kind, self.bar, texture is not None)
         else:
             panel = MapPanel(kind, self.pin, on_launch)
-            arm = arm_box(kind)
+            arm = arm_box(kind, textured=texture is not None, on_details=self.open_details)
         panel.set_size_request(MAP_WIDTH, MAP_HEIGHT)
         shape.append(panel)
 
-        arm.set_size_request(MAP_WIDTH, ARM_HEIGHT)
-        shape.append(arm)
+        self.panel = panel
+        self.reveal = Reveal(trunk_content(arm, texture, right), geometry.corner_width(), right)
+        self.trunk_window = TrunkWindow(app, self.reveal, right)
 
         overlay.add_overlay(shape)
 
+        # otvára sa z päty L (rohovej dlaždice): najprv kmeň, potom sa objaví panel
+        self.tween = Tween(self, self.show_progress)
+        self.show_progress(0.0)
+        self.connect("map", self.on_map)
+
+    def on_map(self, _window):
+        self.trunk_window.present()             # až po mape popupu, aby ležal nad jeho vrstvou
+        self.tween.run(1.0, OPEN_MS)
+
+    def show_progress(self, progress):
+        arm_share, panel_opacity = phases(progress)
+        self.reveal.set_progress(arm_share)
+        self.panel.set_opacity(panel_opacity)
+
     def close_popup(self):
+        """Popup sa hneď považuje za zatvorený a zasunie sa späť do päty; okno zanikne po animácii."""
+        if self.closing:
+            return
+        self.closing = True
         self.on_closed()
+        self.tween.run(0.0, CLOSE_MS, self.finish_close)
+
+    def finish_close(self):
+        self.trunk_window.destroy()
         self.destroy()
 
     def open_settings(self, item):
         """Nastavenia vybraného zariadenia: stránka jeho skupiny, pri monitore rovno ten monitor."""
         if self.on_settings is not None:
             self.on_settings(item.settings_uri)
+        self.close_popup()
+
+    def open_details(self, kind):
+        """Podrobnosti (App Manager: inštalácia, Správca zariadení: všetky zariadenia)."""
+        if self.on_details is not None:
+            self.on_details(kind)
         self.close_popup()
 
     def pin(self):
@@ -470,7 +571,7 @@ class MapWindow(Gtk.Window):
         self.set_default_size(MAP_WIDTH_PINNED, MAP_HEIGHT_PINNED)
         if kind == "resources":
             inventory = hardware.scan()
-            self.bar = ResourcesBar(inventory, self.open_settings)
+            self.bar = ResourcesBar(inventory, self.open_settings, self.open_details)
             self.bar.add_css_class("arm")
             self.bar.set_size_request(-1, ARM_HEIGHT)
             panel = MapPanel(kind, lambda: None, self.launch, pinned=True, inventory=inventory,
@@ -487,6 +588,11 @@ class MapWindow(Gtk.Window):
         if self.on_closed is not None:
             self.on_closed(self.kind)
         return False
+
+    def open_details(self, kind):
+        opener = getattr(self.get_application(), "launch_details", None)
+        if opener is not None:
+            opener(kind)
 
     def open_settings(self, item):
         opener = getattr(self.get_application(), "launch_settings", None)

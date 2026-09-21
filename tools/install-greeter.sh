@@ -19,10 +19,12 @@ done
 install -m644 "$ROOT/session/latteos.desktop" /usr/share/wayland-sessions/latteos.desktop
 
 # kód greetera (Python) a spoločné moduly
-rm -rf "$LIB/latte_common" "$LIB/latte_greeter"
-install -d -m755 "$LIB/latte_common" "$LIB/latte_greeter"
+rm -rf "$LIB/latte_common" "$LIB/latte_greeter" "$LIB/latte_devices"
+install -d -m755 "$LIB/latte_common" "$LIB/latte_greeter" "$LIB/latte_devices"
 for f in "$ROOT"/src/latte_common/*.py; do install -m644 "$f" "$LIB/latte_common/"; done
 for f in "$ROOT"/src/latte_greeter/*.py; do install -m644 "$f" "$LIB/latte_greeter/"; done
+# latte-devices display safe: rozlíšenie prihlasovacej obrazovky (session/latte-greeter)
+install -m755 "$ROOT/src/latte_devices/app.py" "$LIB/latte_devices/app.py"
 chmod 755 "$LIB/latte_greeter/app.py"
 
 # téma (štýly, motívy, schémy nastavení, ktoré latte_common/theme.py potrebuje) a systémové tapety

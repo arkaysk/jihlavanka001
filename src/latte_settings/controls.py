@@ -4,13 +4,17 @@ Riadok nepozná význam kľúča, len jeho typ. Zapisuje výhradne cez Store.set
 hodnoty, vrstvy (správca prekrýva používateľa) a atomický zápis sú tie isté ako všade. Neplatná
 hodnota alebo zlyhaný zápis sa ukáže pod riadkom, nikdy sa nepohltí potichu.
 """
+import cairo
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
-from gi.repository import Gtk, Gdk, GLib  # noqa: E402
+from gi.repository import Gtk, Gdk, Gio, GLib  # noqa: E402
 
-from latte_common import appearance  # noqa: E402
+from latte_common import appearance, scenes  # noqa: E402
+from latte_shell import geometry  # noqa: E402       # len rozmery lišty (čisté konštanty a orezanie)
 from latte_common.settings import SettingsError  # noqa: E402
+
+SLIDER_THROTTLE_MS = 100         # ako často sa zapíše hodnota, kým sa ťahá posuvník
 
 APPLY_NOTE = {
     "session": "Prejaví sa po novom prihlásení.",
@@ -71,12 +75,14 @@ class KeyRow(Gtk.Box):
         key = self.key
         if key.id == "theme.id":
             return self.theme_control()
+        if key.id in ("bars.left", "bars.right"):
+            return self.source_control()
         if key.type == "bool":
             return self.bool_control()
         if key.type == "enum":
             return self.choice_control(list(key.choices), [key.choice_label(c) for c in key.choices])
         if key.type in ("int", "float"):
-            return self.number_control()
+            return self.slider_control() if key.control == "slider" else self.number_control()
         if key.type == "color":
             return self.color_control()
         return self.text_control(chooser=key.type == "path")
@@ -133,6 +139,138 @@ class KeyRow(Gtk.Box):
         unit.add_css_class("row-note")
         box.append(unit)
         return box
+
+    def source_control(self):
+        """Výber zdroja textúry rohovej dlaždice, tlačidlá na vlastný súbor a farbu a pod tým živý náhľad L.
+
+        Náhľad kreslí rovnaký kód ako lišta (latte_common/scenes.py) s rýchlosťou, stlmením a pohybom z ostatných
+        riadkov stránky, takže ich zmena je hneď vidieť. Zápis mimo ponuky (súbor, farba) sa doplní do zoznamu
+        ako „Súbor: názov“ alebo „Farba: #RRGGBB“, aby ostal vidieť. Pod náhľadom je stav: čo sa načítalo
+        (snímky, dĺžka, pamäť), alebo prečo súbor nejde.
+        """
+        self.choices, self.labels, _index = scenes.source_list(scenes.PLAIN)
+        drop = Gtk.DropDown.new_from_strings(self.labels)
+
+        def picked(widget, _pspec):
+            # idempotentné: oznámenie o výbere, ktorý nastavil program (nie používateľ), nič nezapíše
+            spec = scenes.pick_source(self.choices, widget.get_selected(), self.store.get(self.key.id))
+            if spec is not None:
+                self.commit(spec)
+
+        drop.connect("notify::selected", picked)
+
+        status = Gtk.Label(xalign=0, wrap=True, max_width_chars=44)
+        status.add_css_class("row-note")
+        status.set_visible(False)
+
+        def show_status(text, problem):
+            status.set_text(text)
+            status.set_visible(bool(text))
+            for css, on in (("row-error", problem), ("row-note", not problem)):
+                if on:
+                    status.add_css_class(css)
+                else:
+                    status.remove_css_class(css)
+
+        preview = LPreview(self.store, right=self.key.id == "bars.right", on_status=show_status)
+
+        pick_file = Gtk.Button(label="Súbor…")
+        pick_file.set_tooltip_text("Vlastná animácia (GIF, WebP) alebo obrázok")
+        pick_file.connect("clicked", lambda _b: self.choose_file())
+        color = Gtk.ColorDialogButton(dialog=Gtk.ColorDialog(with_alpha=False))
+        start = Gdk.RGBA()
+        start.red, start.green, start.blue, start.alpha = (*scenes.Matrix.BACKGROUND, 1.0)     # kým nie je zvolená žiadna
+        color.set_rgba(start)
+        color.set_tooltip_text("Jedna farba (tmavá, lebo text na nej je svetlý)")
+
+        def color_changed(widget, _pspec):
+            spec = "solid:" + self.hex_of(widget.get_rgba())
+            if not self.updating and spec.upper() != str(self.store.get(self.key.id)).upper():
+                self.commit(spec)
+
+        color.connect("notify::rgba", color_changed)
+        row = Gtk.Box(spacing=8)
+        row.append(drop)
+        row.append(pick_file)
+        row.append(color)
+
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        box.append(row)
+        box.append(preview)
+        box.append(status)
+
+        shown = {"labels": None, "spec": None}
+
+        def set_widget(value):
+            """Zobrazí hodnotu. Zoznam a náhľad sa menia len keď treba: vymeniť model pri každom obnovení by
+            spustilo oznámenie o výbere, to by zapísalo a obnovilo znova, a tak donekonečna."""
+            self.choices, self.labels, index = scenes.source_list(value)
+            if self.labels != shown["labels"]:
+                shown["labels"] = list(self.labels)
+                drop.set_model(Gtk.StringList.new(self.labels))
+            if drop.get_selected() != index:
+                drop.set_selected(index)
+            if value.startswith("solid:#"):
+                rgba = Gdk.RGBA()
+                if rgba.parse(value[6:]) and self.hex_of(color.get_rgba()) != self.hex_of(rgba):
+                    color.set_rgba(rgba)
+            if value != shown["spec"]:
+                shown["spec"] = value
+                preview.set_spec(value)
+
+        self.set_widget = set_widget
+        self.focus_widget = drop
+        return box
+
+    def choose_file(self):
+        """Dialóg na výber animácie alebo obrázka; výsledok sa zapíše ako file:/cesta."""
+        dialog = Gtk.FileDialog(title="Animácia alebo obrázok pre roh lišty")
+        images = Gtk.FileFilter(name="Animácie a obrázky (GIF, WebP, PNG, JPEG)")
+        for mime in ("image/gif", "image/webp", "image/png", "image/jpeg"):
+            images.add_mime_type(mime)
+        filters = Gio.ListStore.new(Gtk.FileFilter)
+        filters.append(images)
+        dialog.set_filters(filters)
+
+        def done(dlg, result):
+            try:
+                chosen = dlg.open_finish(result)
+            except GLib.Error:
+                return                                          # zrušené
+            if chosen is not None and chosen.get_path():
+                self.commit("file:" + chosen.get_path())
+
+        dialog.open(self.get_root(), None, done)
+
+    def slider_control(self):
+        """Posuvník s hodnotou: zmena sa zapisuje priebežne (najviac raz za SLIDER_THROTTLE_MS), takže sa
+        počas ťahania hneď prejaví (napr. výška lišty), a zapíše sa vždy aj posledná hodnota."""
+        key = self.key
+        is_int = key.type == "int"
+        step = key.step or 1
+        scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, key.minimum, key.maximum, step)
+        scale.set_size_request(260, -1)
+        scale.set_draw_value(True)
+        scale.set_value_pos(Gtk.PositionType.RIGHT)
+        scale.set_digits(0 if is_int else (2 if step < 0.1 else 1))
+        unit = (" " + key.unit) if key.unit else ""
+        scale.set_format_value_func(lambda _s, v: ("%d" % round(v) if is_int else "%g" % round(v, 3)) + unit)
+        pending = {"timer": 0}
+
+        def fire():
+            pending["timer"] = 0
+            value = scale.get_value()
+            self.commit(int(round(value)) if is_int else round(value, 3))
+            return False
+
+        def moved(_scale):
+            if not self.updating and not pending["timer"]:
+                pending["timer"] = GLib.timeout_add(SLIDER_THROTTLE_MS, fire)
+
+        scale.connect("value-changed", moved)
+        self.set_widget = lambda v: scale.set_value(v)
+        self.focus_widget = scale
+        return scale
 
     def color_control(self):
         button = Gtk.ColorDialogButton(dialog=Gtk.ColorDialog(with_alpha=False))
@@ -243,3 +381,142 @@ class KeyRow(Gtk.Box):
         GLib.timeout_add(FLASH_MS, lambda: (self.remove_css_class("flash"), False)[1])
         if self.focus_widget is not None:
             self.focus_widget.grab_focus()
+
+
+class LPreview(Gtk.DrawingArea):
+    """Živý náhľad tvaru L (kmeň nad pätou) so zdrojom textúry; beží, len kým je viditeľný.
+
+    Tvar a rozmery sú z geometrie lišty (výška z nastavení), kreslenie je scenes.parse + scenes.dim_overlay,
+    teda presne to, čo robí lišta. Hýbe sa, len kým je nad ním kurzor a WAKE_SECONDS po zmene nastavenia
+    (zdroj, rýchlosť, stlmenie, pohyb); inak ukáže statický snímok. Softvérové vykresľovanie totiž pri každom
+    obraze prekreslí celé okno: dva stále bežiace náhľady stáli 35 % jadra.
+    """
+    SCALE = 0.36
+    FPS = 10
+    WAKE_SECONDS = 4.0
+
+    def __init__(self, store, right, on_status=None):
+        super().__init__()
+        self.store = store
+        self.right = right
+        self.on_status = on_status or (lambda _text, _problem: None)
+        self.status = None
+        self.was_loading = False
+        self.hovered = False
+        self.awake_until = 0.0
+        self.settings_seen = None
+        self.scene = None
+        self.spec = ""
+        self.started = GLib.get_monotonic_time()
+        self.source = 0
+        self.surface = None
+        self.set_content_width(int(geometry.TEXTURE_WIDTH * self.SCALE))
+        self.set_content_height(int((geometry.MAX_BAR_HEIGHT + geometry.ARM_HEIGHT) * self.SCALE))
+        self.set_halign(Gtk.Align.END)
+        self.set_draw_func(self.draw)
+        self.connect("map", lambda _w: self.start())
+        self.connect("unmap", lambda _w: self.stop())
+        hover = Gtk.EventControllerMotion()
+        hover.connect("enter", lambda *_a: setattr(self, "hovered", True))
+        hover.connect("leave", lambda *_a: setattr(self, "hovered", False))
+        self.add_controller(hover)
+
+    def wake(self):
+        """Náhľad sa na chvíľu rozhýbe (zmenilo sa niečo, čo chce používateľ vidieť)."""
+        self.awake_until = GLib.get_monotonic_time() / 1e6 + self.WAKE_SECONDS
+
+    def watched_settings(self):
+        return tuple(self.store.get(key) for key in ("bars.speed", "bars.dim", "bars.motion"))
+
+    def bar_height(self):
+        return geometry.clamp_bar_height(self.store.get("bar.height"))
+
+    def set_spec(self, spec):
+        """Zdroj sa zmenil (alebo sa zmenili farby, rýchlosť): nová scéna."""
+        self.spec = spec
+        palette = scenes.palette_from_colors(appearance.current_tokens(self.store).colors)
+        self.scene = scenes.parse(spec, self.store.get("bars.speed"), palette, self.right)
+        self.status = None
+        self.wake()
+        self.paint()
+        self.queue_draw()
+
+    def start(self):
+        if not self.source:
+            self.source = GLib.timeout_add(1000 // self.FPS, self.tick)
+        self.paint()
+
+    def stop(self):
+        if self.source:
+            GLib.source_remove(self.source)
+            self.source = 0
+
+    def tick(self):
+        scene = self.scene
+        if scene is None:
+            return True
+        loading = getattr(scene, "loading", False)
+        seen = self.watched_settings()
+        if seen != self.settings_seen:
+            if self.settings_seen is not None:
+                self.wake()
+            self.settings_seen = seen
+        active = self.hovered or GLib.get_monotonic_time() / 1e6 < self.awake_until
+        moving = scene.animated and active and self.store.get("bars.motion") != "off"
+        if moving or loading or self.was_loading:               # aj raz po načítaní súboru
+            if scene.speed != self.store.get("bars.speed"):
+                scene.speed = self.store.get("bars.speed")
+            self.paint()
+            self.queue_draw()
+        self.was_loading = loading
+        return True
+
+    def paint(self):
+        """Nakreslí L do plátna v skutočnej veľkosti; draw ho len zmenší."""
+        width, bar = geometry.TEXTURE_WIDTH, self.bar_height()
+        arm = geometry.ARM_HEIGHT
+        foot = 2 * bar
+        height = bar + arm
+        if self.surface is None or self.surface.get_height() != height:
+            self.surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
+        cr = cairo.Context(self.surface)
+        cr.set_operator(cairo.OPERATOR_CLEAR)
+        cr.paint()
+        cr.set_operator(cairo.OPERATOR_OVER)
+        cr.rectangle(0, 0, width, arm)                                          # kmeň
+        cr.rectangle(width - foot if self.right else 0, arm, foot, bar)         # päta
+        cr.clip()
+        if self.scene is None:                                                  # obyčajná dlaždica bez textúry
+            cr.set_source_rgba(0.5, 0.5, 0.5, 0.18)
+            cr.paint()
+        else:
+            still = self.store.get("bars.motion") == "off"
+            self.scene.render(cr, width, height, scenes.STILL_TIME if still else (GLib.get_monotonic_time() - self.started) / 1e6)
+            scenes.dim_overlay(cr, width, height, bar, foot, self.store.get("bars.dim"), self.right)
+        self.surface.flush()
+        self.report_status()
+
+    def report_status(self):
+        """Stav zdroja pod náhľadom: čo sa načítalo, alebo prečo súbor nejde (len keď sa zmenil)."""
+        scene = self.scene
+        if scene is None:
+            status = ("", False)
+        elif getattr(scene, "loading", False):
+            status = ("Načítava sa…", False)
+        elif getattr(scene, "problem", ""):
+            status = (scene.problem, True)
+        else:
+            status = (getattr(scene, "info", ""), False)
+        if status != self.status:
+            self.status = status
+            self.on_status(*status)
+
+    def draw(self, _area, cr, width, height):
+        if self.surface is None:
+            return
+        scale = self.SCALE
+        cr.translate(width - self.surface.get_width() * scale if self.right else 0, height - self.surface.get_height() * scale)
+        cr.scale(scale, scale)
+        cr.set_source_surface(self.surface, 0, 0)
+        cr.get_source().set_filter(cairo.FILTER_BILINEAR)
+        cr.paint()

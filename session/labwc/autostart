@@ -20,7 +20,13 @@ if command -v latte-polkit >/dev/null 2>&1; then
 fi
 
 # Uložené nastavenie monitorov (Nastavenia › Obrazovky): labwc si rozlíšenie, mierku a otočenie sám
-# nepamätá, preto ich pri každom prihlásení použijeme znova. Bez uloženého súboru sa nestane nič.
-if command -v latte-devices >/dev/null 2>&1; then
-    latte-devices display apply &
+# nepamätá, preto ich pri každom prihlásení použijeme znova. Monitor bez uloženej voľby dostane
+# najvyššie bezpečné rozlíšenie (inak by ostal na 640 × 480, ak ho grafika nehlási ako preferované).
+# PATH z prihlasovacieho manažéra nemusí obsahovať ~/.local/bin, preto sa hľadá aj tam; chyby idú do
+# journalu (labwc beží pod systemd-cat).
+DEVICES=$(command -v latte-devices || echo "$HOME/.local/bin/latte-devices")
+if [ -x "$DEVICES" ]; then
+    "$DEVICES" display apply &
+else
+    echo "latte-devices sa nenašiel, rozlíšenie monitorov sa nenastaví (spusti tools/install-session.sh)" >&2
 fi

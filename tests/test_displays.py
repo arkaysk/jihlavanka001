@@ -90,6 +90,101 @@ class OfferTest(unittest.TestCase):
         self.assertEqual(displays.summary(head(modes=MODES, current=0, enabled=False)), "vypnutý")
 
 
+# Virtuálna grafika bez EDID (VirtualBox VMSVGA): preferovaný je záložný 640 × 480
+VIRTUAL = [(640, 480, 60000, True), (4096, 2160, 60000, False), (2560, 1600, 60000, False),
+           (1920, 1200, 60000, False), (1920, 1080, 60000, False), (1600, 900, 60000, False),
+           (1024, 768, 60000, False), (800, 600, 60000, False), (640, 480, 60000, False)]
+
+
+class FakeClient:
+    """Stačí na safe_change/apply_safe: test_only prijme len režimy z `accepts`."""
+
+    def __init__(self, heads, accepts=None):
+        self.heads = heads
+        self.accepts = accepts
+        self.tested, self.applied = [], []
+
+    def monitors(self):
+        return self.heads
+
+    def apply(self, changes, test_only=False):
+        if test_only:
+            mode = next(iter(changes.values()))["mode"]
+            self.tested.append(mode)
+            return None if self.accepts is None or mode in self.accepts else "kompozitor zmenu odmietol"
+        self.applied.append(changes)
+        return None
+
+
+class SafeTest(unittest.TestCase):
+    def setUp(self):
+        self.virtual = head(name="Virtual-1", make="", model="", serial="", modes=VIRTUAL, current=0)
+
+    def test_tiny_resolutions_are_not_offered(self):
+        self.assertEqual(displays.resolutions(self.virtual),
+                         [(4096, 2160), (2560, 1600), (1920, 1200), (1920, 1080), (1600, 900), (1024, 768)])
+
+    def test_monitor_with_only_tiny_modes_still_offers_them(self):
+        self.assertEqual(displays.resolutions(head(modes=[(800, 600, 60000, True), (640, 480, 60000, False)])),
+                         [(800, 600), (640, 480)])
+
+    def test_fallback_preferred_640x480_is_not_recommended(self):
+        self.assertEqual(displays.recommended_resolution(self.virtual), (1920, 1080))
+        self.assertEqual(displays.safe_modes(self.virtual)[0], (1920, 1080, 60000))
+
+    def test_real_preferred_mode_wins_even_above_the_cap(self):
+        real = head(modes=[(3840, 2160, 60000, True), (1920, 1080, 60000, False)], current=0)
+        self.assertEqual(displays.safe_modes(real), [(3840, 2160, 60000), (1920, 1080, 60000)])
+
+    def test_safe_change_takes_the_first_mode_the_compositor_accepts(self):
+        client = FakeClient([self.virtual], accepts=[(1600, 900, 60000)])
+        self.assertEqual(displays.safe_change(client, self.virtual), {"mode": (1600, 900, 60000)})
+        self.assertEqual(client.tested[:2], [(1920, 1080, 60000), (1600, 900, 60000)])
+
+    def test_safe_change_is_empty_when_already_there_or_nothing_works(self):
+        real = head(modes=MODES, current=0)
+        self.assertEqual(displays.safe_change(FakeClient([real]), real), {})
+        self.assertEqual(displays.safe_change(FakeClient([self.virtual], accepts=[]), self.virtual), {})
+
+    def test_apply_safe_sets_every_enabled_monitor_in_one_configuration(self):
+        off = head(name="Virtual-2", make="", model="", serial="", modes=VIRTUAL, current=0, enabled=False, hid=11)
+        client = FakeClient([self.virtual, off])
+        original = displays.outputs.Client
+        displays.outputs.Client = lambda: _Ctx(client)
+        try:
+            self.assertEqual(displays.apply_safe(), [])
+        finally:
+            displays.outputs.Client = original
+        self.assertEqual(client.applied, [{"Virtual-1": {"mode": (1920, 1080, 60000)}}])
+
+    def test_desktop_without_saved_choice_gets_the_safe_mode_and_with_one_gets_that(self):
+        client = FakeClient([self.virtual])
+        original = displays.outputs.Client
+        displays.outputs.Client = lambda: _Ctx(client)
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                path = os.path.join(tmp, "displays.toml")
+                self.assertEqual(displays.apply_saved(path), [])
+                self.assertEqual(client.applied, [{"Virtual-1": {"mode": (1920, 1080, 60000)}}])
+                displays.save_monitor("virtual-1", 1600, 900, 60000, 1.0, "normal", path)
+                client.applied.clear()
+                self.assertEqual(displays.apply_saved(path), [])
+                self.assertEqual(client.applied, [{"Virtual-1": {"mode": (1600, 900, 60000)}}])
+        finally:
+            displays.outputs.Client = original
+
+
+class _Ctx:
+    def __init__(self, client):
+        self.client = client
+
+    def __enter__(self):
+        return self.client
+
+    def __exit__(self, *_exc):
+        return False
+
+
 class ChangeTest(unittest.TestCase):
     def setUp(self):
         self.head = head(modes=MODES, current=0)
@@ -166,7 +261,6 @@ class SavedTest(unittest.TestCase):
         self.assertEqual(changes, {"HDMI-A-1": {"scale": 1.5}})       # režim sa nemení, mierka áno
         self.assertEqual(len(notes), 1)
         self.assertIn("3840", notes[0])
-
 
 if __name__ == "__main__":
     unittest.main()

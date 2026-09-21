@@ -444,7 +444,7 @@ class Window(Gtk.ApplicationWindow):
     def hits(self, query):
         if self.index is None:
             self.index = model.build_index(
-                self.registry, lambda page, key: self.store(page.domain).get(key.id) if page.domain else None)
+                self.registry, lambda page, key: self.store(key.domain).get(key.id) if page.domain else None)
         return model.search(self.index, query)
 
     def on_search(self, entry):

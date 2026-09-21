@@ -20,6 +20,7 @@ from latte_common import paths
 TYPES = ("bool", "int", "float", "string", "enum", "color", "path")
 APPLY = ("live", "session", "restart")          # kedy sa zmena prejaví
 SCOPES = ("user", "system")
+CONTROLS = ("", "slider")                       # ako sa číslo ukáže v Nastaveniach: číselník alebo posuvník
 URI_SCHEME = "settings"
 STATUSES = ("ready", "partial", "planned")
 ADMIN_DIR = "/etc/latteos"
@@ -58,6 +59,7 @@ class Key:
     apply: str = "live"
     allow_empty: bool = False   # "" znamená „nenastavené“ (napr. vlastná farba akcentu)
     hidden: bool = False        # nie je v Nastaveniach (interné)
+    control: str = ""           # "slider": číslo s rozsahom sa mení posuvníkom (a hneď sa uplatní)
 
     @property
     def section(self):
@@ -176,7 +178,12 @@ def parse_domain(data, source="<schéma>"):
             label=spec.get("label", key_id), description=spec.get("description", ""),
             choices=tuple(spec.get("choices", ())), choice_labels=tuple(spec.get("labels", ())), minimum=spec.get("min"), maximum=spec.get("max"),
             step=spec.get("step"), unit=spec.get("unit", ""), apply=spec.get("apply", "live"),
-            allow_empty=bool(spec.get("allow_empty", False)), hidden=bool(spec.get("hidden", False)))
+            allow_empty=bool(spec.get("allow_empty", False)), hidden=bool(spec.get("hidden", False)),
+            control=spec.get("control", ""))
+        if key.control not in CONTROLS:
+            raise SettingsError("%s: neznámy control %r" % (where, key.control))
+        if key.control == "slider" and (key.type not in ("int", "float") or key.minimum is None or key.maximum is None):
+            raise SettingsError("%s: posuvník chce číslo s min a max" % where)
         if key.type == "enum" and not key.choices:
             raise SettingsError("%s: enum bez choices" % where)
         if key.choice_labels and len(key.choice_labels) != len(key.choices):
@@ -198,6 +205,7 @@ class Page:
     icon: str = ""
     domain: str = ""            # doména so schémou; prázdne, kým stránka nemá nastavenia v súbore
     sections: tuple = ()        # ktoré oddiely schémy stránka ukazuje (prázdne = všetky)
+    include: tuple = ()         # oddiely iných domén, ktoré stránka ukazuje pred svojou doménou: "doména:oddiel"
     description: str = ""
     keywords: tuple = ()        # synonymá pre vyhľadávanie („wifi“ nájde Sieť)
     contents: tuple = ()        # čo stránka bude obsahovať (ukáže sa, kým je plánovaná)
@@ -254,6 +262,7 @@ class Registry:
             page = Page(
                 id=spec["id"], title=spec["title"], group=spec.get("group", ""), status=spec.get("status", "planned"),
                 icon=spec.get("icon", ""), domain=spec.get("domain", ""), sections=tuple(spec.get("sections", ())),
+                include=tuple(spec.get("include", ())),
                 description=spec.get("description", ""), keywords=tuple(spec.get("keywords", ())),
                 contents=tuple(spec.get("contents", ())), owner=spec.get("owner", ""), view=spec.get("view", ""),
                 launch=spec.get("launch", ""), etapa=spec.get("etapa", ""), component=spec.get("component", ""))
@@ -268,6 +277,14 @@ class Registry:
                 for name in page.sections:
                     if name not in known:
                         raise SettingsError("stránka %s: doména %s nemá oddiel %r" % (page.id, page.domain, name))
+            if page.include and not page.domain:
+                raise SettingsError("stránka %s: include chce aj vlastnú doménu" % page.id)
+            for item in page.include:
+                other, _sep, section = item.partition(":")
+                if other not in self.domains or not any(k.section == section for k in self.domains[other].keys.values()):
+                    raise SettingsError("stránka %s: include %r nepozná doménu alebo oddiel" % (page.id, item))
+                if other == page.domain:
+                    raise SettingsError("stránka %s: include %r je jej vlastná doména" % (page.id, item))
             self.pages.append(page)
 
     def domain(self, domain_id):
@@ -292,10 +309,21 @@ class Registry:
 
     def page_sections(self, page):
         """[(oddiel, názov, [Key, ...])] ovládacích prvkov stránky (len jej oddiely, ak ich má určené)."""
-        if not page.domain:
-            return []
-        return [(name, title, keys) for name, title, keys in self.domains[page.domain].grouped()
-                if not page.sections or name in page.sections]
+        out = []
+        for domain_id, names in self.page_sources(page):
+            out += [(name, title, keys) for name, title, keys in self.domains[domain_id].grouped()
+                    if not names or name in names]
+        return out
+
+    def page_sources(self, page):
+        """[(doména, oddiely)] stránky: najprv doplnené oddiely iných domén (include), potom jej vlastná doména."""
+        sources = []
+        for item in page.include:
+            other, _sep, section = item.partition(":")
+            sources.append((other, (section,)))
+        if page.domain:
+            sources.append((page.domain, page.sections))
+        return sources
 
     def area_pages(self, group_id):
         return [p for p in self.pages if p.group == group_id]

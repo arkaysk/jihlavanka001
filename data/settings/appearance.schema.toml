@@ -25,6 +25,10 @@ title = "Zjednodušenie ovládania"
 title = "Pozadie"
 [section.integration]
 title = "Integrácia aplikácií"
+[section.bar]
+title = "Vzhľad lišty"
+[section.bars]
+title = "Rohové dlaždice lišty"
 
 [key."theme.id"]
 type = "string"
@@ -92,6 +96,59 @@ step = 2
 unit = "px"
 label = "Výška záhlavia okien"
 description = "Hrúbka horného pruhu všetkých okien: komponentov LatteOS, aplikácií GTK4 a libadwaita aj rámu, ktorý kreslí kompozitor."
+
+[key."bar.height"]
+type = "int"
+default = 84
+min = 48
+max = 96
+step = 2
+unit = "px"
+control = "slider"
+label = "Výška lišty"
+description = "Výška dolnej lišty a jej rohových dlaždíc. Okná sa hneď prispôsobia zvyšnému miestu obrazovky."
+
+# Rohové dlaždice (App Manager vľavo, Správca zariadení vpravo): zdroj je zápis z latte_common/scenes.py
+# (solid:motív | scene:matrix | scene:gears | scene:glow | solid:#RRGGBB); Nastavenia ponúkajú výber s náhľadom.
+[key."bars.left"]
+type = "string"
+default = "scene:matrix"
+label = "Ľavý roh (App Manager)"
+description = "Čo sa pohybuje v rohovej dlaždici a v ramene popupu nad ňou."
+
+[key."bars.right"]
+type = "string"
+default = "scene:gears"
+label = "Pravý roh (Správca zariadení)"
+description = "Čo sa pohybuje v rohovej dlaždici a v ramene popupu nad ňou."
+
+[key."bars.motion"]
+type = "enum"
+choices = ["always", "hover", "off"]
+labels = ["Vždy", "Len pod kurzorom", "Vypnutý"]
+default = "always"
+label = "Pohyb"
+description = "Kedy sa textúra hýbe. Vypnutý pohyb (alebo vypnuté animácie v systéme) ukáže statický obraz."
+
+[key."bars.speed"]
+type = "float"
+default = 1.0
+min = 0.25
+max = 1.5
+step = 0.05
+control = "slider"
+label = "Rýchlosť pohybu"
+description = "Menej je pokojnejšie."
+
+[key."bars.dim"]
+type = "float"
+default = 0.6
+min = 0.0
+max = 0.9
+step = 0.05
+control = "slider"
+label = "Stlmenie pod textom"
+description = "Ako veľmi sa textúra stmaví pod písmom, aby bolo čitateľné."
 
 [key."accessibility.contrast"]
 type = "enum"

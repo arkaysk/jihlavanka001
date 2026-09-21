@@ -5,6 +5,7 @@
     latte-devices display list                        monitory, ich režimy a nastavenie
     latte-devices display set VÝSTUP ROZLÍŠENIE[@Hz] [--scale 1.5] [--transform normal] [--save]
     latte-devices display apply                       použije uložené voľby (volá sa pri prihlásení)
+    latte-devices display safe                        najvyššie bezpečné rozlíšenie (volá sa pred prihlasovacou obrazovkou)
 
 Rovnaké funkcie používajú Nastavenia (Hardvér › Obrazovky) a Správca zdrojov v lište.
 """
@@ -101,6 +102,17 @@ def cmd_display_apply(_args):
     return 1 if messages else 0
 
 
+def cmd_display_safe(_args):
+    try:
+        messages = displays.apply_safe()
+    except outputs.OutputsError as err:
+        print("latte-devices:", err, file=sys.stderr)
+        return 1
+    for message in messages:
+        print("latte-devices:", message, file=sys.stderr)
+    return 1 if messages else 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="latte-devices", description="Správca zariadení LatteOS")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -117,6 +129,8 @@ def main(argv=None):
     p.add_argument("--save", action="store_true", help="uloží voľbu, aby sa použila aj pri ďalšom prihlásení")
     p.set_defaults(fn=cmd_display_set)
     display.add_parser("apply", help="použije uložené voľby").set_defaults(fn=cmd_display_apply)
+    display.add_parser("safe", help="nastaví najvyššie bezpečné rozlíšenie (prihlasovacia obrazovka)") \
+        .set_defaults(fn=cmd_display_safe)
     args = parser.parse_args(argv)
     try:
         return args.fn(args)

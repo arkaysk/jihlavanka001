@@ -5,7 +5,12 @@ TextureView (widget) z neho len kopíruje svoj výsek. Päta L v lište a kmeň 
 povrchy Waylandu, ale kreslia z toho istého povrchu, takže sú vo fáze a bez švu.
 
 Súradnice plátna: počiatok v rohu obrazovky, x doprava, y nahor. Výsek je (x, y, šírka, výška).
+
+Nastavenia (appearance.toml, oddiel bars) sa zbierajú do Config; build z nej vyrobí plátna.
 """
+import sys
+from dataclasses import dataclass
+
 import cairo
 import gi
 gi.require_version("Gtk", "4.0")
@@ -13,19 +18,30 @@ gi.require_version("Graphene", "1.0")
 from gi.repository import Gtk, GLib, Graphene  # noqa: E402
 
 from latte_common import scenes  # noqa: E402
-from latte_shell.geometry import (BAR_HEIGHT, CORNER_WIDTH, TEXTURE_HEIGHT,  # noqa: E402
-                                  TEXTURE_WIDTH)
+from latte_shell import geometry  # noqa: E402
 
-# Zdroje textúry podľa dlaždice; None = obyčajná dlaždica z motívu. V R4 to nahradia nastavenia.
-DEFAULT_SOURCES = {"apps": "scene:matrix", "resources": None}
+MOTIONS = ("always", "hover", "off")
+DEFAULT_LEFT, DEFAULT_RIGHT = "scene:matrix", "scene:gears"
+TILES = (("apps", "bars.left", False), ("resources", "bars.right", True))     # druh dlaždice, kľúč, pravá?
 
 
 class BarTexture:
-    def __init__(self, scene, width=TEXTURE_WIDTH, height=TEXTURE_HEIGHT):
+    """Jedno plátno L. dim: stlmenie textúry pod textom (0 až 0.9), zapečené do plátna. motion: kedy sa hýbe
+    (always | hover: len pod kurzorom alebo kým je otvorený popup | off: statický snímok)."""
+
+    def __init__(self, scene, width=geometry.TEXTURE_WIDTH, height=None, right=False, dim=0.6, motion="always",
+                 name="", report=None):
         self.scene = scene
+        self.name = name                    # kľúč nastavenia (bars.left), do hlásení
+        self.report = report or (lambda text: print("latte-shell:", text, file=sys.stderr))
+        self.reported = ""
+        self.right = right
+        self.dim = dim
+        self.motion = motion
+        self.hovered = False
         self.width = width
-        self.height = height
-        self.surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
+        self.height = height if height is not None else geometry.texture_height()
+        self.surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.width, self.height)
         self.views = []
         self.source = 0
         self.started = GLib.get_monotonic_time()
@@ -34,9 +50,25 @@ class BarTexture:
             self.settings.connect("notify::gtk-enable-animations", lambda *_a: self.sync())
 
     # ---------- pohľady ----------
-    def view(self, rect, right=False):
-        """Widget, ktorý ukazuje výsek plátna. right: pohľad je pri pravom okraji obrazovky."""
-        return TextureView(self, rect, right)
+    def view(self, rect, right=False, awake=False):
+        """Widget, ktorý ukazuje výsek plátna. right: pohľad je pri pravom okraji obrazovky.
+
+        rect je výsek alebo funkcia, ktorá ho vráti (výsek závisí od výšky lišty, ktorá sa môže zmeniť).
+        awake: kým je pohľad zobrazený, plátno sa hýbe aj v režime „len pod kurzorom“ (kmeň otvoreného popupu).
+        """
+        return TextureView(self, rect, right, awake)
+
+    def set_hovered(self, flag):
+        """Kurzor je nad dlaždicou (režim „len pod kurzorom“)."""
+        if flag != self.hovered:
+            self.hovered = flag
+            self.sync()
+
+    def set_bar_height(self):
+        """Výška lišty sa zmenila: plátno je iné, pohľady majú nové výseky."""
+        self.height = geometry.texture_height()
+        self.surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.width, self.height)
+        self.sync()
 
     def add_view(self, view):
         if view not in self.views:
@@ -56,7 +88,11 @@ class BarTexture:
     # ---------- čas a kreslenie ----------
     def moving(self):
         enabled = self.settings is None or self.settings.get_property("gtk-enable-animations")
-        return bool(self.views) and self.scene.animated and enabled
+        if not (self.views and self.scene.animated and enabled) or self.motion == "off":
+            return False
+        if self.motion == "hover":
+            return self.hovered or any(view.awake for view in self.views)
+        return True
 
     def sync(self):
         """Časovač beží, len kým je niečo viditeľné, scéna sa hýbe a pohyb nie je vypnutý."""
@@ -75,6 +111,7 @@ class BarTexture:
     def tick(self):
         if not self.moving():
             self.source = 0
+            self.sync()                     # statický snímok (napr. nehybný obrázok, ktorý sa práve načítal)
             return False
         self.render(self.elapsed())
         return True
@@ -90,25 +127,37 @@ class BarTexture:
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
         self.scene.render(cr, self.width, self.height, t)
+        scenes.dim_overlay(cr, self.width, self.height, geometry.bar_height(), geometry.corner_width(),
+                           self.dim, self.right)
         self.surface.flush()
+        problem = getattr(self.scene, "problem", "")            # napr. súbor sa nedá načítať: ohlási sa raz
+        if problem != self.reported:
+            self.reported = problem
+            if problem:
+                self.report("%s: %s" % (self.name, problem))
         for view in self.views:
             view.queue_draw()
 
 
 class TextureView(Gtk.Widget):
-    __gtype_name__ = "LatteTextureView"
-
     """Výsek plátna. Nemá vlastnú minimálnu veľkosť: dostane, čo mu pridelí rodič (okraj tlačidla
     by inak zväčšil lištu o pixel). Kreslí sa zarovnaný k spodnému a vonkajšiemu okraju obrazovky,
     takže prípadné orezanie padne na hornú hranu, nie na riadok pri okraji."""
 
-    def __init__(self, texture, rect, right=False):
+    __gtype_name__ = "LatteTextureView"
+
+    def __init__(self, texture, rect, right=False, awake=False):
         super().__init__()
         self.texture = texture
-        self.rect = rect
+        self.rect_source = rect
         self.right = right
+        self.awake = awake
         self.connect("map", lambda _w: texture.add_view(self))
         self.connect("unmap", lambda _w: texture.remove_view(self))
+
+    @property
+    def rect(self):
+        return self.rect_source() if callable(self.rect_source) else self.rect_source
 
     def do_measure(self, _orientation, _for_size):
         return 0, 0, -1, -1
@@ -124,14 +173,51 @@ class TextureView(Gtk.Widget):
 
 def corner_rect(right):
     """Výsek plátna, ktorý ukazuje päta L (rohová dlaždica). Pravá dlaždica je pri pravom okraji plátna."""
-    return (TEXTURE_WIDTH - CORNER_WIDTH if right else 0, 0, CORNER_WIDTH, BAR_HEIGHT)
+    width = geometry.corner_width()
+    return (geometry.TEXTURE_WIDTH - width if right else 0, 0, width, geometry.bar_height())
 
 
-def build(sources=None):
-    """Plátna podľa zdrojov: {druh dlaždice: BarTexture}; zápis, ktorý nepoznáme, dá obyčajnú dlaždicu."""
+def trunk_rect():
+    """Výsek plátna, ktorý ukazuje kmeň L: pás nad lištou."""
+    return (0, geometry.bar_height(), geometry.POPUP_WIDTH, geometry.ARM_HEIGHT)
+
+
+@dataclass(frozen=True)
+class Config:
+    """Všetko, od čoho závisí vzhľad textúr (nastavenia oddielu bars a farby motívu). Rovnaká Config = nič sa
+    nemení, takže sa plátna nestavajú znova pri každej zmene súboru s nastaveniami."""
+    left: str = DEFAULT_LEFT
+    right: str = DEFAULT_RIGHT
+    motion: str = "always"
+    speed: float = 1.0
+    dim: float = 0.6
+    palette: scenes.Palette = scenes.DEFAULT_PALETTE
+
+    @classmethod
+    def from_values(cls, values, palette=scenes.DEFAULT_PALETTE, report=None):
+        """Config z hodnôt domény appearance (Store.values()). Neznámy zápis zdroja sa nahradí predvoleným a
+        ohlási sa (report), bez tichej degradácie."""
+        report = report or (lambda text: print("latte-shell:", text, file=sys.stderr))
+
+        def source(key, default):
+            spec = values.get(key, default)
+            if scenes.is_known(spec):
+                return spec
+            report("%s: neznámy zdroj %r, použije sa %s" % (key, spec, default))
+            return default
+
+        motion = values.get("bars.motion", "always")
+        return cls(left=source("bars.left", DEFAULT_LEFT), right=source("bars.right", DEFAULT_RIGHT),
+                   motion=motion if motion in MOTIONS else "always",
+                   speed=float(values.get("bars.speed", 1.0)), dim=float(values.get("bars.dim", 0.6)), palette=palette)
+
+
+def build(config=None):
+    """Plátna podľa Config: {druh dlaždice: BarTexture}. Obyčajná dlaždica (solid:motív) plátno nemá."""
+    config = config or Config()
     textures = {}
-    for kind, spec in (sources or DEFAULT_SOURCES).items():
-        scene = scenes.parse(spec)
+    for kind, key, right in TILES:
+        scene = scenes.parse(getattr(config, "right" if right else "left"), config.speed, config.palette, right)
         if scene is not None:
-            textures[kind] = BarTexture(scene)
+            textures[kind] = BarTexture(scene, right=right, dim=config.dim, motion=config.motion, name=key)
     return textures

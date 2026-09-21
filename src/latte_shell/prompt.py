@@ -15,7 +15,7 @@ from gi.repository import Gtk, Gdk, Pango  # noqa: E402
 from gi.repository import Gtk4LayerShell as LayerShell  # noqa: E402
 
 from latte_common import paths, prefs  # noqa: E402
-from latte_shell.geometry import BAR_HEIGHT, SEGMENT  # noqa: E402
+from latte_shell import geometry  # noqa: E402
 from latte_shell.prompt_modes import MODE_CLASSES, tool_button  # noqa: E402
 
 PROMPT_WIDTH = 420                # najmenšia šírka; inak sa lišta delí so zoznamom okien
@@ -43,7 +43,7 @@ class PromptPopup(Gtk.Window):
         LayerShell.set_anchor(self, LayerShell.Edge.BOTTOM, True)
         LayerShell.set_anchor(self, LayerShell.Edge.LEFT, True)
         LayerShell.set_margin(self, LayerShell.Edge.LEFT, left)
-        LayerShell.set_margin(self, LayerShell.Edge.BOTTOM, BAR_HEIGHT + POPUP_GAP)
+        LayerShell.set_margin(self, LayerShell.Edge.BOTTOM, geometry.bar_height() + POPUP_GAP)
         LayerShell.set_exclusive_zone(self, -1)
         LayerShell.set_keyboard_mode(self, LayerShell.KeyboardMode.NONE)
         LayerShell.set_namespace(self, "latte-prompt")
@@ -107,9 +107,8 @@ class PromptSegment(Gtk.Box):
         self.popup = None
         self.add_css_class("segment")
         self.add_css_class("prompt-segment")
-        self.set_size_request(PROMPT_WIDTH, SEGMENT)
+        self.set_size_request(PROMPT_WIDTH, -1)
         self.set_hexpand(True)
-        self.set_valign(Gtk.Align.CENTER)
 
         self.modes = [cls(self) for cls in MODE_CLASSES]
         self.mode = self.modes[0]

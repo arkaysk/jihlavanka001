@@ -6,7 +6,6 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, Gio  # noqa: E402
 
 from latte_shell.foreign_toplevel import ForeignToplevels  # noqa: E402
-from latte_shell.geometry import SEGMENT  # noqa: E402
 
 
 def icon_for(app_id):
@@ -65,8 +64,6 @@ class TaskList(Gtk.Box):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         self.add_css_class("segment")
         self.set_hexpand(True)
-        self.set_size_request(-1, SEGMENT)
-        self.set_valign(Gtk.Align.CENTER)
 
         self.buttons = {}
         self.watcher = ForeignToplevels(self.changed, self.closed, self.unavailable)

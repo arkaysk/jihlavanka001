@@ -210,6 +210,21 @@ class OutputsClientTest(unittest.TestCase):
         self.assertIn("test", commands)
         self.assertNotIn("apply", commands)
 
+    def test_heads_of_a_finished_configuration_are_left_to_the_compositor(self):
+        # skutočný kompozitor (labwc) hlavy konfigurácie po výsledku zruší sám; naše destroy by bolo
+        # „invalid object“ a ďalšia zmena na tom istom spojení by zlyhala (prihlasovacia obrazovka)
+        server = self.start()
+        with outputs.Client() as client:
+            head = client.monitors()[0]
+            self.assertIsNone(client.apply({head.name: {"mode": (1920, 1080, 60000)}}, test_only=True))
+            self.assertIsNone(client.apply({head.name: {"mode": (1920, 1080, 60000)}}))
+        configs = {struct.unpack("=I", p[:4])[0] for o, c, p in server.requests
+                   if o == server.manager and c == outputs.MGR_CREATE_CONFIGURATION}
+        entries = {struct.unpack("=I", p[:4])[0] for o, c, p in server.requests
+                   if o in configs and c == outputs.CFG_ENABLE_HEAD}
+        self.assertTrue(entries)
+        self.assertEqual([r for r in server.requests if r[0] in entries and r[1] == outputs.CH_DESTROY], [])
+
     def test_refusal_and_cancellation_come_back_as_text(self):
         self.start(outcome=outputs.CFG_FAILED)
         self.assertIn("odmietol", outputs.apply({"HDMI-A-1": {"scale": 2.0}}))
