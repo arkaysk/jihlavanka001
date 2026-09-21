@@ -308,5 +308,100 @@ class FailureTest(unittest.TestCase):
         self.assertIsNone(hardware.classify_input({"name": "Mystery", "handlers": ["event9"], "ev": 3, "prop": 0}))
 
 
+
+
+class OtherGroup(unittest.TestCase):
+    """Zásada 6: zo zoznamu zariadení nesmie nič vypadnúť. Sieťová karta bez ovládača nevytvorí
+    rozhranie v /sys/class/net, zvuková kartu v /proc/asound — takže by zmizli. Skupina Ostatné
+    zariadenia ich podrží aj s dôvodom."""
+
+    LSPCI = ('00:02.0 "VGA compatible controller [0300]" "Intel Corporation [8086]" "UHD [9a49]" -p00 "" ""\n'
+             '04:00.0 "Network controller [0280]" "Intel Corporation [8086]" "Wi-Fi 6E [2725]" -p00 "" ""\n'
+             '00:1f.3 "Audio device [0403]" "Intel Corporation [8086]" "Smart Sound [a0c8]" -p00 "" ""\n'
+             '00:00.0 "Host bridge [0600]" "Intel Corporation [8086]" "Host [9a14]" -p00 "" ""\n')
+
+    def machine(self, root, with_wifi_driver=False):
+        """Falošný stroj: grafika a zvuk fungujú, Wi-Fi je na zbernici, ale bez rozhrania."""
+        for slot, cls, driver in (("0000:00:02.0", "030000", "i915"),
+                                  ("0000:00:1f.3", "040300", "snd_hda_intel"),
+                                  ("0000:04:00.0", "028000", "iwlwifi" if with_wifi_driver else None),
+                                  ("0000:00:00.0", "060000", None)):
+            base = os.path.join(root, "sys/bus/pci/devices", slot)
+            os.makedirs(base, exist_ok=True)
+            with open(os.path.join(base, "class"), "w", encoding="utf-8") as f:
+                f.write("0x%s\n" % cls)
+            if driver:
+                target = os.path.join(root, "sys/bus/pci/drivers", driver)
+                os.makedirs(target, exist_ok=True)
+                os.symlink(target, os.path.join(base, "driver"))
+        # Zvuková karta sa prihlásila, Wi-Fi nie.
+        os.makedirs(os.path.join(root, "proc/asound"), exist_ok=True)
+        with open(os.path.join(root, "proc/asound/cards"), "w", encoding="utf-8") as f:
+            f.write(" 0 [PCH            ]: HDA-Intel - HDA Intel PCH\n                      HDA Intel PCH at 0xa000\n")
+        card = os.path.join(root, "sys/class/sound/card0")
+        os.makedirs(card, exist_ok=True)
+        os.symlink(os.path.join(root, "sys/bus/pci/devices/0000:00:1f.3"), os.path.join(card, "device"))
+
+    def scan(self, root):
+        def run(argv):
+            if argv[0] == "lspci":
+                return self.LSPCI
+            raise OSError("%s: v skúške nie je" % argv[0])
+        return hardware.scan(root=root, heads=[], run=run)
+
+    def test_card_without_driver_does_not_disappear(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.machine(root)
+            inv = self.scan(root)
+        others = inv.group("other")
+        self.assertEqual([i.key for i in others], ["0000:04:00.0"])
+        self.assertEqual(others[0].name, "Intel Wi-Fi 6E")
+        self.assertIn("bez ovládača", others[0].detail)
+        self.assertEqual(others[0].status, "nezaradené")
+        self.assertEqual(others[0].extra["class"], "0280")
+
+    def test_claimed_devices_are_not_repeated(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.machine(root)
+            inv = self.scan(root)
+        keys = [i.key for i in inv.group("other")]
+        self.assertNotIn("0000:00:1f.3", keys)              # zvuk sa prihlásil ako karta
+        self.assertNotIn("0000:00:02.0", keys)              # grafika má vlastnú skupinu
+        self.assertNotIn("0000:00:00.0", keys)              # most je medzi Čipsetom a radičmi
+
+    def test_audio_item_remembers_its_slot(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.machine(root)
+            inv = self.scan(root)
+        self.assertEqual(inv.group("audio")[0].extra["slot"], "0000:00:1f.3")
+
+    def test_group_is_in_tab_and_has_an_icon(self):
+        self.assertIn("other", hardware.TAB_GROUPS["devices"])
+        self.assertIn("other", hardware.GROUP_ICONS)
+        self.assertEqual(hardware.Item("other", "x", "X").settings_uri, "settings://hardware/hwdiag")
+
+    def test_usb_device_without_a_name_lands_in_other(self):
+        with tempfile.TemporaryDirectory() as root:
+            device = os.path.join(root, "sys/bus/usb/devices/1-2")
+            os.makedirs(device)
+            for name, value in (("idVendor", "05e3"), ("idProduct", "0610"), ("bDeviceClass", "ff")):
+                with open(os.path.join(device, name), "w", encoding="utf-8") as f:
+                    f.write(value + "\n")
+            items = hardware.read_usb(root)
+        self.assertEqual([i.group for i in items], ["other"])
+        self.assertIn("05e3:0610", items[0].detail)
+        self.assertEqual(items[0].extra["bus"], "usb")
+
+    def test_named_usb_device_stays_in_its_group(self):
+        with tempfile.TemporaryDirectory() as root:
+            device = os.path.join(root, "sys/bus/usb/devices/1-3")
+            os.makedirs(device)
+            for name, value in (("product", "Tlačiareň"), ("bDeviceClass", "00")):
+                with open(os.path.join(device, name), "w", encoding="utf-8") as f:
+                    f.write(value + "\n")
+            items = hardware.read_usb(root)
+        self.assertEqual([i.group for i in items], ["usb"])
+
+
 if __name__ == "__main__":
     unittest.main()

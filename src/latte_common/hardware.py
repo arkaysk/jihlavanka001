@@ -8,6 +8,12 @@ USB klávesnica je vo Vstupných zariadeniach, USB disk v Úložisku, USB kamera
 USB má len to, čo inde nepatrí (tlačiareň, skener, kľúč). PCI zariadenia, ktoré už majú skupinu
 (sieťová karta, zvuková karta), sa v Platforme neopakujú.
 
+Skupina **Ostatné zariadenia** je záchranná sieť: zo zoznamu nesmie nič vypadnúť. Väčšina skupín sa
+totiž číta z rozhrania, ktoré zariadenie vytvorí, až keď má ovládač (sieťová karta má rozhranie
+v /sys/class/net, zvuková kartu v /proc/asound). Bez ovládača také zariadenie nevytvorí nič a zmizlo
+by, hoci na zbernici je a `lspci` ho vidí. Preto sa na konci pozrie, ktoré PCI zariadenie sa
+neprihlásilo v žiadnej skupine, a dá sa sem. To isté platí pre USB zariadenie, ktoré nepovie, čo je.
+
 Každá skupina vie, kde sa nastavuje (`settings_uri`), takže Správca zdrojov ponúkne k zariadeniu
 tlačidlo „Nastavenia“ a Nastavenia otvoria správnu stránku. Čo sa nedá zistiť, ide do `problems`
 (napr. chýbajúci `lspci`), nič sa nehlási potichu ani nevymýšľa.
@@ -35,6 +41,7 @@ GROUPS = {
     "usb": ("Iné USB", "hardware/bluetooth"),
     "computer": ("Počítač", "system/about"),
     "platform": ("Čipset a radiče", "hardware/hwdiag"),
+    "other": ("Ostatné zariadenia", "hardware/hwdiag"),
     "connection": ("Pripojenia", "hardware/network"),
     "vpn": ("VPN", "hardware/network"),
 }
@@ -42,7 +49,7 @@ GROUPS = {
 TABS = (("devices", "Zariadenia"), ("networks", "Siete"))
 TAB_GROUPS = {
     "devices": ("display", "graphics", "audio", "network", "optical", "storage", "input", "camera", "bluetooth",
-                "power", "usb", "computer", "platform"),
+                "power", "usb", "computer", "platform", "other"),
     "networks": ("network", "connection", "vpn"),
 }
 SHOW_EMPTY = {"connection": "Žiadne uložené pripojenie.",
@@ -51,6 +58,7 @@ USB_COVERED = {"01", "03", "08", "09", "0e", "e0"}       # audio, HID, disk, hub
 SYSTEM_INPUTS = ("power button", "sleep button", "video bus", "lid switch", "pc speaker", "hda ", "intel hid",
                  "avs hda", "sof ")
 PCI_COVERED = {"0200", "0280", "0401", "0403"}           # sieť a zvuk (majú vlastnú skupinu)
+PCI_SLOT = re.compile(r"^[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\.[0-9a-f]$")
 
 
 @dataclass
@@ -88,6 +96,7 @@ GROUP_ICONS = {
     "usb": ("drive-removable-media-symbolic",),
     "computer": ("computer-symbolic",),
     "platform": ("latte-cpu-symbolic", "emblem-system-symbolic"),
+    "other": ("dialog-question-symbolic", "emblem-system-symbolic"),
     "connection": ("network-wired-symbolic",),
     "vpn": ("network-vpn-symbolic", "security-high-symbolic"),
 }
@@ -236,14 +245,29 @@ def read_pci(root, lspci_text):
     return graphics, platform, infos
 
 
+def sound_slots(root):
+    """{index karty: slot PCI} z /sys/class/sound/cardN/device. USB karty slot nemajú."""
+    found = {}
+    for name in _listdir(root, "sys/class/sound"):
+        m = re.match(r"^card(\d+)$", name)
+        if not m:
+            continue
+        target = os.path.basename(os.path.realpath(_path(root, "sys/class/sound", name, "device")))
+        if PCI_SLOT.match(target):
+            found[m.group(1)] = target
+    return found
+
+
 def read_audio(root):
     items = []
+    slots = sound_slots(root)
     lines = _read(root, "proc/asound/cards").splitlines()
     for i, line in enumerate(lines):
         m = re.match(r"^\s*(\d+) \[(\S+)\s*\]:\s*(\S+) - (.+)$", line)
         if m:
             detail = lines[i + 1].strip() if i + 1 < len(lines) and not re.match(r"^\s*\d+ \[", lines[i + 1]) else ""
-            items.append(Item("audio", "card" + m.group(1), m.group(4).strip(), detail))
+            items.append(Item("audio", "card" + m.group(1), m.group(4).strip(), detail, "",
+                              {"slot": slots.get(m.group(1), "")}))
     return items
 
 
@@ -261,7 +285,7 @@ def read_network(root, pci):
         items.append(Item("network", name, pci_title(info) if info else name,
                           "%s · rozhranie %s" % (kind, name),
                           {"up": "pripojené", "down": "nepripojené"}.get(oper, oper),
-                          {"wireless": wireless}))
+                          {"wireless": wireless, "slot": slot if PCI_SLOT.match(slot) else ""}))
     return items
 
 
@@ -324,17 +348,40 @@ def read_usb(root):
     for dev in _listdir(root, "sys/bus/usb/devices"):
         if ":" in dev or dev.startswith("usb"):
             continue                                     # rozhrania a koreňové rozbočovače
-        product = _read(root, "sys/bus/usb/devices", dev, "product")
-        if not product:
-            continue
         classes = set(_usb_interfaces(root, dev))
         dclass = _read(root, "sys/bus/usb/devices", dev, "bDeviceClass").lower()
         if dclass and dclass != "00":
             classes.add(dclass)
         if classes and classes <= USB_COVERED:
             continue                                     # klávesnica, disk, kamera... sú vo svojej skupine
+        product = _read(root, "sys/bus/usb/devices", dev, "product")
         maker = _read(root, "sys/bus/usb/devices", dev, "manufacturer")
+        if not product:
+            # Zariadenie nepovedalo, čo je. Nesmie zmiznúť: ide medzi Ostatné aspoň s id z USB.
+            ident = "%s:%s" % (_read(root, "sys/bus/usb/devices", dev, "idVendor"),
+                               _read(root, "sys/bus/usb/devices", dev, "idProduct"))
+            items.append(Item("other", "usb-" + dev, maker or "Neznáme USB zariadenie",
+                              "USB %s · port %s" % (ident, dev), "neidentifikované",
+                              {"bus": "usb", "usb_id": ident}))
+            continue
         items.append(Item("usb", dev, product, "výrobca %s" % maker if maker else "", "pripojené"))
+    return items
+
+
+def read_unclaimed_pci(root, pci, claimed):
+    """PCI zariadenia, ktoré sa neprihlásili v žiadnej skupine — bez ovládača totiž nevytvoria
+    rozhranie (sieť) ani kartu (zvuk) a zo zoznamu by vypadli. Skupina Ostatné ich podrží."""
+    items = []
+    for slot, info in sorted(pci.items()):
+        if slot in claimed:
+            continue
+        driver = os.path.basename(os.path.realpath(_path(root, "sys/bus/pci/devices", slot, "driver")))
+        has_driver = bool(driver) and driver != "driver"
+        items.append(Item("other", slot, pci_title(info),
+                          "%s · %s" % (info["class_name"],
+                                       "ovládač %s, bez rozhrania" % driver if has_driver else "bez ovládača"),
+                          "nezaradené", {"bus": "pci", "slot": slot, "class": info["class"],
+                                         "driver": driver if has_driver else ""}))
     return items
 
 
@@ -503,4 +550,8 @@ def scan(root="/", heads=None, run=run_command):
     inv.items += read_usb(root)
     inv.items += read_power(root)
     inv.items += platform
+    # Záchranná sieť na koniec: čo sa neprihlásilo nikde, ide medzi Ostatné (zásada 6).
+    claimed = {i.key for i in inv.items if PCI_SLOT.match(i.key)}
+    claimed |= {i.extra.get("slot") for i in inv.items if i.extra.get("slot")}
+    inv.items += read_unclaimed_pci(root, pci, claimed)
     return inv

@@ -45,7 +45,7 @@ vo virtuálnom stroji, od M1 sa každá ďalšia etapa overuje na skutočnom har
     Etapa 1 (Súbory) ✅ ─┐
     Etapa 2 (Shell) 🔸  ─┤→ Etapa 2b (Relácia a prihlásenie) 🔸 → Etapa 3 (Vzhľad) 🔸
                           ↓
-                   Etapa H (Hardvér a základ) ⬜   ← nová priorita
+                   Etapa H (Hardvér a základ) 🔸   ← nová priorita
                           ↓
                    Etapa J (Jadro) ⬜
                           ↓
@@ -198,7 +198,7 @@ LatteOS; rámy, ktoré kreslí labwc cudzím aplikáciám, takto zmeniť nemožn
 
 ---
 
-## Etapa H — Hardvér a základný systém ⬜
+## Etapa H — Hardvér a základný systém 🔸
 
 Nová etapa. Vychádza zo zásady 7: ovládače majú byť pripravené dopredu, nie ako reakcia na to,
 že používateľovi niečo nefunguje. „Najnovšie“ znamená **najnovšie stabilné**, nie testovacie.
@@ -206,13 +206,13 @@ Nič sa neinštaluje potajomky a vždy sa dá vrátiť (Fedora drží viac kerne
 
 | | Úloha | Stav |
 |---|---|---|
-| H.1 | Metabalík `latteos-base`: firmvér, grafika, zvuk, vstup, sieť, Bluetooth, tlač, portály, Flatpak, fwupd. Jeden zoznam pre všetky stroje | ⬜ |
-| H.2 | Stav hardvéru podľa zariadenia v Správcovi zariadení: funguje / chýba firmvér / chýba balík / treba cudzí repozitár / nepodporované. Samostatný modul, aby detekcia zostala len na čítanie | ⬜ |
+| H.1 | Metabalík `latteos-base`: firmvér, grafika, zvuk, vstup, sieť, Bluetooth, tlač, portály, Flatpak, fwupd. Jeden zoznam pre všetky stroje | 🔸 zoznam hotový v `data/hardware/base.toml` (12 skupín, 88 balíkov, názvy overené proti `dnf repoquery` na Fedore 44), stav stroja dá `latte-devices base`; samotný RPM metabalík pribudne s bodom 9.3 |
+| H.2 | Stav hardvéru podľa zariadenia v Správcovi zariadení: funguje / chýba firmvér / chýba balík / treba cudzí repozitár / nepodporované. Samostatný modul, aby detekcia zostala len na čítanie | 🔸 `hwstatus.py` a `latte-devices status` hotové (sysfs, záznam jadra, rpm). Doplnená skupina **Ostatné zariadenia** v `hardware.py`: čo sa neprihlásilo v žiadnej skupine (karta bez ovládača, USB bez názvu), je v zozname aj s dôvodom a nikdy nedostane stav *funguje*. Zobrazenie v Správcovi zdrojov a v Nastaveniach zostáva |
 | H.3 | Grafika a 3D: Mesa pre Radeon a Intel, proprietárny ovládač pre GeForce (stabilná vetva z RPM Fusion nonfree, akmod), Vulkan, 32-bitové ovládače pre Steam, Secure Boot a podpis modulu (MOK) | ⬜ |
 | H.4 | Zvuk: PipeWire, WirePlumber, `alsa-ucm`, `alsa-sof-firmware`; overiť výstup, vstup a HDMI | ⬜ |
 | H.5 | Vstupné zariadenia cez libinput: klávesnice, touchpady, gamepady, tablety (`libwacom`), mapovanie tabletu na obrazovku | ⬜ |
 | H.6 | Firmvér zariadení cez `fwupd`, vrátane zobrazenia v Nastaveniach (Softvér › Aktualizácie) | ⬜ |
-| H.7 | Doplnenie chýbajúceho z rozhrania: PackageKit alebo dnf s potvrdením cez polkit, aj pri hot-plug udalosti z udev. Cudzí repozitár len s výslovným súhlasom | ⬜ |
+| H.7 | Doplnenie chýbajúceho z rozhrania: PackageKit alebo dnf s potvrdením cez polkit, aj pri hot-plug udalosti z udev. Cudzí repozitár len s výslovným súhlasom — `base.toml` už drží jeho `release` a `url`, takže cesta je pripravená aj na strojoch, kde sa nikdy nepoužije | ⬜ |
 | H.8 | Hardvérový report v `latteos-diag`: porovnateľný výstup zo skúšobných strojov (PCI, USB, zvuk, vstup, GPU, ovládače, firmvér) | ⬜ |
 | H.9 | Prenosné verzus strojové nastavenia: motív a písmo idú s používateľom, rozloženie obrazoviek podľa EDID, zvukové zariadenie a mapovanie tabletu zostávajú stroju | ⬜ |
 
@@ -221,6 +221,16 @@ a tlač bez toho, aby používateľ čokoľvek dopĺňal. Čo fungovať nemôže
 
 **Poznámka k vývojovému stroju:** vo virtuálnom stroji sa toto overiť nedá (virtio hardvér).
 H.1 až H.9 sa uzatvárajú až na skutočných počítačoch v M1.
+
+**Poznámka k RPM Fusion.** Celý povinný zoznam `latteos-base` (63 balíkov) je z Fedory, cudzí
+repozitár teda nie je podmienkou behu LatteOS a pri inštalácii sa nezapína. Hardvérové prípady, kde
+Fedora ovládač nemá, sú dva: **GeForce** (`akmod-nvidia`) a **Wi-Fi Broadcom** (`broadcom-wl`), oba
+v Nonfree. Steam medzi ne nepatrí, ide cez Flatpak (bod 7.4). Kodeky dnes z veľkej časti rieši Fedora
+sama (`mesa-dri-drivers` už nesie VA-API ovládače) — **overiť na skutočnom stroji v M1**, vo VM to
+nejde. Podpora repozitára však zostáva úplná aj tam, kde sa nepoužije: `data/hardware/base.toml` drží
+jeho názov, balík `release`, adresu a riziká, `latte-devices base` ukáže, či je zapnutý a čo prinesie,
+a `latte-devices status` ho ponúkne len vtedy, keď konkrétne zariadenie bez neho nefunguje.
+Vypnutý repozitár sa nehlási ako problém.
 
 ---
 
@@ -273,7 +283,7 @@ poriadne skúša na skutočnom hardvéri. Predpoklad: hotová etapa H, etapa 4 a
 | | Úloha | Stav |
 |---|---|---|
 | M1.1 | Aspoň tri odlišné stroje: AMD Radeon, NVIDIA GeForce (rad 50xx), notebook s integrovanou grafikou | ⬜ |
-| M1.2 | Steam sa nainštaluje z rozhrania, spustí a prihlási; Proton je dostupný | ⬜ |
+| M1.2 | Steam sa nainštaluje z rozhrania ako Flatpak (Flathub), spustí a prihlási; Proton je dostupný | ⬜ |
 | M1.3 | Hry: natívna, Proton DirectX 11 a Proton DirectX 12 alebo Vulkan; overiť obraz, zvuk, gamepad, plynulosť | ⬜ |
 | M1.4 | Celá obrazovka: lišta ani oznámenia nekradnú fokus, nerezervujú miesto a neprekrývajú hru; obnovovacia frekvencia a rozlíšenie sa nestratia | ⬜ |
 | M1.5 | Náročné aplikácie: 3D (Blender), grafika (Krita alebo GIMP), video (Kdenlive), prehliadač s WebGL | ⬜ |
@@ -327,7 +337,7 @@ dobre, testuje sa na skutočnom stroji.
 
 | | Úloha | Stav |
 |---|---|---|
-| 7.4 | **Proton a Steam pre hry** (vytiahnuté dopredu, do M1) | ⬜ |
+| 7.4 | **Proton a Steam pre hry** (vytiahnuté dopredu, do M1). **Rozhodnuté: Steam ide cez Flatpak z Flathubu**, nie z RPM Fusion Nonfree — Proton si Steam nesie sám a kvôli hrám tak netreba zapínať cudzí repozitár. Nonfree zostáva otvorený pre ovládač GeForce, ktorý Flatpak nenahradí | ⬜ |
 | 7.1 | Bottles alebo vlastná správa prefixov, jeden prefix na aplikáciu | ⬜ |
 | 7.2 | Inštalácia `.exe` z App Managera, štítok WIN32 | ⬜ |
 | 7.3 | Odstránenie disku Z: z prefixu (aplikácia nevidí koreň) | ⬜ |
@@ -482,8 +492,9 @@ slotmi (stačí systémová), náhľady v sandboxe, vlastná sada ikon.
 
 ## Ďalšie tri kroky
 
-1. **H.1 a H.2** — zoznam balíkov pre `latteos-base` overený proti `dnf` a stav ovládačov
-   v Správcovi zariadení. Je to bezpečné (len čítanie) a hneď ukáže medzery na skutočných strojoch.
+1. **H.2 do rozhrania** — `latte-devices status` už vie, čo nefunguje a čím sa to doplní. Zostáva to
+   ukázať v Správcovi zdrojov (dlaždica so stavom) a v Nastaveniach (Hardvér). Potom **H.7**: doplnenie
+   chýbajúceho balíka s potvrdením cez polkit, aby zisťovanie zostalo oddelené od inštalácie.
 2. **J.1 a J.2** — App Registry a odstránenie štyroch `Popen` volaní zo shellu. Bez toho sa App Manager
    postaví na priamych cestách k súborom.
 3. **Etapa 4** — App Manager. Najväčší skok v hodnote projektu a vstupenka do M1, pretože bez neho
