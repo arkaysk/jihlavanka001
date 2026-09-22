@@ -1,501 +1,295 @@
-# LatteOS — plán vývoja
+# LatteOS Gamer Distro — Roadmap
 
-Od prvého kódu po prostredie, v ktorom fungujú hry, náročné aplikácie, Android a Windows programy.
-Cieľ vydania: **LatteOS 1.0 „Arabica“**. Dnešný stav: **0.1 „Jihlavanka“**, prototyp.
+22. 9. 2026 · @Arkay
 
-Zásady, na ktorých plán stojí, sú v [README.md](README.md). Rozbor jadrovej vrstvy je
-v [CoreAPImanifest.md](CoreAPImanifest.md) (doplnkový návrh, z ktorého plán preberá len to,
-čo má overiteľný výsledok).
+Nadväzuje na [README.md](README.md) (premisa, bezpečnostný a aplikačný model, tech stack).
+Nahrádza pôvodný plán pre Jihlavanku 0.1 (uložený ako [oldROADMAP.md](oldROADMAP.md)) — nie preto,
+že by bol zlý, ale preto, že stojí na inom kompozitore (labwc) a inom jazyku (Python/GTK4), zatiaľ čo
+gamerdistro smer stavia na forku Hyprlandu a Rust/Slint od prvého riadku kódu.
 
-## Ako čítať
+## Rozhodnutia, z ktorých táto roadmapa vychádza
 
-| Značka | Význam |
-|---|---|
-| ✅ | hotové |
-| 🔸 | rozrobené |
-| ⬜ | nezačaté |
-
-Každá etapa má overiteľný výsledok. Kým nie je splnený, ďalej sa nejde.
-
-Etapy s číslom (0 až 9) sú pôvodné a ich čísla sa nemenia, pretože na ne odkazuje
-`data/settings/index.toml` (pole `etapa`). Nové etapy majú preto písmeno: **H** hardvér,
-**J** jadro, **P** procesy a monitor. Milníky sú **M1** a **M2**.
-
----
-
-## Milníky
-
-| Milník | Podmienka | Stav |
+| Rozhodnutie | Voľba | Dôvod |
 |---|---|---|
-| **0.1 Jihlavanka** | prostredie sa dá nainštalovať a odovzdať niekomu inému (etapa 9) | 🔸 |
-| **M1 — overenie na strojoch** | na viacerých skutočných počítačoch fungujú hry a náročné aplikácie | ⬜ |
-| **0.9 Beta** | jadro stabilné, App Manager funkčný, obnova a oprávnenia fungujú | ⬜ |
-| **M2 — zmrazenie** | jadro, schéma nastavení a model aplikácií sa už nemenia | ⬜ |
-| **1.0 Arabica** | LatteOS funguje ako konzistentná vrstva nad Linuxom | ⬜ |
+| Distribučná báza | **Fedora Atomic** (Bazzite štýl, rpm-ostree) | Najmenej trenia s tým, čo už existuje (`data/hardware/base.toml` je overené proti Fedore 44, vývojové VM je Fedora Server) |
+| Naloženie so starým Python/GTK kódom | **Úplný prepis**, nie adaptácia na Hyprland | Fluidita (bezier animácie, GPU efekty priamo v kompozícii — referenčná kvalita [r/unixporn: Hyprland as fluid as it gets](https://www.reddit.com/r/unixporn/comments/1s84jik/hyprland_as_fluid_as_it_gets/)) sa nedá dobre dolepiť na GTK4 widget strom dodatočne. Musí byť súčasťou architektúry od Etapy C, nie doplnok na konci. |
+| Písať od nuly vs. prebrať z ekosystému | **Prepis od nuly len pre skutočné odlišovacie prvky** (fork Hyprlandu, trusted/untrusted model). Pre commodity UI chrome (panel, kontextové menu, launcher, súborový manažér, gaming session) sa **forkujú a prispôsobujú overené open-source projekty** namiesto písania od nuly | Kontextové menu na ploche alebo Proton prefix manager už niekto vyriešil overeným spôsobom v Hyprland/SteamOS ekosystéme — netreba objavovať to isté znova. Licencie overené, pozri tabuľku nižšie |
 
-M1 je bod, ktorý si projekt vytýčil ako kontrolu v polovici cesty: dovtedy sa vyvíja hlavne
-vo virtuálnom stroji, od M1 sa každá ďalšia etapa overuje na skutočnom hardvéri.
+## Prebraté komponenty namiesto písania od nuly
+
+Licencie overené (22. 9. 2026, priamo z repozitárov). Žiadny z nich nebráni forku okrem
+cosmic-files/cosmic-panel, kde platí GPL-3.0 copyleft — akceptovateľné pre open-source OS distro,
+prehodnotiť len ak by niektorý z týchto modulov mal byť niekedy uzavretý/komerčný.
+
+| Oblasť | Projekt | Licencia | Ako sa použije |
+|---|---|---|---|
+| Kompozitor | [Hyprland](https://github.com/hyprwm/Hyprland) | BSD-3-Clause | fork, žiadne obmedzenia (Etapa C) |
+| UI toolkit pre vlastné appky | [Slint](https://slint.dev/) | Royalty-free pre desktop (zadarmo) / GPLv3 / komerčná | desktop použitie zadarmo, zdrojáky môžu zostať vlastné |
+| Panel, launcher, kontextové menu, notifikácie | [HyprPanel](https://github.com/Jas-SinghFSU/HyprPanel) (Astal/GTK) | MIT | fork ako štart pre Etapu U, voľne premenovateľné a upraviteľné |
+| Alternatíva k HyprPanel | [Quickshell](https://github.com/quickshell-mirror/quickshell) (QtQuick) | LGPL-3.0 | ak sa ukáže flexibilnejší pre fluiditu; zmeny v Quickshell samotnom treba zdieľať späť |
+| Súborový manažér | [cosmic-files](https://github.com/pop-os/cosmic-files) (Rust) | **GPL-3.0-only** | fork ako štart pre Etapu D (udisks2, trash, view modes už hotové) |
+| Panel scaffolding (Rust alternatíva) | [cosmic-panel](https://github.com/pop-os/cosmic-panel) | **GPL-3.0-only** | záložná možnosť k HyprPanel, ak sa uprednostní Rust nad Astal/GTK |
+| Gaming session (fullscreen, HDR, FSR scaling) | [gamescope](https://github.com/ValveSoftware/gamescope) (Valve) | BSD-2-Clause | použiť ako je, nepísať vlastný (Etapa G) |
+| Proton/Wine prefix management | [umu-launcher](https://github.com/Open-Wine-Components/umu-launcher) | GPL-3.0 | externý proces (rovnako ako Bazzite/Lutris/Heroic), nešíri GPL na zvyšok systému |
+| Build/image pipeline | Bazzite/ublue-os Containerfile+justfile | rôzne, overiť pri fork-ovaní | referencia/fork pre Etapu 0/9 namiesto vlastného rpm-ostree pipeline |
+
+## Čo sa deje s Jihlavankou 0.1
+
+Kód v `src/` a `session/` (17-tisíc riadkov Python/GTK4 + labwc konfigurácia) **prestáva byť runtime**
+tohto smeru. Nemaže sa — slúži ako:
+
+1. **Funkčná špecifikácia.** Každý modul (`latte_files`, `latte_process`, `latte_devices`,
+   `latte_settings`, `latte_shell`, greeter) už raz vyriešil, čo presne má daná časť robiť, vrátane
+   hraničných prípadov, ktoré `oldROADMAP.md` a `oldCoreAPImanifest.md` zdokumentovali (napr. tri režimy
+   zobrazenia v Data Manageri, presné hranice medzi Process Manager a Device Manager). Etapy nižšie sa na
+   tieto čísla odkazujú, aby sa pri prepise neopakovalo objavovanie tých istých rozhodnutí.
+2. **Dáta, nie kód, prežívajú priamo.** `data/hardware/base.toml`, `data/hardware/pci.ids`,
+   `data/settings/*.schema.toml`, `data/polkit/*` a wallpapre sú jazykovo neutrálne — Rust vrstva ich
+   môže čítať bez zmeny formátu. Netreba ich prepisovať, len napojiť.
+3. **Session bootstrap ostáva ako koncept, nie ako súbory.** Systemd user jednotky, greetd a `latte-session.target`
+   ako vzor prežívajú; `session/labwc/rc.xml` a `environment` sú labwc-špecifické a nahradí ich
+   Hyprland konfigurácia z Etapy C.
+
+Čo sa **neprenáša vôbec**: GTK4/libadwaita vzhľadová vrstva (Etapa 3 v starom pláne), pretože fluidný
+Slint UI runtime ju robí od nuly inak.
 
 ---
 
 ## Poradie a závislosti
 
-    Etapa 0 (Relácia) ✅
+    Etapa 0 (Báza a vývojové prostredie) ⬜
        ↓
-    Etapa 1 (Súbory) ✅ ─┐
-    Etapa 2 (Shell) 🔸  ─┤→ Etapa 2b (Relácia a prihlásenie) 🔸 → Etapa 3 (Vzhľad) 🔸
+    Etapa H (Hardvér a 3D akcelerácia — DEŇ 1, nie uprostred) ⬜
+       ↓
+    Etapa C (Fork Hyprlandu — fluidný kompozitor) ⬜
+       ↓
+    Etapa U (Rust/Slint UI jadro — shell, popupy, plocha) ⬜
+       ↓
+    ┌──────────────┬──────────────┬──────────────┐
+    ↓              ↓              ↓              ↓
+ Etapa S       Etapa D        Etapa P        Etapa W
+ (Bezpeč./     (fork          (Process &     (Wizard,
+  App model,    cosmic-files)  Device Mgr)    Session Mgr, Text Bar)
+  vlastné)
+    └──────────────┴──────────────┴──────────────┘
                           ↓
-                   Etapa H (Hardvér a základ) 🔸   ← nová priorita
+                   Etapa G (Steam, Proton, anti-cheat)
                           ↓
-                   Etapa J (Jadro) ⬜
+                   ══ M1: overenie na reálnych strojoch ══
                           ↓
-                   Etapa 4 (App Manager) ⬜
+                   Etapa A (Android — Lepton/Waydroid)
                           ↓
-                   ══ M1: overenie na strojoch, hry ══
-                          ↓
-            ┌─────────────┼─────────────┐
-            ↓             ↓             ↓
-       Etapa 5       Etapa 6       Etapa 7
-      (Kontajnery)   (Android)     (Windows)
-            └─────────────┼─────────────┘
-                          ↓
-                   Etapa 8 (Nastavenia) 🔸
-                          ↓
-                   Etapa P (Monitor) 🔸
-                          ↓
-                   Etapa 9 (Vydanie) ⬜
+                   Etapa 9 (Vydanie: ISO/kickstart)
 
-Etapy 5, 6 a 7 sú nezávislé, dajú sa robiť v ľubovoľnom poradí. Etapa P beží priebežne,
-už je rozrobená. Bod **7.4 (Proton a Steam)** sa z etapy 7 vyťahuje dopredu, do M1: Steam si
-Proton nesie sám a na test hier nepotrebuje vlastnú správu prefixov z bodov 7.1 až 7.3.
+Kľúčový rozdiel oproti starému plánu: **hardvér a 3D akcelerácia (Etapa H) idú hneď po založení
+vývojového prostredia, nie až v polovici cesty.** Celá premisa gamerdistra (fluidný Hyprland fork,
+GPU-akcelerované efekty) je na nich postavená — bez overenej 3D akcelerácie sa Etapa C ani nedá
+zmysluplne začať.
 
 ---
 
-## Etapa 0 — Spustenie systému a relácie ✅
+## Etapa 0 — Báza a vývojové prostredie ⬜
 
 | | Úloha | Stav |
 |---|---|---|
-| 0.1 | Po zapnutí počítača sa načíta Fedora a systémové služby | ✅ |
-| 0.2 | Prihlasovacie menu ponúkne LatteOS ako Wayland reláciu | ✅ |
-| 0.3 | Po prihlásení sa spustí labwc, environment a LatteOS desktop | ✅ |
-| 0.4 | LatteOS shell sa spustí automaticky po štarte relácie | ✅ |
-| 0.5 | Vývojové ukončenie relácie vráti používateľa do headless Linuxu | ✅ |
+| 0.1 | Čistý git branch `gamerdistro`, oddelený od Jihlavanky (README/manifest presun už hotový) | 🔸 |
+| 0.2 | Nový VM image: Fedora Atomic (rpm-ostree), nie Fedora Server ako doteraz | ⬜ |
+| 0.3 | Rust toolchain, Slint (crate + LSP/preview nástroje), Vulkan SDK/hlavičky vo vývojovom obraze | ⬜ |
+| 0.4 | Voľba forkovacieho bodu Hyprlandu (verzia/tag) a build pipeline preň v Atomic prostredí (layered package alebo Distrobox/toolbox pre vývoj) | ⬜ |
+| 0.5 | Repozitár: rozhodnúť štruktúru workspace (jeden Cargo workspace pre kompozitor-doplnky + shell + nástroje, alebo oddelené repá) | ⬜ |
 
-**Výsledok:** po zapnutí a prihlásení sa spustí LatteOS bez ručného zadávania príkazov.
-Ručný autostart: `latteos-session`.
+**Výsledok:** vývojár vie na čistom Fedora Atomic stroji skompilovať fork Hyprlandu aj Rust/Slint časti.
 
 ---
 
-## Etapa 1 — Súbory ✅
+## Etapa H — Hardvér a 3D akcelerácia ⬜
+
+Presunuté z pôvodnej strednej pozície na začiatok. Obsah je väčšinou prevzatý z `oldROADMAP.md`
+(Etapa H, H.1–H.9) — toto je systémová vrstva nezávislá od kompozitora aj jazyka, netreba ju
+vymýšľať odznova, len overiť skôr.
 
 | | Úloha | Stav |
 |---|---|---|
-| 1.1 | Zväzky z lsblk, mapovanie na Device1…N, volumes.toml | ✅ |
-| 1.2 | Koreň „Tento počítač“, hranice zväzkov, žiadny Linux | ✅ |
-| 1.3 | Breadcrumb, história, šípky, domček | ✅ |
-| 1.4 | Tri režimy zobrazenia, aktívny panel, Tab | ✅ |
-| 1.5 | Otvorenie súboru, nový priečinok, premenovanie, kopírovanie, presun, Kôš | ✅ |
-| 1.6 | Premenovanie zväzku pravým klikom | ✅ |
-| 1.7 | Kontextové menu pravým klikom nad položkou | ✅ |
-| 1.8 | Viacnásobný výber (Ctrl, Shift) a operácie nad ním | ✅ |
-| 1.9 | Priebeh operácie (kopírovanie veľkých súborov, zrušenie) | ✅ |
-| 1.10 | Vykonať ako správca cez polkit pri „prístup odmietnutý“ | ✅ |
-| 1.11 | Automatické obnovenie pri pripojení USB (signály udisks2) | ✅ |
-| 1.12 | Obľúbené položky v bočnom paneli | ✅ |
-| 1.13 | Štýly zobrazenia: Zoznam, Stredné ikony, Podrobnosti, Miniatúry | ✅ |
-| 1.14 | Detekcia zdrojov dát: disky, USB, optika, disketa, zdieľané priečinky | ✅ |
-| 1.15 | Bočný panel: farba popisu priečinka, skutočné premenovanie nesystémových priečinkov, zväzky len alias ([docs/lista-a-rohy.md](docs/lista-a-rohy.md), časť 6) | ⬜ |
+| H.1 | `data/hardware/base.toml` (12 skupín, 88 balíkov) preniesť do rpm-ostree/kickstart podoby pre Atomic | 🔸 dáta existujú, formát treba overiť proti rpm-ostree |
+| H.2 | Grafika a 3D: Mesa (Radeon/Intel), proprietárny NVIDIA (akmod, RPM Fusion nonfree), Vulkan runtime a validačné vrstvy, 32-bitové ovládače pre Steam | ⬜ |
+| H.3 | Secure Boot a podpis modulu (MOK) pre akmod-nvidia na Atomic | ⬜ |
+| H.4 | Overenie GPU-akcelerovanej kompozície *pred* Etapou C: `vulkaninfo`, `glxinfo`/`vkcube` na skutočnej aj virtuálnej grafike — vo VM (virtio) sa 3D akcelerácia poriadne overiť nedá, treba aspoň jeden reálny stroj skôr, než sa začne s Etapou C | ⬜ |
+| H.5 | Zvuk (PipeWire/WirePlumber), vstup (libinput, gamepady, `libwacom`), firmvér (`fwupd`) | ⬜ |
+| H.6 | Hardvérový report (`latteos-diag` ekvivalent) — prevziať logiku z `oldROADMAP.md` H.8 | ⬜ |
 
-**Výsledok:** správca súborov použiteľný na bežnú prácu bez terminálu.
+**Výsledok:** na aspoň jednom reálnom stroji beží overená GPU-akcelerovaná Vulkan grafika, na ktorej
+má zmysel stavať Hyprland fork. Toto je **blokujúca podmienka** pre Etapu C, nie paralelná úloha.
 
 ---
 
-## Etapa 2 — Shell 🔸
+## Etapa C — Fork Hyprlandu: fluidný kompozitor ⬜
+
+Jadro odlišovacieho zážitku (README, sekcia "Compositor a UI vrstva"). Referenčná úroveň kvality:
+[r/unixporn — Hyprland as fluid as it gets](https://www.reddit.com/r/unixporn/comments/1s84jik/hyprland_as_fluid_as_it_gets/).
 
 | | Úloha | Stav |
 |---|---|---|
-| 2.1 | Lišta ako layer-shell panel s rezervovaným miestom | ✅ |
-| 2.2 | Rohové dlaždice, hodiny, tlačidlá | ✅ |
-| 2.3 | Popupy v tvare L, zatvorenie klikom mimo, pripnutie do okna | ✅ |
-| 2.4 | Zoznam otvorených okien v strede lišty (wlr-foreign-toplevel) | ✅ |
-| 2.5 | Systémový manažér: vypnúť, reštartovať, odhlásiť. Zostáva prepojenie na Nastavenia | 🔸 |
-| 2.6 | Manažér času: pásma, oznámenia, kalendár | ✅ |
-| 2.7 | Oznámenia (`org.freedesktop.Notifications`): bubliny, zoznam, akcie, Nerušiť | ✅ overiť na živej zbernici |
-| 2.8 | Prompt s prepínaním režimov: hľadanie, príkazy Linuxu, AI | ✅ |
-| 2.9 | Schránka s ôsmimi slotmi — `latte-clipd` (chce vlastného klienta wlr-data-control) | ⬜ |
-| 2.10 | Plocha: tapeta ✅, ikony z ~/Desktop ✅, Kôš ✅. Zostáva kontextové menu, presúvanie ikon, obnovenie z Koša | 🔸 |
-| 2.11 | Dekoratívne rohové dlaždice: kroky R1 až R5 hotové (rozmery, kmeň L, scény, prevody a svetlo, vlastný GIF/WebP). Zostáva strihač videa | 🔸 |
-| 2.12 | **Kontextové menu pravým tlačidlom ako systémové pravidlo:** každý objekt, nad ktorým sa dá niečo urobiť, má menu. V iných systémoch je to samozrejmosť, v LatteOS je zatiaľ takmer nevyužité (dnes len v správcovi súborov a v mapách). Jedno spoločné menu, jeden vzhľad, jedno miesto v kóde | ⬜ |
-| 2.13 | **Plocha, pravé tlačidlo na prázdne miesto:** Nový priečinok, Nový súbor (podľa typu, aj zoznam), Prilepiť, Zoradiť, Obnoviť, Vlastnosti. Nastavenie obrazovky a tapety tu **nie je** — patrí do Nastavení, kde je dobre dostupné | ⬜ |
-| 2.14 | **Plocha, pravé tlačidlo na ikonu:** Otvoriť, Otvoriť v aplikácii, Vystrihnúť, Kopírovať, Premenovať, Zmazať (do Koša), Detaily. Operácie už existujú v `fileops.py`, chýba ich vyvolanie | ⬜ |
-| 2.15 | **Lišta úloh, zobrazenie položiek:** ikona a popis verzus len ikona, správanie pri takmer prázdnej lište (nerozťahovať položky na celú šírku) a pri preplnenej (zhromaždiť okná jednej aplikácie pod jednu položku, potom skracovať popis, až nakoniec len ikony) | ⬜ |
-| 2.16 | **Lišta úloh, ovládanie okna pravým tlačidlom:** Zavrieť, Minimalizovať, Obnoviť, Maximalizovať, Vždy navrchu, Presunúť na plochu alebo monitor. Zavrieť, minimalizovať a maximalizovať vie protokol wlr-foreign-toplevel, ktorý už používame; ostatné treba overiť | ⬜ |
-| 2.17 | **Náhľad okna pri prejdení kurzorom** nad položkou v lište, vrátane minimalizovaného okna. **Najprv overiť, či to ide:** minimalizované okno sa nekreslí a `wlr-screencopy` snímkuje výstup, nie okno; snímka jedného okna potrebuje `ext-image-copy-capture-v1` a podporu v labwc. Ak to nejde, náhľad bude ikona, názov a poctivá informácia, nie falošný obrázok | ⬜ |
+| C.1 | Stock Hyprland beží v session (greetd + systemd user jednotky, koncept prevzatý z `session/`) | ⬜ |
+| C.2 | Rozsah forku: rozhodnúť, čo sa mení hneď (animačná krivka, efekty kompozície) a čo zostáva stock (README otvorená otázka č. 2) | ⬜ |
+| C.3 | Bezier animácie a GPU-akcelerované efekty ladené na referenčnú fluiditu — toto je vizitka projektu, dostáva vlastný časový priestor, nie "urobí sa poslednú hodinu" | ⬜ |
+| C.4 | Wayland vrstva: rozhodnúť, či a kde sa oplatí Smithay (README: "nie nutne v jadre kompozitora") — predpoklad je nie pre v0, prehodnotiť po C.3 | ⬜ |
+| C.5 | Protokoly potrebné pre vyššie etapy: layer-shell (panel), wlr-foreign-toplevel (taskbar), screencopy (náhľady okien) — fork Hyprlandu ich má, overiť že sa nezlomili pri C.2/C.3 | ⬜ |
 
-**Výsledok:** prostredie, v ktorom sa dá pracovať celý deň bez cudzieho desktopu.
-
-**Pravidlo k bodom 2.12 až 2.17:** ak je nejaká funkcia v iných systémoch bežná a tu chýba, neznamená to,
-že je nepotrebná. Znamená to, že sa o nej nerozhodlo, a treba ju prebrať s vlastníkom projektu.
+**Výsledok:** prihlásenie spustí forknutý Hyprland s animáciami porovnateľnými s referenčným videom,
+na reálnom hardvéri z Etapy H.
 
 ---
 
-## Etapa 2b — Relácia a prihlásenie 🔸
+## Etapa U — Shell: panel, launcher, kontextové menu, notifikácie ⬜
 
-Tenká vrstva nad systemd user službami. Reštarty a poradie rieši systemd, `latte-sessiond` drží
-stav relácie a hovorí s prihlásením.
-
-| | Úloha | Komponent | Stav |
-|---|---|---|---|
-| 2b.1 | Skript relácie s premennými (XDG_CURRENT_DESKTOP, GSK_RENDERER) | latteos-session | ✅ |
-| 2b.2 | `latteos.desktop` v `/usr/share/wayland-sessions/` | — | ✅ |
-| 2b.3 | Prihlasovacia obrazovka: `latte-greeter` nad greetd, gtkgreet ako záloha | latte-greeter | ✅ |
-| 2b.4 | systemd user jednotky pre komponenty, `latte-session.target` | — | ✅ |
-| 2b.5 | Stav relácie, odhlásenie, vypnutie, reštart (logind) | latte-sessiond | ⬜ |
-| 2b.6 | Zamykanie obrazovky | latte-sessiond | ⬜ |
-| 2b.7 | Uvítanie pri prvom prihlásení: čo sa spúšťa, čo beží na pozadí | latte-greeter | ⬜ |
-| 2b.8 | Obnova otvorených okien po prihlásení (deklaratívne, nie snímka pamäte) | latte-sessiond | ⬜ |
-| 2b.9 | Dôvod pádu relácie: journald, karta v prihlasovaní, `latteos-diag` | latteos-session | ✅ |
-| 2b.10 | Prihlasovanie: nedávni používatelia, účet bez hesla, napájacie menu, dev voľby | latte-greeter | ✅ overiť vo VM: SELinux, polkit |
-| 2b.11 | Panel oznamov v prihlasovaní: počasie, RSS (cache plní služba, greeter nesťahuje) | latte-greeter | ⬜ |
-| 2b.12 | `latteos-start`: z konzoly späť do grafiky | latteos-start | ✅ |
-
-**Výsledok:** prostredie sa spúšťa prihlásením, pád jedného komponentu nezhodí reláciu.
-
----
-
-## Etapa 3 — Vzhľad 🔸
+Namiesto písania `latte_shell` ekvivalentu (3895 riadkov Python) od nuly sa forkuje **HyprPanel**
+(MIT, Astal/GTK) ako bežiaci základ a prispôsobuje sa LatteOS téme a správaniu. Layout a UX rozhodnutia
+z `oldROADMAP.md` Etapa 2/2b/3 (tvar L popupov, rohové dlaždice, kontextové menu ako systémové pravidlo)
+ostávajú platná špecifikácia pre to, čo sa vo forku mení.
 
 | | Úloha | Stav |
 |---|---|---|
-| 3.1 | `data/styles/latte.css`: jedna téma pre všetky komponenty | ✅ |
-| 3.2 | Paleta a typografia podľa prototypu (teplá káva, krémová, karamel) | 🔸 farby a polomery sú v motíve, typografia zostáva |
-| 3.3 | Vlastná sada ikon (~30 kusov) | ⬜ |
-| 3.4 | Tapeta a prihlasovacia obrazovka v jednej téme | ✅ |
-| 3.5 | Polopriehľadné panely so šumom (náhrada za sklo) | ⬜ |
-| 3.6 | Prístupnosť: kontrast, veľkosť cieľov, viditeľnosť fokusu | 🔸 kontrast AA a Vysoký kontrast hotové |
-| 3.7 | Jeden zdroj pravdy: `appearance.toml` + motív, služba, portál, gtk.css, rámy labwc | ✅ overené na GTK4/libadwaita |
-| 3.8 | Adaptéry pre GTK 3, Qt, Firefox, Chromium a Electron, Wine | ⬜ |
-| 3.9 | Profily aplikácií: úroveň vynucovania a značka „vlastný vzhľad“ v prepínači okien | 🔸 dáta hotové, zobrazenie zostáva |
-| 3.10 | Jedna výška záhlavia a jednotné tlačidlá okien vo vlastných komponentoch, libadwaite aj v rámoch labwc | ✅ |
-| 3.11 | Živá tapeta: kódovaná scéna alebo GIF, rovnaký stroj scén ako lišty | ⬜ |
-| 3.12 | **Bočná lišta od vrchu až dole.** Priehľadná bočná lišta ide cez celú výšku okna vrátane pásu hlavičky, nezačína pod ňou. Šípky späť a vpred, názov, hľadanie a tlačidlá okna začínajú až vpravo od nej. Dnes to tak nie je: všetky tri okná používajú `Gtk.HeaderBar` + `set_titlebar()`, takže hlavička ide cez celú šírku | ⬜ |
-| 3.13 | **Bočná lišta ako všeobecný vzor pre všetky okná LatteOS:** raz rozkladacie menu (Nastavenia), raz zoznam diskov a obľúbených priečinkov (Súbory), raz rýchly prístup k funkciám (editor textu alebo obrázkov). Jeden komponent, nie tri kópie | ⬜ |
-| 3.14 | **Miesto pre prepínač NET v hlavičke** vedľa hľadania, vľavo od tlačidiel min/max/zavrieť. Najprv len placeholder; funkciu dodá bod 8.1 | ⬜ |
+| U.1 | Fork HyprPanelu, beží nad Etapou C fork Hyprlandu, overiť Hyprland IPC hooky | ⬜ |
+| U.2 | Retheme na LatteOS vizuál (paleta, polomery, animácie zladené s fluiditou Etapy C) | ⬜ |
+| U.3 | Kontextové menu ako systémové pravidlo — dotiahnuť to, čo ani stará Python verzia nedokončila (plocha, taskbar), teraz už na hotovom HyprPanel základe namiesto vlastnej layer-shell implementácie | ⬜ |
+| U.4 | Taskbar nad wlr-foreign-toplevel (HyprPanel to rieši natívne pre Hyprland — overiť len po forku C) | ⬜ |
+| U.5 | Oznámenia (`org.freedesktop.Notifications`) — HyprPanel má vlastné, overiť/prispôsobiť | ⬜ |
+| U.6 | Text Bar: hľadanie appiek/funkcií/súborov + prepnutie na AI prompter (README) — toto **je** LatteOS-špecifické, staviať nad HyprPanel launcher modulom alebo ako vlastný Slint doplnok, nie preberať 1:1 | ⬜ |
+| U.7 | Plocha: tapeta, ikony, Kôš | ⬜ |
+| U.8 | Clipboard manager — `nwg-clipman`/`cliphist` ako backend namiesto vlastného `latte-clipd` | ⬜ |
 
-**Výsledok:** prostredie vyzerá ako jeden produkt. Vzhľad sa mení z jedného miesta a platí pre všetky
-okná, kde je to technicky možné; inde platí náhradné riešenie (rám od kompozitora, poctivá značka),
-nikdy filter, ktorý by zničil obsah.
-
-**Poznámka k bodu 3.12.** Vedú k nemu dve cesty a treba sa rozhodnúť:
-*(a) vzhľadová* — hlavička zostane v `set_titlebar()`, ale jej ľavý úsek v šírke bočnej lišty bude
-priehľadný a s rovnakým podkladom, takže panel vyzerá ako jeden celok od vrchu až dole; ťahanie okna,
-zmena veľkosti a tlačidlá okna fungujú ako dnes.
-*(b) štruktúrová* — okno bez hlavičky, vnútri vpravo `Gtk.WindowHandle` s `Gtk.WindowControls`;
-bočná lišta je skutočne celovýšková a presne podľa obrázka, ale treba overiť ťahanie a najmä zmenu
-veľkosti okna bez dekorácií.
-Odporúčam začať cestou (a) a ak zostane viditeľný spoj, prejsť na (b). Platí to len pre vlastné okná
-LatteOS; rámy, ktoré kreslí labwc cudzím aplikáciám, takto zmeniť nemožno.
+**Výsledok:** deň sa dá prežiť v prostredí bez cudzieho desktopu, s fluiditou z Etapy C viditeľnou
+vo všetkých UI prvkoch. Vlastná práca sa sústredí na U.2, U.3 a U.6 (branding, chýbajúce kontextové
+menu, Text Bar) — nie na písanie panelu od nuly.
 
 ---
 
-## Etapa H — Hardvér a základný systém 🔸
+## Etapa S — Bezpečnostný a aplikačný model ⬜
 
-Nová etapa. Vychádza zo zásady 7: ovládače majú byť pripravené dopredu, nie ako reakcia na to,
-že používateľovi niečo nefunguje. „Najnovšie“ znamená **najnovšie stabilné**, nie testovacie.
-Nič sa neinštaluje potajomky a vždy sa dá vrátiť (Fedora drží viac kernelov).
+Druhý odlišovací prvok podľa README ("nie hlavný vzhľad, ale bezpečnostný/aplikačný model").
 
 | | Úloha | Stav |
 |---|---|---|
-| H.1 | Metabalík `latteos-base`: firmvér, grafika, zvuk, vstup, sieť, Bluetooth, tlač, portály, Flatpak, fwupd. Jeden zoznam pre všetky stroje | 🔸 zoznam hotový v `data/hardware/base.toml` (12 skupín, 88 balíkov, názvy overené proti `dnf repoquery` na Fedore 44), stav stroja dá `latte-devices base`; samotný RPM metabalík pribudne s bodom 9.3 |
-| H.2 | Stav hardvéru podľa zariadenia v Správcovi zariadení: funguje / chýba firmvér / chýba balík / treba cudzí repozitár / nepodporované. Samostatný modul, aby detekcia zostala len na čítanie | 🔸 `hwstatus.py` a `latte-devices status` hotové (sysfs, záznam jadra, rpm). Doplnená skupina **Ostatné zariadenia** v `hardware.py`: čo sa neprihlásilo v žiadnej skupine (karta bez ovládača, USB bez názvu), je v zozname aj s dôvodom a nikdy nedostane stav *funguje*. Zobrazenie v Správcovi zdrojov a v Nastaveniach zostáva |
-| H.3 | Grafika a 3D: Mesa pre Radeon a Intel, proprietárny ovládač pre GeForce (stabilná vetva z RPM Fusion nonfree, akmod), Vulkan, 32-bitové ovládače pre Steam, Secure Boot a podpis modulu (MOK) | ⬜ |
-| H.4 | Zvuk: PipeWire, WirePlumber, `alsa-ucm`, `alsa-sof-firmware`; overiť výstup, vstup a HDMI | ⬜ |
-| H.5 | Vstupné zariadenia cez libinput: klávesnice, touchpady, gamepady, tablety (`libwacom`), mapovanie tabletu na obrazovku | ⬜ |
-| H.6 | Firmvér zariadení cez `fwupd`, vrátane zobrazenia v Nastaveniach (Softvér › Aktualizácie) | ⬜ |
-| H.7 | Doplnenie chýbajúceho z rozhrania: PackageKit alebo dnf s potvrdením cez polkit, aj pri hot-plug udalosti z udev. Cudzí repozitár len s výslovným súhlasom — `base.toml` už drží jeho `release` a `url`, takže cesta je pripravená aj na strojoch, kde sa nikdy nepoužije | ⬜ |
-| H.8 | Hardvérový report v `latteos-diag`: porovnateľný výstup zo skúšobných strojov (PCI, USB, zvuk, vstup, GPU, ovládače, firmvér) | ⬜ |
-| H.9 | Prenosné verzus strojové nastavenia: motív a písmo idú s používateľom, rozloženie obrazoviek podľa EDID, zvukové zariadenie a mapovanie tabletu zostávajú stroju | ⬜ |
+| S.1 | Prekladač ("weapon"/"radio") — manifest za aplikáciu píše LatteOS, nie appka sama | ⬜ |
+| S.2 | Trusted/untrusted profily: Steam ako trusted celok, anti-cheat hry (BattlEye/EAC) trusted beh vs. Flatpak sandbox pre ostatné — presné pravidlá sú stále otvorené (README, posledná sekcia) | ⬜ |
+| S.3 | NET tlačidlo na aplikáciu (vrátane Proton appiek) | ⬜ |
+| S.4 | App Manager: zoznam, inštalácia/odstránenie Flatpaku, aktualizácie (systém + Flatpak na jednom mieste) | ⬜ |
+| S.5 | App Registry ako dátový model (koncept `oldROADMAP.md` J.1 — AppID, runtime, pôvod, stav), teraz v Rust namiesto nad `Gio.DesktopAppInfo` | ⬜ |
 
-**Výsledok:** po inštalácii LatteOS na nový počítač fungujú 3D grafika, zvuk, sieť, vstupné zariadenia
-a tlač bez toho, aby používateľ čokoľvek dopĺňal. Čo fungovať nemôže, systém vopred pomenuje.
-
-**Poznámka k vývojovému stroju:** vo virtuálnom stroji sa toto overiť nedá (virtio hardvér).
-H.1 až H.9 sa uzatvárajú až na skutočných počítačoch v M1.
-
-**Poznámka k RPM Fusion.** Celý povinný zoznam `latteos-base` (63 balíkov) je z Fedory, cudzí
-repozitár teda nie je podmienkou behu LatteOS a pri inštalácii sa nezapína. Hardvérové prípady, kde
-Fedora ovládač nemá, sú dva: **GeForce** (`akmod-nvidia`) a **Wi-Fi Broadcom** (`broadcom-wl`), oba
-v Nonfree. Steam medzi ne nepatrí, ide cez Flatpak (bod 7.4). Kodeky dnes z veľkej časti rieši Fedora
-sama (`mesa-dri-drivers` už nesie VA-API ovládače) — **overiť na skutočnom stroji v M1**, vo VM to
-nejde. Podpora repozitára však zostáva úplná aj tam, kde sa nepoužije: `data/hardware/base.toml` drží
-jeho názov, balík `release`, adresu a riziká, `latte-devices base` ukáže, či je zapnutý a čo prinesie,
-a `latte-devices status` ho ponúkne len vtedy, keď konkrétne zariadenie bez neho nefunguje.
-Vypnutý repozitár sa nehlási ako problém.
+**Výsledok:** aplikácia sa nainštaluje, spustí a obmedzí bez terminálu; anti-cheat hry fungujú bez
+kompromisu na bezpečnosti ostatných appiek.
 
 ---
 
-## Etapa J — Jadro ⬜
+## Etapa D — Data Manager (súborový manažér) ⬜
 
-Jadrová podpovrchová vrstva. Nevytvára sa od nuly: dnešný `src/latte_common/` už túto úlohu plní
-(nastavenia, vzhľad, hardvér, procesy, súborové operácie, zväzky). Etapa J z neho urobí stabilný
-kontrakt a doplní, čo chýba. Premenovanie na `latte_core` sa odkladá až za M2, aby sa funkčný kód
-neprepisoval pre estetiku architektúry.
+Namiesto písania od nuly sa forkuje **cosmic-files** (Rust, GPL-3.0-only) — udisks2 integrácia,
+Kôš, tri režimy zobrazenia a viacnásobný výber už fungujú. `oldROADMAP.md` Etapa 1 (takmer celá ✅
+v Pythone) ostáva referencia pre to, čo sa má správať inak než v COSMIC verzii.
 
 | | Úloha | Stav |
 |---|---|---|
-| J.1 | **App Registry:** aplikácia ako objekt (AppID = desktop-id, názov, ikona, runtime, pôvod, stav) nad `Gio.DesktopAppInfo` | ⬜ |
-| J.2 | Shell prestane spúšťať aplikácie cez `subprocess.Popen([sys.executable, cesta])` (dnes 4 miesta v `latte_shell/app.py`); pribudne test, ktorý zlyhá pri novej priamej závislosti shell → aplikácia | ⬜ |
-| J.3 | Vlastníctvo cudzích konfigurácií ako samostatná os (enforced, managed, aligned, advisory, unsupported) oddelene od zrelosti adaptéra; zosúladiť s `ADAPTERS` v `appearance.py` | ⬜ |
-| J.4 | Väzba proces → aplikácia v `processes.py` (cgroup alebo desktop entry); Správca procesov zostáva správcom procesov, nie aplikácií | ⬜ |
-| J.5 | Okná ako adaptér: dnešný `foreign_toplevel.py` schovať za rozhranie, ktoré nenesie názov protokolu; tiling a pravidlá okien sú generovaná konfigurácia kompozitora, nie operácie shellu | ⬜ |
-| J.6 | Prenos a verzovanie: rozhodnúť knižnica verzus D-Bus služba, zaviesť verziu rozhrania a chybové stavy (funguje, náhradné riešenie, nepodporované, chyba) | ⬜ |
-| J.7 | Privilegované operácie výhradne cez broker a polkit, nikdy priamo z rozhrania (vzor: `latte-files-admin`) | 🔸 platí pre súbory, inde zostáva |
-| J.8 | Každý modul jadra má testy | 🔸 36 testovacích súborov, pokrytie nových modulov zostáva |
+| D.1 | Fork cosmic-files, build proti Etape 0 toolchainu, overiť že GPL-3.0 je pre tento modul akceptovateľné (viď licenčná tabuľka vyššie) | ⬜ |
+| D.2 | "Tento počítač" koreň — retheme z pôvodného COSMIC zobrazenia zväzkov na Windows-like "Tento počítač" (README: "neprepisuje linux, nezakrýva ju") | ⬜ |
+| D.3 | Rozlíšenie FHS/Flatpak/AppImage v zobrazení — COSMIC toto nerieši, vlastná práca nad ich udisks2/VFS vrstvou | ⬜ |
+| D.4 | Kontextové menu ako systémové pravidlo (staré 2.12–2.14) — cosmic-files má vlastné kontextové menu, overiť pokrytie oproti starej špecifikácii a doplniť chýbajúce položky | ⬜ |
+| D.5 | Vizuálne zladenie s Etapou U (rovnaká paleta/fluidita naprieč GTK-based panelom a Rust-based file managerom — dva rôzne toolkity, jeden vzhľad cez tému/CSS) | ⬜ |
 
-**Výsledok:** jadro má stabilné rozhranie a jeden zdroj pravdy pre každú vlastnosť. Rozhranie sa
-dá vymeniť bez prepísania celého prostredia.
+**Výsledok:** súborový manažér použiteľný na bežnú prácu bez terminálu, v štýle Forklift/Total Commander.
+Vlastná práca sa sústredí na D.2–D.5 (branding, Windows-like projekcia, zladenie vzhľadu) — nie na
+udisks2/trash/view-mode logiku, tú už rieši fork.
 
 ---
 
-## Etapa 4 — App Manager a natívne aplikácie ⬜
+## Etapa P — Process a Device Manager ⬜
 
 | | Úloha | Stav |
 |---|---|---|
-| 4.1 | Zoznam nainštalovaných (.desktop + Flatpak), spúšťanie, štítky pôvodu | ⬜ |
-| 4.2 | Inštalácia a odstránenie Flatpaku | ⬜ |
-| 4.3 | Aktualizácie: systém (PackageKit) aj Flatpak na jednom mieste | ⬜ |
-| 4.4 | Repozitáre: Flathub a vlastné, zapnutie a vypnutie | ⬜ |
-| 4.5 | Mapa oprávnení nad `flatpak permissions`: zobraziť a odobrať | ⬜ |
-| 4.6 | Prepínač siete pre kontajnerovú aplikáciu | ⬜ |
-| 4.7 | Štítok SYSTÉM pri aplikáciách bez izolácie a ponuka kontajnerovej verzie | ⬜ |
-| 4.8 | `xdg-desktop-portal` nainštalovaný a nastavený (systémové dialógy súborov) | 🔸 portál vzhľadu beží, FileChooser zostáva |
-| 4.9 | Pôvod aplikácie zrozumiteľne: odkiaľ je, aký runtime, či je podpísaná, aká izolácia, aké oprávnenia, aktualizačný zdroj | ⬜ |
-
-**Výsledok:** používateľ nainštaluje, spustí a obmedzí aplikáciu bez terminálu.
+| P.1 | Process Manager: strom procesov, ekvivalent ctrl-alt-del s pridanou hodnotou (autoruns, hwinfo, CPU-Z štýl) | ⬜ |
+| P.2 | Device Manager nad hardvérovým stavom z Etapy H | ⬜ |
+| P.3 | Prepojenie proces → aplikácia → zariadenie (teplota, spotreba) — v starom pláne odložené (J.4/P.7), tu sa dá riešiť skôr, keďže App Registry (S.5) a Process Manager vznikajú v rovnakom jazyku súčasne | ⬜ |
 
 ---
 
-## M1 — Overenie na viacerých strojoch ⬜
-
-Kontrola v polovici cesty medzi 0.1 a 1.0. Dovtedy stačil virtuálny stroj, tu sa prostredie prvýkrát
-poriadne skúša na skutočnom hardvéri. Predpoklad: hotová etapa H, etapa 4 a bod 7.4 (Steam a Proton).
+## Etapa W — Wizard, Session Manager, doplnkové nástroje ⬜
 
 | | Úloha | Stav |
 |---|---|---|
-| M1.1 | Aspoň tri odlišné stroje: AMD Radeon, NVIDIA GeForce (rad 50xx), notebook s integrovanou grafikou | ⬜ |
-| M1.2 | Steam sa nainštaluje z rozhrania ako Flatpak (Flathub), spustí a prihlási; Proton je dostupný | ⬜ |
-| M1.3 | Hry: natívna, Proton DirectX 11 a Proton DirectX 12 alebo Vulkan; overiť obraz, zvuk, gamepad, plynulosť | ⬜ |
-| M1.4 | Celá obrazovka: lišta ani oznámenia nekradnú fokus, nerezervujú miesto a neprekrývajú hru; obnovovacia frekvencia a rozlíšenie sa nestratia | ⬜ |
-| M1.5 | Náročné aplikácie: 3D (Blender), grafika (Krita alebo GIMP), video (Kdenlive), prehliadač s WebGL | ⬜ |
-| M1.6 | Viac monitorov a rôzne mierky: rozloženie sa zapamätá podľa stroja (EDID), po odpojení sa vráti | ⬜ |
-| M1.7 | Rovnaký používateľ na dvoch strojoch: vzhľad, písmo a obľúbené idú s ním, hardvérové nastavenia zostávajú stroju | ⬜ |
-| M1.8 | Ovládače: `latteos-diag` report z každého stroja, žiadne chýbajúce ovládače ani firmvér po čistej inštalácii | ⬜ |
-| M1.9 | Čo nefunguje, je zapísané: kompatibilitná tabuľka stroj × ovládač × aplikácia, vrátane príčiny | ⬜ |
-
-**Výsledok:** LatteOS je overené prostredie na skutočných počítačoch, nie prototyp vo virtuálnom stroji.
-Vieme, na čom hry a náročné aplikácie bežia, na čom nie a prečo.
+| W.1 | Wizzard: offline tabuľka závislostí + online/offline AI návrh appiek a balíkov | ⬜ |
+| W.2 | Session Manager: mobilná appka ako prenášač účtov, bezpečné prihlásenie s overením, načítanie profilu z internetu/USB | ⬜ |
+| W.3 | AI prompter v Text Bar (U.5): voľba lokálneho/offline modelu vs. API/chat modul, správa tokenov | ⬜ |
 
 ---
 
-## Etapa 5 — Kontajnery a recepty ⬜
+## Etapa G — Hry, Steam, Proton ⬜
+
+Vytiahnuté pred M1, rovnako ako v starom pláne — Steam si Proton nesie sám, netreba naň vlastnú
+správu prefixov na to, aby sa dalo overiť, že hry vôbec bežia.
+
+| | Úloha | Stav |
+|---|---|---|
+| G.1 | Steam predinštalovaný ako trusted profil (S.2) | ⬜ |
+| G.2 | Proton dostupný cez **umu-launcher** (GPL-3.0, externý proces ako v Bazzite/Lutris) namiesto vlastnej správy prefixov | ⬜ |
+| G.3 | Fullscreen gaming session cez **gamescope** (BSD-2-Clause, Valve) — HDR, FSR scaling, frame limit hotové, netreba riešiť vlastné "shell nekradne fokus" na úrovni Etapy U | ⬜ |
+| G.4 | Anti-cheat: overiť BattlEye/EAC trusted beh z S.2 na reálnej hre | ⬜ |
+
+---
+
+## M1 — Overenie na reálnych strojoch ⬜
+
+Rovnaký princíp ako v starom pláne: dovtedy práca hlavne vo VM (virtio negarantuje 3D), od M1 sa
+každá ďalšia etapa overuje na skutočnom hardvéri. Predpoklad: Etapy H, C, U, S, D, G hotové aspoň
+v základnej podobe.
+
+| | Úloha | Stav |
+|---|---|---|
+| M1.1 | Aspoň tri odlišné stroje: AMD, NVIDIA, notebook s integrovanou grafikou | ⬜ |
+| M1.2 | Fluidita kompozitora (Etapa C) porovnateľná s referenčným videom na reálnom GPU, nie len vo VM | ⬜ |
+| M1.3 | Hry: natívna, Proton DX11, Proton DX12/Vulkan — obraz, zvuk, gamepad, plynulosť | ⬜ |
+| M1.4 | Kompatibilná tabuľka stroj × ovládač × appka, vrátane príčiny zlyhania | ⬜ |
+
+**Výsledok:** gamerdistro je overené prostredie na skutočných počítačoch, nie prototyp vo VM.
+
+---
+
+## Etapa A — Android (Lepton/Waydroid) ⬜
+
+Prevziať scope zo starého plánu (Etapa 6): inštalácia, appka ako okno, zoznam appiek so štítkom,
+zdieľaný priečinok, schránka naprieč systémami. Implementácia integrácie je nová (napojenie na
+Etapu U/S), samotný Waydroid beží nezmenený.
+
+---
+
+## Etapa 9 — Vydanie ⬜
 
 | | Úloha |
 |---|---|
-| 5.1 | Podman ako základ (bez roota, integrácia so systemd) |
-| 5.2 | Formát receptu: čo sa pýta, predvolené hodnoty, potrebné práva |
-| 5.3 | Čítanie metadát obrazu (ExposedPorts, VOLUME) |
-| 5.4 | Automatické pridelenie portov, konflikty rieši systém |
-| 5.5 | Overenie po štarte: čo v kontajneri naozaj počúva |
-| 5.6 | Čítanie známych chýb (EULA, chýbajúce práva) a ponuka riešenia |
-| 5.7 | Import `docker-compose.yml` so štítkom „neoverený recept“ |
-| 5.8 | Desať receptov na začiatok (Tailscale, torrent, Minecraft, Home Assistant…) |
-
-**Výsledok:** kontajnerová aplikácia beží po jednom kliknutí, bez experimentovania.
+| 9.1 | Kickstart/rpm-ostree obraz pre Fedora Atomic vrátane `latteos-base` (H.1) |
+| 9.2 | Test na čistom stroji podľa kritérií z README |
+| 9.3 | Dokumentácia pre používateľa |
 
 ---
 
-## Etapa 6 — Android ⬜
+## Čo zostáva otvorené (z README, neriešiť teraz)
 
-| | Úloha |
-|---|---|
-| 6.1 | Waydroid: inštalácia, binder v jadre, overenie na skutočnom stroji |
-| 6.2 | Inicializácia obrazu Androidu zo sprievodcu, nie z terminálu |
-| 6.3 | Android aplikácia ako okno na ploche (režim jednotlivých aplikácií) |
-| 6.4 | Zoznam Android aplikácií v App Manageri so štítkom ANDROID |
-| 6.5 | Inštalácia `.apk` z App Managera |
-| 6.6 | Navigačné tlačidlá (späť, domov, prehľad) a klávesové skratky |
-| 6.7 | Prístup k súborom: zdieľaný priečinok medzi LatteOS a Androidom |
-| 6.8 | Schránka naprieč systémami (LatteOS ↔ Android) |
-| 6.9 | Sieť a jej vypnutie pre Android prostredie |
+- Presný rozsah forku Hyprlandu (C.2) — koľko meniť hneď, koľko nechať stock.
+- Presné pravidlá trusted/untrusted nad rámec Steamu a anti-cheat hier (S.2).
+- Verziovacie/kódové meno pre gamerdistro smer (staré malo "Jihlavanka"/"Arabica") — nie je
+  blokujúce, môže počkať do prvého bežiaceho kompozitora (Etapa C).
 
-**Výsledok:** Android aplikácia sa spúšťa a používa ako každá iná. Vo virtuálnom stroji nepobeží
-dobre, testuje sa na skutočnom stroji.
+## Najbližšie tri kroky
 
----
+1. **Etapa 0.2–0.4** — nový Fedora Atomic VM image, Rust/Slint/Vulkan toolchain, voľba forkovacieho
+   bodu Hyprlandu.
+2. **Etapa H.2–H.4** — overiť GPU-akcelerovanú Vulkan grafiku na aspoň jednom reálnom stroji. Bez
+   tohto kroku nemá zmysel začínať Etapu C.
+3. **Etapa C.1–C.3** — stock Hyprland v session, potom ladenie fluidity ako prvá viditeľná vec, ktorú
+   má zmysel ukázať.
 
-## Etapa 7 — Windows a hry ⬜
+## Poznámka k stratégii "fork, nie od nuly"
 
-| | Úloha | Stav |
-|---|---|---|
-| 7.4 | **Proton a Steam pre hry** (vytiahnuté dopredu, do M1). **Rozhodnuté: Steam ide cez Flatpak z Flathubu**, nie z RPM Fusion Nonfree — Proton si Steam nesie sám a kvôli hrám tak netreba zapínať cudzí repozitár. Nonfree zostáva otvorený pre ovládač GeForce, ktorý Flatpak nenahradí | ⬜ |
-| 7.1 | Bottles alebo vlastná správa prefixov, jeden prefix na aplikáciu | ⬜ |
-| 7.2 | Inštalácia `.exe` z App Managera, štítok WIN32 | ⬜ |
-| 7.3 | Odstránenie disku Z: z prefixu (aplikácia nevidí koreň) | ⬜ |
-| 7.5 | Schránka naprieč systémami (LatteOS ↔ Wine) | ⬜ |
-| 7.6 | Kompatibilitná databáza: čo funguje, čo nie, s čím sa netrápiť | ⬜ |
-| 7.7 | Poctivé označenie neriešiteľných prípadov (cloudové licencie, anti-cheat) | ⬜ |
-
-**Výsledok:** Windows aplikácie a hry bežia tam, kde to je možné, a kde nie, systém to povie vopred.
-
----
-
-## Etapa 8 — Systémové nastavenia bez terminálu 🔸
-
-| | Úloha | Stav |
-|---|---|---|
-| 8.1 | Wi-Fi, VPN, Bluetooth (NetworkManager, BlueZ) | ⬜ |
-| 8.2 | Zvuk a hlasitosť v mape zdrojov (PipeWire) | ⬜ |
-| 8.3 | Tlačiarne (CUPS) | ⬜ |
-| 8.4 | Disky: pripojenie, odpojenie, formátovanie výmenných médií (udisks2) | 🔸 pripájanie a zväzky hotové |
-| 8.5 | Používatelia, heslá, jazyk, klávesnica, čas | ⬜ |
-| 8.6 | Aktualizácie systému | ⬜ |
-| 8.7 | Zálohovanie a obnova používateľských dát (bez snapshotov, iba kópia) | ⬜ |
-| 8.8 | Diagnostika: zobraziť chybu, ručne odoslať | 🔸 `latteos-diag` pre pád relácie hotové |
-| 8.9 | Schéma systémových nastavení: jeden súbor na doménu, schémy a strom stránok v `data/settings/` | ✅ |
-| 8.10 | Aplikácia Nastavenia: okno skladané zo schém, Prispôsobenie ako prvé | 🔸 šesť stránok `ready`, ostatné `partial` alebo `planned` |
-| 8.11 | Obrazovky: rozlíšenie, mierka, otočenie, rozloženie, bezpečné vrátenie | 🔸 `latte-devices display` hotové, stránka Obrazovky `partial` |
-| 8.12 | Napájanie: profily (výkon, vyvážený, tichý, šetrenie batérie) nad existujúcimi backendmi | ⬜ |
-
-**Výsledok:** splnené kritérium „bežný používateľ nepotrebuje terminál ani raz“.
-
----
-
-## Etapa P — Správca procesov a systémový monitor 🔸
-
-Nie je to ďalšia úroveň nastavení ani správca hardvéru. Je to nástroj na sledovanie skutočného
-aktuálneho stavu. Hranice: App Manager konfiguruje aplikácie, Správca zariadení hardvér,
-Monitor iba číta stav, identifikuje jeho zdroje a umožní bezpečný zásah.
-
-| | Úloha | Stav |
-|---|---|---|
-| P.1 | Živý stav: CPU, RAM, disky, sieť, GPU, teploty, spotreba | 🔸 |
-| P.2 | Procesy: strom, vlastník, cesta, príkaz, systémový verzus používateľský, ukončenie | 🔸 |
-| P.3 | Offline identifikácia hardvéru z `pci.ids` bez siete | ✅ |
-| P.4 | Autorun na jednom mieste: XDG autostart, systemd služby a časovače, cron; pôvod, vlastník, príkaz, zapnutie a vypnutie | 🔸 desktop a systemd hotové |
-| P.5 | Krátka história záťaže, nie len okamžitá hodnota | ⬜ |
-| P.6 | Proces → aplikácia (závisí od J.4) | ⬜ |
-| P.7 | Prepojenie na hardvér: aplikácia → proces → zariadenie → teplota a spotreba | ⬜ |
-| P.8 | Telemetria pre externé zobrazovače (OLED displeje chladenia, Stream Deck) cez lokálne rozhranie, bez preberania ich konfigurácie | ⬜ |
-| P.9 | „Čo to používa?“: pri zlyhaní operácie povedať, ktorý proces objekt drží, namiesto Skúsiť znova / Zrušiť | ⬜ |
-| P.10 | Zdravie hardvéru oddelene od Správcu zariadení: SMART, opotrebovanie, throttling, batéria | ⬜ |
-
-**Výsledok:** používateľ vidí, čo sa v počítači práve deje, odkiaľ to pochádza a čo s tým môže urobiť.
-
----
-
-## Etapa 9 — Sprievodca a vydanie ⬜
-
-| | Úloha |
-|---|---|
-| 9.1 | Zistenie schopností (Flatpak, Waydroid, KVM, Landlock) a ich zobrazenie |
-| 9.2 | Otázky, tabuľky profilov, plán nastavenia, schválenie |
-| 9.3 | Balíček (RPM) so všetkými komponentmi a reláciou |
-| 9.4 | ISO obraz cez Fedora kickstart, vrátane `latteos-base` z etapy H |
-| 9.5 | Test na čistom stroji podľa kritérií z manifestu |
-| 9.6 | Dokumentácia pre používateľa a stránka projektu |
-
-**Výsledok:** LatteOS 0.1 Jihlavanka sa dá nainštalovať a odovzdať niekomu inému.
-
----
-
-## Cesta k 1.0 Arabica
-
-Po M1 a etapách 5 až 9 zostáva do vydania:
-
-| Oblasť | Čo musí platiť |
-|---|---|
-| Stabilita | obnova po páde, štruktúrované záznamy, vrátenie nastavení, atomický zápis konfigurácie, bezpečné vrátenie obrazovky, prežitie reštartu kompozitora a shellu |
-| Kompatibilita | otestované GTK 3 a 4, libadwaita, Qt 5 a 6, KDE aplikácie, natívny balík, Flatpak, AppImage; kategórie aplikácií, nie konkrétne značky |
-| Vzhľad | adaptéry z bodu 3.8 hotové, každý so deklarovaným vlastníctvom a poctivým stavom |
-| Aplikácie | inštalácia, odstránenie, aktualizácia a oprávnenia z jedného miesta |
-| Bezpečnosť | portály, polkit, vedomie o sandboxe, žiadne privilegované operácie priamo z rozhrania |
-| M2 zmrazenie | jadro, schéma nastavení, model aplikácií, model oprávnení a model úložiska sa už nemenia |
-
-Arabica neznamená „všetko je vlastné“. Znamená, že LatteOS funguje ako konzistentná vrstva nad Linuxom.
-LatteOS nestavia vlastný kernel, kompozitor, súborový systém, toolkit, prehliadač, kancelársky balík,
-správcu balíkov ani init.
-
----
-
-## Nápady mimo plánu
-
-Nezáväzný zásobník. Sem patrí, čo ešte nemá overiteľný výsledok ani miesto v etape:
-Latte System Defender a Security Center (behaviorálna analýza), časové osi systémových
-a bezpečnostných udalostí, Heidelberg a základný balík aplikácií, živá tapeta ako plnohodnotný objekt,
-univerzálne vyhľadávanie s režimami hľadanie/AI/príkaz, tiling a pravidlá okien, snímka pracovnej
-relácie, „Prečo je počítač pomalý?“, wellbeing a správa času, hry v oficiálnom balíku, história schránky,
-štítky a farby priečinkov, hľadanie duplikátov, analyzátor úložiska.
-
-Zdroje: [IDEAS.md](IDEAS.md) a kapitoly 41 až 44 v [CoreAPImanifest.md](CoreAPImanifest.md).
-Nápad sa do plánu dostane až vtedy, keď sa dá napísať jeho overiteľný výsledok.
-
----
-
-## Komponenty zo špecifikácie 1.1 a ich miesto v Jihlavanke
-
-| Komponent | V Jihlavanke | Etapa |
-|---|---|---|
-| latte-files | správca súborov (nad rámec špecifikácie, vlastný pre 0.1) | 1 |
-| latte-shell | lišta, popupy, oznámenia, plocha | 2 |
-| latte-sessiond | relácia nad systemd user službami | 2b |
-| latte-greeter | prihlásenie a uvítanie | 2b |
-| latte-clipd | schránka | 2 |
-| latte-appd → latte-apps | App Manager (Flatpak, PackageKit, Waydroid, Bottles) | 4 |
-| latte-capd → latte-perms | mapa oprávnení nad Flatpakom, nie vlastný capability engine | 4 |
-| latte-netd → latte-net | prepínač siete pre aplikáciu | 4 |
-| latte-storaged → latte-resources | zväzky, pripojenie, USB, udisks2 | 1, 8 |
-| latte-deviced | zariadenia: kamera, tlačiareň, Bluetooth | 8, H |
-| latte-audiod | zvuk nad PipeWire | 8, H |
-| latte-translatord | výber prostredia: Flatpak, Waydroid, Bottles | 4–7 |
-| latte-probe | zistenie schopností hostiteľa | 9 |
-| latte-wizard | sprievodca a plán nastavenia | 9 |
-| latte-updated | aktualizácie | 8 |
-| latte-diagd | diagnostika, čierna skrinka | 8, H |
-| latte-decoderd | náhľady súborov v sandboxe | odložené |
-| latte-console | Service Console | nie v 0.1 |
-| latte-a11yd | prístupnosť, sémantický strom | nie v 0.1 (rieši GTK a AT-SPI) |
-| latte-compositor | vlastný kompozitor | nie v 0.1 (labwc) |
-| latte-execd, latte-radio@, latte-objectd | vysielačka, svety aplikácií, objekty | Arabica |
-| latte-vmd | Level 3, virtuálne stroje | Arabica |
-| latte-snapshotd | snapshoty a Kôš | Kôš v etape 1, snapshoty až s btrfs |
-| latte-licensed | licencia | nie v 0.1 (Jihlavanka je zdarma) |
-| latte-resourced | limity CPU a RAM pre aplikácie | odložené (cgroup cez systemd) |
-
-V Jihlavanke komponenty nenesú koncovku `d`, lebo to nie sú démony, ale bežné programy.
-Pri prechode na Arabicu sa meno vráti k tvaru zo špecifikácie.
-
----
-
-## Čo sa dá odložiť a čo nie
-
-**Odložiť sa dá bez straty:** animácie a sklo (čakajú na vlastný kompozitor), schránka s ôsmimi
-slotmi (stačí systémová), náhľady v sandboxe, vlastná sada ikon.
-
-**Odložiť sa nedá:**
-- štítky pôvodu a ochrany pri každej aplikácii (bez nich padá pravidlo poctivosti),
-- odoberanie oprávnení, ktoré naozaj platí (4.5),
-- overenie po štarte kontajnera (5.5), inak zostane presne to experimentovanie, ktoré má Jihlavanka odstrániť,
-- zobrazenie chýbajúcich schopností a ovládačov (9.1, H.2), pretože tichá degradácia je zakázaná,
-- vrátenie nastavení obrazovky a kritických zmien.
-
----
-
-## Ďalšie tri kroky
-
-1. **H.2 do rozhrania** — `latte-devices status` už vie, čo nefunguje a čím sa to doplní. Zostáva to
-   ukázať v Správcovi zdrojov (dlaždica so stavom) a v Nastaveniach (Hardvér). Potom **H.7**: doplnenie
-   chýbajúceho balíka s potvrdením cez polkit, aby zisťovanie zostalo oddelené od inštalácie.
-2. **J.1 a J.2** — App Registry a odstránenie štyroch `Popen` volaní zo shellu. Bez toho sa App Manager
-   postaví na priamych cestách k súborom.
-3. **Etapa 4** — App Manager. Najväčší skok v hodnote projektu a vstupenka do M1, pretože bez neho
-   sa Steam a hry inštalujú z terminálu.
+Platí len tam, kde už niekto vyriešil presne ten istý problém v porovnateľnom stacku (Hyprland
+ekosystém, SteamOS/Bazzite gaming vrstva). Neplatí pre Etapu C (fork Hyprlandu je sám o sebe cieľ)
+a Etapu S (trusted/untrusted model a "weapon/radio" prekladač nemá cudzí ekvivalent). Ak sa pri ďalších
+etapách (P, W) nájde podobne vhodný kandidát na fork, doplní sa do tabuľky "Prebraté komponenty" pri
+plánovaní danej etapy, nie retroaktívne.
