@@ -70,6 +70,21 @@ if theme.effects == "ziadne" and (tier == "plny" or tier == "standard" or tier =
 tiers.apply(tier, colors)
 windows.setup()
 
+-- herný režim (riadiace centrum Zariadenia / Text Bar): bez efektov a animácií, po vypnutí späť na stupeň.
+-- Stav ~/.local/state/latteos/game-mode (1/0). Volá sa: hyprctl eval 'latte.game(true)'
+local game_file = (os.getenv("XDG_STATE_HOME") or ((os.getenv("HOME") or "") .. "/.local/state")) .. "/latteos/game-mode"
+latte = latte or {}
+function latte.game(on)
+    tiers.apply(on and "minimalny" or tier, colors)
+    hl.config({ decoration = { rounding = on and 0 or 14 }, general = { gaps_in = on and 0 or 5, gaps_out = on and 0 or 10 } })
+    local f = io.open(game_file, "w"); if f then f:write(on and "1\n" or "0\n"); f:close() end
+    hl.exec_cmd("notify-send -a LatteOS 'Herný režim' '" .. (on and "zapnutý — bez efektov" or "vypnutý") .. "'")
+end
+do  -- herný režim prežije reload konfigurácie
+    local f = io.open(game_file, "r")
+    if f then local v = f:read("*l"); f:close(); if v == "1" then latte.game(true) end end
+end
+
 -- ── skratky ───────────────────────────────────────────────────────────────────
 local mod = "SUPER"
 local function bind(keys, action, opts) hl.bind(keys, action, opts) end

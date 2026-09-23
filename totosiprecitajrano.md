@@ -38,6 +38,16 @@ nižšie):
 
 ## Denník
 
+### 23. 9. 2026, 22:05: Zariadenia (riadiace centrum, plugin) + herný režim ✅
+- `session/noctalia/plugins/devices/`: ikona na lište (pomaly sa strieda sieť, zvuk, ovládanie), klik
+  otvorí **Zariadenia** podľa návrhu:
+  - stupeň výkonu, dlaždice Sieť/Wi-Fi, Bluetooth, Nerušiť, Nočné svetlo,
+  - posuvníky hlasitosti a jasu,
+  - **herný režim** (vypne efekty, medzery, rohy a animácie; po vypnutí sa vráti stupeň), profil výkonu,
+  - HDR/VRR/limit FPS sú sivé s poznámkou „na reálnom HW“, NET podľa aplikácií je „pripravujeme“.
+- Herný režim je v Lua module ako `latte.game(true|false)` a prežije reload.
+- Otestované v headless labwc aj s celou lištou LatteOS: `setup/f1/results/f3-zariadenia.png`.
+
 ### 23. 9. 2026, 22:00: Nastavenia LatteOS (aplikácia) ✅
 - `session/apps/nastavenia.qml` (spúšťa `latte-app nastavenia [sekcia]`, systémové menu, Text Bar), na tej
   istej kostre ako Súbory, **presne podľa tvojho návrhu V2**:

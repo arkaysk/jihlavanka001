@@ -250,11 +250,20 @@ flowchart TD
 - [ ] Téma **Latte** a **Úsporná**, farby z tapety (Noctalia má vlastný generátor, matugen ako záloha).
 - [ ] Prvky pre stupeň Plný podľa Caelestie: dashboard s výkonom, vizualizér, animované widgety.
 - [ ] Každý prvok shellu musí mať variant bez shaderov.
+- [x] **Téma Latte** pre Noctaliu (paleta, ostrovy lišty podľa návrhu, Manrope/Fraunces, tapety LatteOS).
+- [x] **Vlastný greeter** LatteOS (Quickshell + greetd, labwc + pixman), predvolený.
+- [x] Pluginy Noctalie (Luau): **systémové menu** (šálka), **Text Bar** (Lokálne/Web/AI/Linux príkaz),
+  **Zariadenia** (riadiace centrum, herný režim).
+- [x] **14 tém** (palety, okraje, režim, tapeta) + `latte-theme`; materiály bez animácie (čaká na fork a shadery).
+- [x] Aplikácia **Nastavenia** (návrh V2).
+- [ ] Materiály tém (mráz, kov, kameň, jantár, fazety) ako shadery vo forku Noctalie, iba pri stupni Plný.
+- [ ] Schránka „kapsa“, prehľad pásky, AI panel, inštalácia aplikácie („Bude to fungovať?“).
 
 ### F4 — Systémové služby (Rust)
 - [ ] Device Manager: stavia na crate `latte-hw`, udisks2, NetworkManager, PipeWire.
 - [ ] Process Manager: náhrada Ctrl+Alt+Del, autoruns, HW info (vzor Mission Center).
-- [ ] Data Manager: pohľad „Tento počítač“ z udisks2, dva panely (vzor cosmic-files).
+- [x] Data Manager **prototyp** (Quickshell, `latte-app subory`): Tento počítač (lsblk), dva panely F3/F5/F6, detail, kôš.
+- [ ] Data Manager v Ruste (udisks2, kopírovanie s priebehom, zdieľané priečinky) podľa prototypu.
 - [ ] App Manager: dnf + Flatpak (neskôr rpm-ostree), jednotné IPC so shellom.
 
 ### F5 — Stabilita a pamäť
