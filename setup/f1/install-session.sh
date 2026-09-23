@@ -71,7 +71,7 @@ sudo install -Dm644 "$S/systemd/latteos.tmpfiles" /usr/lib/tmpfiles.d/latteos.co
 # SELinux: greeter beží v doméne xdm_t a smie čítať iba xdm_var_run_t → štítok pre /run/latteos
 # (bez neho greeter nevidí session.env a vždy ponúkne SAFE; zistené testom 23. 9. 2026)
 if command -v semanage >/dev/null || sudo dnf -y -q install policycoreutils-python-utils; then
-    sudo semanage fcontext -l | grep -q '^/run/latteos' || sudo semanage fcontext -a -t xdm_var_run_t '/run/latteos(/.*)?'
+    sudo semanage fcontext -l 2>/dev/null | grep -q '^/run/latteos' || sudo semanage fcontext -a -t xdm_var_run_t '/run/latteos(/.*)?'
 fi
 sudo systemd-tmpfiles --create /usr/lib/tmpfiles.d/latteos.conf
 sudo restorecon -R /run/latteos
@@ -136,6 +136,10 @@ if [ $enable -eq 1 ]; then
     sudo systemctl set-default graphical.target
     echo "   Pri ďalšom reštarte naštartuje LatteOS greeter. Konzola ostáva na Ctrl+Alt+F2, SSH beží ďalej."
 else
-    echo "== grafický štart NIE je zapnutý (spusti s --enable)"
+    if systemctl is-enabled -q greetd.service 2>/dev/null; then
+        echo "== grafický štart je zapnutý (greetd); súbory sú aktualizované"
+    else
+        echo "== grafický štart NIE je zapnutý (spusti s --enable)"
+    fi
 fi
 echo "Hotovo. Nová skupina latte platí po novom prihlásení používateľa $user."
