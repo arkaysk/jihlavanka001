@@ -191,10 +191,22 @@ flowchart TD
 - [ ] Presunuté ďalej: vlastný COPR `latteos` (treba FAS účet a API token; zatiaľ lokálny repozitár `latteos-local`, COPR má `excludepkgs=hyprland*`).
 - [ ] Presunuté ďalej: Noctalia Greeter bez úniku pamäte (F3), grafická SAFE relácia s `nomodeset`, systemd user integrácia relácie (`latte-session.target`).
 
-### F2 — Hyprland Lua modul LatteOS
-- [ ] Načíta `mode.toml` a nastaví blur, tiene, animácie a glow podľa stupňa. Nový stupeň **Softvér** pre VM.
-- [ ] Režimy okien: nekonečná páska (scrolling layout), dlaždice, plávajúce.
-- [ ] Pravidlá okien, skratky (Super+Tab, Super+D, Super+Shift+šípka).
+### F2 — Hyprland Lua modul LatteOS *(základ hotový 23. 9. 2026)*
+- [x] `session/hypr/hyprland.lua` + `latte/{mode,tiers,windows}.lua`: načíta `/run/latteos/mode.toml`
+  (renderer, stupeň); stupeň sa dá vynútiť v `~/.config/latteos/tier`.
+- [x] Stupne **Plný / Štandard / Úsporný / Minimálny / Softvér**: blur, tiene, žiara aktívneho okna
+  (`decoration.glow`, 0.56), animácie. Vo VM beží Softvér (bez efektov).
+- [x] Režimy okien: **nekonečná páska** (scrolling, stĺpec 1/2 obrazovky), **dlaždice** (dwindle),
+  **plávajúce** (pravidlo `float` + uvoľnenie existujúcich okien). Super+W prepína, voľba sa pamätá
+  (`~/.local/state/latteos/window-mode`). Overené naostro.
+- [x] Skratky: Super+Enter terminál, Super+Space spúšťač, Super+Tab prehľad, Super+A riadiace centrum,
+  Super+E súbory, Super+D plocha, Super+Q/F/V, Super+šípky fokus, Super+Ctrl+šípky presun v páske,
+  Super+Shift+šípky okno na iný monitor, Super+1–9 plochy. Gesto 3 prsty = plochy.
+- [x] Vzhľad Latte: karamelový gradient okraja, rohy 14 px, mierka 1 (auto vo VM dávalo 2).
+- [x] Vlastné úpravy používateľa: `~/.config/latteos/hyprland.lua` (pcall, chyba sa ukáže ako notifikácia).
+- [ ] Prehľad pásky ako vlastný panel (návrh: celá páska v jednom rade, filtrovanie písaním).
+- [ ] Ťahanie okna k okraju: pri páske posun pásky, pri dlaždiciach ponuka rozložení (Windows 11).
+- [ ] Gesto 4 prsty = prehľad; tapeta podľa plochy; herný režim (vypnúť efekty počas hry).
 
 ### F3 — Shell
 - [x] Porovnať **troch kandidátov** vo VM (cesta A a SAFE): RAM, CPU v pokoji, plynulosť, čas štartu. Rozhodnúť a forknúť.

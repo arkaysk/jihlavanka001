@@ -57,10 +57,13 @@ if [ $? -eq 3 ]; then
 fi
 
 export XDG_CURRENT_DESKTOP=Hyprland
+# Lua modul LatteOS (F2); starý hyprlang súbor ostáva ako záloha
+hconf="$share/hypr/hyprland.lua"
+[ -f "$hconf" ] || hconf="$share/hypr/hyprland.conf"
 t0=$(date +%s)
 # strážcom je latte-session (pád → SAFE), nie start-hyprland: ten po páde reštartuje Hyprland
 # bez -c (vygeneruje cudziu konfiguráciu) a zakryje pád. LATTE_HYPRLAND=false simuluje pád (test).
-"${LATTE_HYPRLAND:-Hyprland}" -c "$share/hypr/hyprland.conf"
+"${LATTE_HYPRLAND:-Hyprland}" -c "$hconf"
 rc=$?
 dt=$(( $(date +%s) - t0 ))
 echo "Hyprland skončil: rc=$rc po ${dt}s"

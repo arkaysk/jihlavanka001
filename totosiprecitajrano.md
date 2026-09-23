@@ -33,6 +33,22 @@ nižšie):
 
 ## Denník
 
+### 23. 9. 2026, 21:25: F2, Lua modul Hyprlandu ✅
+- `session/hypr/hyprland.lua` + `latte/mode.lua`, `tiers.lua`, `windows.lua`. `latte-session` ho
+  používa namiesto starého `hyprland.conf` (ten ostáva ako záloha).
+- **Stupne výkonu** podľa radaru: Plný, Štandard, Úsporný, Minimálny a Softvér (VM). Riadi ich
+  `latte-boot` a dajú sa vynútiť v `~/.config/latteos/tier`, napr. `plny`.
+- **Režimy okien:** nekonečná páska, dlaždice a plávajúce. Prepína ich **Super+W** a voľba sa pamätá.
+  Overené: tri okná prešli všetkými tromi režimami.
+- **Skratky** podľa radaru (Super+Tab prehľad, Super+D plocha, Super+Shift+šípka iný monitor…).
+- Nájdené a opravené:
+  - `scale = "auto"` vo VM zvolil mierku 2, preto je teraz pevne 1.
+  - `hyprctl dispatch exec …` v Lua režime nefunguje, treba `hyprctl eval 'hl.exec_cmd("…")'`.
+- Testovacie poznámky: `wtype` nevie poslať Super ako modifikátor pre skratky, preto skratky
+  testujem cez `hyprctl eval`. Medzi stĺpcami pásky je malý biely artefakt (sw-gl).
+- ⚠️ Kvôli testom som sa do VM prihlásil ako `user` cez nový greeter (heslo zadal `wtype`). Na konci
+  práce sa odhlásim.
+
 ### 23. 9. 2026, 21:15: vlastný greeter LatteOS ✅ (je predvolený)
 - `session/greeter/shell.qml`: obrazovka prihlásenia v Quickshelli (modul `Quickshell.Services.Greetd`)
   v štýle Latte. Obsahuje tapetu, veľké hodiny (Fraunces), sklenenú kartu so šálkou, meno a heslo,

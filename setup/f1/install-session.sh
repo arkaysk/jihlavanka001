@@ -26,6 +26,9 @@ for f in latte-session latte-safe latte-greeter; do sudo install -Dm755 "$S/bin/
 
 echo "== konfigurácie relácií → /usr/share/latteos"
 sudo install -Dm644 "$S/hypr/hyprland.conf" /usr/share/latteos/hypr/hyprland.conf
+sudo install -Dm644 "$S/hypr/hyprland.lua" /usr/share/latteos/hypr/hyprland.lua
+sudo install -d /usr/share/latteos/hypr/latte
+sudo install -m644 "$S"/hypr/latte/*.lua /usr/share/latteos/hypr/latte/
 for f in rc.xml autostart environment menu.xml; do sudo install -Dm644 "$S/labwc/$f" "/usr/share/latteos/labwc/$f"; done
 # relácie LatteOS: v systémovom zozname (pre iné greetery) aj vo vlastnom, ktorý ponúka latte-greeter
 # (tuigreet by inak ponúkol aj „Hyprland“ z COPR bez Noctalie a bez latte-session)
@@ -110,7 +113,7 @@ fi
 echo "== prvý výber režimu"
 sudo systemctl restart latte-boot.service || sudo latte-boot select
 latte-boot status | sed 's/^/   /'
-{ Hyprland --verify-config -c /usr/share/latteos/hypr/hyprland.conf 2>&1 || true; } | tail -2 | sed 's/^/   Hyprland: /'
+{ Hyprland --verify-config -c /usr/share/latteos/hypr/hyprland.lua 2>&1 || true; } | tail -2 | sed 's/^/   Hyprland: /'
 
 if [ $enable -eq 1 ]; then
     echo "== zapínam grafický štart: latte-boot + greetd, graphical.target"
