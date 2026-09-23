@@ -54,6 +54,7 @@ clone matugen             https://github.com/InioX/matugen.git
 clone noctalia-shell      https://github.com/noctalia-dev/noctalia-shell.git
 clone noctalia-greeter    https://github.com/noctalia-dev/noctalia-greeter.git
 clone noctalia-plugins    https://github.com/noctalia-dev/noctalia-plugins.git
+clone noctalia-official-plugins https://github.com/noctalia-dev/official-plugins.git
 clone end4-dots-hyprland  https://github.com/end-4/dots-hyprland.git
 clone ml4w-dotfiles       https://github.com/mylinuxforwork/dotfiles.git
 

@@ -41,6 +41,10 @@ echo "== vzhľad: Noctalia (téma Latte), písma Manrope/Fraunces (OFL), tapety 
 sudo install -Dm644 "$S/noctalia/config.toml" /usr/share/latteos/noctalia/config.toml
 sudo install -Dm644 "$S/noctalia/palettes/Latte.json" /usr/share/latteos/noctalia/palettes/Latte.json
 sudo install -Dm644 "$S/noctalia/icons/latte-cup.png" /usr/share/latteos/noctalia/icons/latte-cup.png
+for p in "$S"/noctalia/plugins/*/; do   # pluginy LatteOS (zdroj „latteos“ v config.toml)
+    n="$(basename "$p")"; sudo install -d "/usr/share/latteos/noctalia/plugins/$n"
+    sudo install -m644 "$p"* "/usr/share/latteos/noctalia/plugins/$n/"
+done
 sudo install -d /usr/share/fonts/latteos /usr/share/backgrounds/latteos
 sudo install -m644 "$S"/fonts/*.ttf "$S"/fonts/OFL-*.txt /usr/share/fonts/latteos/
 sudo fc-cache -f /usr/share/fonts/latteos

@@ -74,7 +74,7 @@ enabled = true
 
 [[bar.main.capsule_group]]
 id      = "system"
-members = ["control-center", "workspaces"]
+members = ["latte-cup", "workspaces"]
 enabled = true
 
 [[bar.main.capsule_group]]
@@ -84,7 +84,7 @@ enabled = true
 
 [[bar.main.capsule_group]]
 id      = "devices"
-members = ["files", "tray", "network", "volume", "battery", "session"]
+members = ["files", "tray", "network", "volume", "battery", "control-center"]
 enabled = true
 
 # ── Widgety ────────────────────────────────────────────────────────────────────
@@ -94,6 +94,10 @@ glyph = "apps"
 [widget.clock]
 format         = "{:%H:%M}"
 tooltip_format = "{:%A, %-d. %B %Y}"
+
+# šálka Latte = systémové menu LatteOS (plugin latteos/system); riadiace centrum ostáva v ostrove zariadení
+[widget.latte-cup]
+type = "latteos/system:cup"
 
 [widget.control-center]
 custom_image = "/usr/share/latteos/noctalia/icons/latte-cup.png"
@@ -127,6 +131,17 @@ transition_duration = 600
 
 [wallpaper.default]
 path = "/usr/share/backgrounds/latteos/latteos-wallpaper2.jpg"
+
+# pluginy LatteOS (/usr/share/latteos/noctalia/plugins/<plugin>/plugin.toml)
+[plugins]
+enabled     = ["latteos/system"]
+auto_update = "none"
+
+[[plugins.source]]
+name     = "latteos"
+kind     = "path"
+location = "/usr/share/latteos/noctalia/plugins"
+enabled  = true
 
 [dock]
 enabled = false

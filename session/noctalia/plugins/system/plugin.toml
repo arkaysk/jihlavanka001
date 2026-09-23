@@ -1,0 +1,26 @@
+# LatteOS — systémové menu (šálka Latte na lište). Návrh: inspo/LatteOS – návrh plochy, obrazovka
+# „systémové menu“: Relácia · Systém · Napájanie, doplnené o režim LatteOS (latte-boot, stupeň, okná).
+# Nič nevypne priamo: napájanie potvrdzuje druhé kliknutie.
+
+id          = "latteos/system"
+name        = "LatteOS Systém"
+version     = "0.1.0"
+plugin_api  = 9
+author      = "latteos"
+license     = "MIT"
+dependencies = []
+tags        = ["latteos", "system"]
+icon        = "coffee"
+description = "Systémové menu LatteOS: relácia, nastavenia, režim a stupeň výkonu, režim okien, napájanie."
+
+[[widget]]
+id    = "cup"
+entry = "widget.luau"
+
+[[panel]]
+id        = "menu"
+entry     = "menu.luau"
+width     = 380
+height    = 700
+placement = "floating"
+position  = "bottom_left"

@@ -33,6 +33,19 @@ nižšie):
 
 ## Denník
 
+### 23. 9. 2026, 21:30: F3, systémové menu LatteOS (plugin Noctalie) ✅
+- Pluginy Noctalie v5 sa píšu v **Luau** (izolovane, s deklaratívnym UI). Stiahol som
+  `noctalia-official-plugins` ako vzor. Mimochodom obsahuje aj **bongocat** 🐱.
+- `session/noctalia/plugins/system/`: **šálka na lište** otvára **systémové menu** podľa návrhu:
+  - **Relácia:** Zamknúť, Odhlásiť, Mobilný účet (pripravujeme),
+  - **Systém:** Nastavenia, Správca procesov,
+  - **LatteOS:** režim, renderer, stupeň, dôvod; výber stupňa výkonu (Automaticky/Plný/…/Softvér)
+    zapíše `~/.config/latteos/tier` a reloadne Hyprland; výber režimu okien; prepínač „Nabudúce SAFE“,
+  - **Napájanie:** Uspať, Reštartovať, Vypnúť, všetko s **potvrdením druhým kliknutím** („nič
+    nevypne priamo“ z radaru).
+- Zdroj pluginov `latteos` (`kind = "path"`) je v `config.toml`. Noctalia načíta zmeny za behu.
+- Screenshot: `setup/f1/results/f3-system-menu.png`.
+
 ### 23. 9. 2026, 21:25: F2, Lua modul Hyprlandu ✅
 - `session/hypr/hyprland.lua` + `latte/mode.lua`, `tiers.lua`, `windows.lua`. `latte-session` ho
   používa namiesto starého `hyprland.conf` (ten ostáva ako záloha).
