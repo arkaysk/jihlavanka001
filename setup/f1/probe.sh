@@ -53,6 +53,10 @@ case "$comp" in
     hyprland)
         cat > "$out/hyprland.conf" <<EOF
 monitor = , 1920x1080@60, auto, 1
+ecosystem {
+    no_update_news = true
+    no_donation_nag = true
+}
 cursor { no_hardware_cursors = true }
 misc { disable_hyprland_logo = true; disable_splash_rendering = true }
 decoration { blur { enabled = false } }

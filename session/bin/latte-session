@@ -27,6 +27,14 @@ export XDG_SESSION_TYPE=wayland XDG_SESSION_DESKTOP=latteos
 export LIBSEAT_BACKEND="${LIBSEAT_BACKEND:-logind}"   # z greetd seat cez logind; testy zo SSH: seatd
 export QT_QPA_PLATFORM=wayland GDK_BACKEND=wayland,x11 MOZ_ENABLE_WAYLAND=1
 
+# shell Noctalia: vzhľad LatteOS (téma Latte, ostrovy lišty), ak si používateľ nespravil vlastný
+# ~/.config/noctalia/config.toml. Zmeny z Nastavení ukladá Noctalia do ~/.local/state/noctalia.
+if [ ! -f "${XDG_CONFIG_HOME:-$HOME/.config}/noctalia/config.toml" ]; then
+    export NOCTALIA_CONFIG_HOME="$share"
+fi
+nstate="${XDG_STATE_HOME:-$HOME/.local/state}/noctalia"
+[ -e "$nstate/.setup-complete" ] || { mkdir -p "$nstate" && touch "$nstate/.setup-complete"; }  # bez uvítacieho sprievodcu Noctalie
+
 run_safe() {
     echo "SAFE: labwc + pixman (dôvod: ${1:-režim SAFE})"
     printf '%s\n' "${1:-režim SAFE}" > "$XDG_RUNTIME_DIR/latte-safe-reason"

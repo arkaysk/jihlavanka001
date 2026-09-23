@@ -34,6 +34,15 @@ for f in latteos.desktop latteos-safe.desktop; do
     sudo install -Dm644 "$S/wayland-sessions/$f" "/usr/share/latteos/sessions/$f"
 done
 
+echo "== vzhľad: Noctalia (téma Latte), písma Manrope/Fraunces (OFL), tapety LatteOS"
+sudo install -Dm644 "$S/noctalia/config.toml" /usr/share/latteos/noctalia/config.toml
+sudo install -Dm644 "$S/noctalia/palettes/Latte.json" /usr/share/latteos/noctalia/palettes/Latte.json
+sudo install -Dm644 "$S/noctalia/icons/latte-cup.png" /usr/share/latteos/noctalia/icons/latte-cup.png
+sudo install -d /usr/share/fonts/latteos /usr/share/backgrounds/latteos
+sudo install -m644 "$S"/fonts/*.ttf "$S"/fonts/OFL-*.txt /usr/share/fonts/latteos/
+sudo fc-cache -f /usr/share/fonts/latteos
+sudo install -m644 "$S"/wallpapers/*.jpg /usr/share/backgrounds/latteos/
+
 echo "== systemd + tmpfiles + /etc/latteos"
 sudo install -Dm644 "$S/systemd/latte-boot.service" /usr/lib/systemd/system/latte-boot.service
 sudo install -Dm644 "$S/systemd/latteos.tmpfiles" /usr/lib/tmpfiles.d/latteos.conf

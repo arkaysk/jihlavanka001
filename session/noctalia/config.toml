@@ -1,0 +1,135 @@
+# LatteOS — predvolená konfigurácia Noctalie (/usr/share/latteos/noctalia/config.toml).
+# latte-session nastaví NOCTALIA_CONFIG_HOME=/usr/share/latteos, ak používateľ nemá vlastný
+# ~/.config/noctalia/config.toml. Zmeny z Nastavení (GUI) ukladá Noctalia do
+# ~/.local/state/noctalia/settings.toml, takže tento súbor ostáva nemenný základ.
+#
+# Vzhľad podľa inspo/LatteOS – návrh plochy: jedna spodná lišta z oddelených ostrovov, teplé
+# tmavé sklo, akcent karamel. Paleta: palettes/Latte.json.
+
+[theme]
+mode           = "dark"
+source         = "custom"
+custom_palette = "Latte"
+
+[shell]
+font_family         = "Manrope"
+corner_radius_scale = 1.15
+time_format         = "{:%H:%M}"
+date_format         = "%a %-d. %-m."
+telemetry_enabled   = false
+offline_mode        = false
+lang                = "sk"
+
+[shell.animation]
+enabled = true
+speed   = 1.0
+
+[shell.shadow]
+direction = "down"
+alpha     = 0.35
+
+[shell.panel]
+transparency_mode        = "soft"
+borders                  = true
+shadow                   = true
+launcher_placement       = "floating"
+launcher_position        = "center"
+clipboard_placement      = "floating"
+control_center_placement = "attached"
+
+# ── Lišta: ostrovy zľava doprava ───────────────────────────────────────────────
+# Aplikácie · Čas+notifikácie · Systém+páska · Hľadanie · Schránka · Súbory+zariadenia
+[bar.main]
+position           = "bottom"
+thickness          = 56
+background_opacity = 0.0          # lišta sama je neviditeľná, vidieť len ostrovy
+radius             = 16
+margin_ends        = 12
+margin_edge        = 10
+padding            = 0
+widget_spacing     = 12
+shadow             = true
+reserve_space      = true
+capsule            = true
+capsule_radius     = 16
+capsule_fill       = "surface_variant"
+capsule_opacity    = 0.92
+capsule_border     = "outline"
+capsule_padding    = 8
+font_scale         = 1.05
+
+start  = ["group:apps", "group:time", "group:system"]
+center = ["group:search"]
+end    = ["clipboard", "group:devices"]
+
+[[bar.main.capsule_group]]
+id      = "apps"
+members = ["launcher"]
+enabled = true
+
+[[bar.main.capsule_group]]
+id      = "time"
+members = ["clock", "notifications"]
+enabled = true
+
+[[bar.main.capsule_group]]
+id      = "system"
+members = ["control-center", "workspaces"]
+enabled = true
+
+[[bar.main.capsule_group]]
+id      = "search"
+members = ["search"]
+enabled = true
+
+[[bar.main.capsule_group]]
+id      = "devices"
+members = ["files", "tray", "network", "volume", "battery", "session"]
+enabled = true
+
+# ── Widgety ────────────────────────────────────────────────────────────────────
+[widget.launcher]
+glyph = "apps"
+
+[widget.clock]
+format         = "{:%H:%M}"
+tooltip_format = "{:%A, %-d. %B %Y}"
+
+[widget.control-center]
+custom_image = "/usr/share/latteos/noctalia/icons/latte-cup.png"
+
+[widget.workspaces]
+style        = "regular"
+show_labels  = false
+focused_color = "primary"
+
+# „Text Bar“: zatiaľ tlačidlo, ktoré otvorí spúšťač s vyhľadávaním (F3: vlastný Text Bar)
+[widget.search]
+type  = "custom_button"
+glyph = "search"
+label = "Hľadaj, pýtaj sa, spúšťaj…"
+[widget.search.actions]
+left = "panel-toggle launcher"
+
+[widget.files]
+type  = "custom_button"
+glyph = "folder"
+[widget.files.actions]
+left = "exec xdg-open ~"
+
+# tapety LatteOS (/usr/share/backgrounds/latteos); vo VM iba jednoduchý prechod (každý efekt stojí CPU)
+[wallpaper]
+enabled             = true
+fill_mode           = "crop"
+directory           = "/usr/share/backgrounds/latteos"
+transition          = ["fade"]
+transition_duration = 600
+
+[wallpaper.default]
+path = "/usr/share/backgrounds/latteos/latteos-wallpaper2.jpg"
+
+[dock]
+enabled = false
+
+[desktop_widgets]
+enabled = false
