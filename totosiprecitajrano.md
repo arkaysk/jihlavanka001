@@ -33,6 +33,17 @@ nižšie):
 
 ## Denník
 
+### 23. 9. 2026, 21:32: F3, Text Bar (plugin) ✅
+- `session/noctalia/plugins/textbar/`: pole „Hľadaj, pýtaj sa, spúšťaj…“ na lište so **štyrmi režimami**
+  (ikona = režim; **pravý klik alebo koliesko** prepína, klik otvorí spúšťač v danom režime):
+  - **Lokálne:** aplikácie Noctalie a k tomu nastavenia a akcie LatteOS (stupne výkonu, režimy okien,
+    SAFE, tapeta, sieť, procesy…). Hľadá aj bez diakritiky („stupen“).
+  - **Linux príkaz** (`/cmd`): náhľad a beh v termináli. **Deštruktívne príkazy** (rm -rf, dd, mkfs,
+    sudo…) ukážu „⚠ Pozor“ a treba ich vybrať druhýkrát.
+  - **Web** (`/web`): DuckDuckGo, Wikipédia sk, ProtonDB. Iba na výslovnú žiadosť.
+  - **AI** (`/ai`): lokálne AI cez Ollamu. Bez modelu povie, čo chýba (rozhodnutie nižšie).
+- Screenshoty: `setup/f1/results/f3-textbar-*.png`.
+
 ### 23. 9. 2026, 21:30: F3, systémové menu LatteOS (plugin Noctalie) ✅
 - Pluginy Noctalie v5 sa píšu v **Luau** (izolovane, s deklaratívnym UI). Stiahol som
   `noctalia-official-plugins` ako vzor. Mimochodom obsahuje aj **bongocat** 🐱.
@@ -114,3 +125,8 @@ nižšie):
 
 1. **Distribúcia balíkov bez Fedora účtu:** FAS + COPR, GitHub Actions a vlastný repozitár, alebo
    počkať na Atomic (bootc)? Zatiaľ nič netreba, lokálny repozitár stačí.
+2. **Malý AI model do VM na skúšku?** Text Bar v režime AI potrebuje model v Ollame. Vo VM (11 GB RAM)
+   by sa hodil malý model (~1–2 GB, napr. qwen2.5:1.5b). Qwen3-14B-sk (~9 GB v Q4) až na HW. Nič som
+   nesťahoval.
+3. **Predvolený režim okien:** dal som **nekonečnú pásku** (srdce návrhu). Radar ale varuje, že
+   nováčikovia z Windows chcú plávajúce okná. Zmena je jeden riadok (`latte/windows.lua`, `load_mode`).

@@ -79,7 +79,7 @@ enabled = true
 
 [[bar.main.capsule_group]]
 id      = "search"
-members = ["search"]
+members = ["textbar"]
 enabled = true
 
 [[bar.main.capsule_group]]
@@ -107,13 +107,9 @@ style        = "regular"
 show_labels  = false
 focused_color = "primary"
 
-# „Text Bar“: zatiaľ tlačidlo, ktoré otvorí spúšťač s vyhľadávaním (F3: vlastný Text Bar)
-[widget.search]
-type  = "custom_button"
-glyph = "search"
-label = "Hľadaj, pýtaj sa, spúšťaj…"
-[widget.search.actions]
-left = "panel-toggle launcher"
+# Text Bar: režimy Lokálne / Web / AI / Linux príkaz (plugin latteos/textbar)
+[widget.textbar]
+type = "latteos/textbar:bar"
 
 [widget.files]
 type  = "custom_button"
@@ -134,7 +130,7 @@ path = "/usr/share/backgrounds/latteos/latteos-wallpaper2.jpg"
 
 # pluginy LatteOS (/usr/share/latteos/noctalia/plugins/<plugin>/plugin.toml)
 [plugins]
-enabled     = ["latteos/system"]
+enabled     = ["latteos/system", "latteos/textbar"]
 auto_update = "none"
 
 [[plugins.source]]
