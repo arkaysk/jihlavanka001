@@ -1,5 +1,10 @@
 # Toto si prečítaj ráno ☕
 
+> **⚠️ Ráno najprv reštartuj VM.** Okolo 21:40 sa grafika VM dostala do zlého stavu: `vmwgfx` nevie
+> alokovať buffery, takže greeter aj relácia nemajú obrazovku. Zvnútra VM to reštartovať nemôžem, bežím
+> na nej. Po reštarte by mala naskočiť obrazovka prihlásenia LatteOS. Príčina je popísaná nižšie
+> („Pády Hyprlandu vo VM“).
+
 Denník práce, kým si spal. Najnovšie hore. Na konci sú **veci, ktoré čakajú na tvoje rozhodnutie**.
 
 ---
@@ -32,6 +37,36 @@ nižšie):
 ---
 
 ## Denník
+
+### 23. 9. 2026, 21:55: F4, Súbory (Data Manager), prototyp ✅
+- Podľa tvojho návrhu V2 (`inspo/forklift vzhlad.png`) a Forkliftu. **Spoločná kostra aplikácií**
+  (`session/apps/common/`):
+  - bočná lišta od vrchu až dole s rozkladacími sekciami,
+  - hlavička ‹ › · názov · nástroje · hľadanie · **NET** · zavrieť,
+  - farby z aktívnej témy (pri `latte-theme set` sa aplikácia prefarbí za behu), ikony Tabler ako v shelli.
+- **Súbory** (`session/apps/subory.qml`, spúšťa sa `latte-app subory`, Super+E, tlačidlo na lište, Text Bar):
+  - **Tento počítač:** disky z `lsblk` (voľné miesto, pruh využitia, USB). Obľúbené, Aplikácie (Flatpak
+    priečinky, .desktop) a Systém Linux (/, /etc, pripojené médiá). Skutočná štruktúra ostáva, nič sa neskrýva.
+  - Stĺpce Názov/Upravené/Veľkosť/Druh s triedením a slovenskými druhmi súborov, história ‹ ›, hľadanie.
+  - **Dva panely** (F3, štýl Total Commander): F5 kopírovať, F6 presunúť, Tab prepína panel.
+  - **Detail vpravo:** náhľad obrázka, veľkosť, dátum, cesta; akcie Otvoriť, Kopírovať cestu, Do koša
+    (potvrdenie druhým stlačením).
+  - Pamätá si dva panely a cesty (`~/.config/latteos/subory.json`). Je predvolený pre priečinky (`xdg-mime`).
+- Chyba, ktorú som našiel: v QML sa vlastnosť `onSurface` berie ako obsluha signálu (vyšla čierna),
+  premenované na `fg`/`fgDim`.
+- Testované bez obrazovky VM cez `setup/f1/headless.sh` (labwc headless + pixman). Screenshoty:
+  `setup/f1/results/f4-data-*.png`.
+- NET prepínač v hlavičke je zatiaľ iba vizuál (bezpečnostný model F6).
+
+### ⚠️ 21:40: Pády Hyprlandu vo VM (llvmpipe + vmwgfx)
+- Hyprland (sw-gl) spadol **2×** (21:06 a 21:40) v softvérovom rasterizéri Mesa (`lp_rast_shade_*`).
+  Oba razy tesne predtým jadro hlásilo `vmwgfx: vmw_msg_ioctl … Failed to open channel`. To je kanál
+  VMware k hostiteľovi, ktorý VirtualBox nemá; volá ho ovládač Mesa `svga`. Potom ostal `vmwgfx`
+  v zlom stave (GBM nevie alokovať buffer) až do reštartu.
+- Umelo sa to vyvolať nepodarilo (100 cyklov otvárania okien, 12× Quickshell a panely Noctalie).
+- **Zmiernenie:** ak Hyprland spadne po 60 s, `latte-session` ho spustí znova (najviac 3× za 10 minút,
+  potom SAFE). Overené skutočným SIGSEGV. Aplikácie LatteOS vo VM kreslia Qt softvérovo (`latte-app`).
+- Rozhodnutie nižšie (vypnúť 3D vo VirtualBoxe?).
 
 ### 23. 9. 2026, 21:35: F3, 14 tém LatteOS ✅ (materiály zatiaľ bez animácie)
 - `session/themes/make-themes.py` vygeneruje **14 tém** podľa návrhu (farby vytiahnuté z náhľadov):
@@ -143,3 +178,7 @@ nižšie):
    nesťahoval.
 3. **Predvolený režim okien:** dal som **nekonečnú pásku** (srdce návrhu). Radar ale varuje, že
    nováčikovia z Windows chcú plávajúce okná. Zmena je jeden riadok (`latte/windows.lua`, `load_mode`).
+4. **Vypnúť 3D akceleráciu vo VirtualBoxe?** (Nastavenia VM → Obrazovka → „Zapnúť 3D akceleráciu“.)
+   LatteOS vo VM aj tak kreslí softvérovo. So zapnutým 3D Mesa občas siahne na ovládač `svga`, čo na
+   VirtualBoxe spúšťa chyby `vmw_msg_ioctl` a zrejme aj pády. Odporúčam **vypnúť** a sledovať, či pády zmiznú.
+   Je to iba nastavenie VM, LatteOS sa tomu prispôsobí sám (`latte-boot`).

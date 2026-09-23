@@ -60,19 +60,31 @@ export XDG_CURRENT_DESKTOP=Hyprland
 # Lua modul LatteOS (F2); starý hyprlang súbor ostáva ako záloha
 hconf="$share/hypr/hyprland.lua"
 [ -f "$hconf" ] || hconf="$share/hypr/hyprland.conf"
-t0=$(date +%s)
 # strážcom je latte-session (pád → SAFE), nie start-hyprland: ten po páde reštartuje Hyprland
 # bez -c (vygeneruje cudziu konfiguráciu) a zakryje pád. LATTE_HYPRLAND=false simuluje pád (test).
-"${LATTE_HYPRLAND:-Hyprland}" -c "$hconf"
-rc=$?
-dt=$(( $(date +%s) - t0 ))
-echo "Hyprland skončil: rc=$rc po ${dt}s"
+# Pád PO 60 s (relácia už bola zdravá): Hyprland sa spustí znova, najviac 3× za 10 minút; potom SAFE.
+# Dôvod: sporadické pády llvmpipe vo VM (setup/f1/RESULTS.md) nemajú vracať používateľa k prihláseniu.
+restarts=()
+while true; do
+    t0=$(date +%s)
+    "${LATTE_HYPRLAND:-Hyprland}" -c "$hconf"
+    rc=$?
+    dt=$(( $(date +%s) - t0 ))
+    echo "Hyprland skončil: rc=$rc po ${dt}s"
 
-if [ $rc -eq 0 ]; then
-    latte-boot ok >/dev/null     # riadne odhlásenie nie je pád
-    exit 0
-fi
-if [ $dt -lt 60 ]; then
-    run_safe "Hyprland spadol po ${dt} s (rc=$rc)"
-fi
-exit $rc
+    if [ $rc -eq 0 ]; then
+        latte-boot ok >/dev/null     # riadne odhlásenie nie je pád
+        exit 0
+    fi
+    if [ $dt -lt 60 ]; then
+        run_safe "Hyprland spadol po ${dt} s (rc=$rc)"
+    fi
+    now=$(date +%s); keep=()
+    for t in "${restarts[@]}"; do [ $(( now - t )) -lt 600 ] && keep+=("$t"); done
+    restarts=("${keep[@]}" "$now")
+    if [ ${#restarts[@]} -gt 3 ]; then
+        run_safe "Hyprland spadol ${#restarts[@]}× za 10 minút"
+    fi
+    echo "Hyprland spadol po ${dt} s → reštart ${#restarts[@]}/3"
+    latte-boot session-start >/dev/null
+done

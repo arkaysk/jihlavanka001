@@ -22,7 +22,7 @@ sudo usermod -aG latte "$user"
 
 echo "== binárky a skripty → /usr/bin"
 sudo install -Dm755 "$repo/target/release/latte-boot" /usr/bin/latte-boot
-for f in latte-session latte-safe latte-greeter latte-theme; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
+for f in latte-session latte-safe latte-greeter latte-theme latte-app; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
 
 echo "== konfigurácie relácií → /usr/share/latteos"
 sudo install -Dm644 "$S/hypr/hyprland.conf" /usr/share/latteos/hypr/hyprland.conf
@@ -56,6 +56,14 @@ sudo install -m644 "$S"/noctalia/palettes/*.json /usr/share/latteos/noctalia/pal
 echo "== greeter LatteOS (Quickshell QML pod labwc + pixman)"
 sudo install -Dm644 "$S/greeter/shell.qml" /usr/share/latteos/greeter/shell.qml
 for f in rc.xml environment; do sudo install -Dm644 "$S/greeter/labwc/$f" "/usr/share/latteos/greeter/labwc/$f"; done
+
+echo "== aplikácie LatteOS (Quickshell QML): Súbory"
+sudo install -d /usr/share/latteos/apps/common /usr/share/latteos/apps/data
+sudo install -m644 "$S"/apps/*.qml /usr/share/latteos/apps/
+sudo install -m644 "$S"/apps/common/*.qml /usr/share/latteos/apps/common/
+sudo install -m644 "$S"/apps/data/*.qml /usr/share/latteos/apps/data/
+sudo install -m644 "$S"/apps/*.desktop /usr/share/applications/
+xdg-mime default latteos-subory.desktop inode/directory 2>/dev/null || true
 
 echo "== systemd + tmpfiles + /etc/latteos"
 sudo install -Dm644 "$S/systemd/latte-boot.service" /usr/lib/systemd/system/latte-boot.service

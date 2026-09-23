@@ -115,7 +115,7 @@ type = "latteos/textbar:bar"
 type  = "custom_button"
 glyph = "folder"
 [widget.files.actions]
-left = "exec xdg-open ~"
+left = "exec latte-app subory"
 
 # tapety LatteOS (/usr/share/backgrounds/latteos); vo VM iba jednoduchý prechod (každý efekt stojí CPU)
 [wallpaper]

@@ -25,7 +25,7 @@ local items = {
   { "Riadiace centrum", "Wi-Fi, Bluetooth, zvuk, jas", "adjustments", "riadiace centrum wifi bluetooth zvuk device", { "noctalia", "msg", "panel-toggle", "control-center" } },
   { "Sieť", "Pripojenia (nmtui)", "wifi", "siet wifi internet network", { "foot", "-e", "nmtui" } },
   { "Správca procesov", "Ctrl+Shift+Esc", "activity", "procesy task manager aktivita", { "foot", "-e", "top" } },
-  { "Súbory", "Domovský priečinok", "folder", "subory files data manager", { "xdg-open", home } },
+  { "Súbory", "Data Manager: Tento počítač, dva panely", "folder", "subory files data manager disky", { "latte-app", "subory" } },
   { "Terminál", "foot", "terminal-2", "terminal konzola shell", { "foot" } },
   { "Zamknúť obrazovku", "Super+L", "lock", "zamknut lock", { "noctalia", "msg", "session", "lock" } },
 }

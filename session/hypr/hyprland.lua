@@ -25,6 +25,7 @@ local colors = {
 -- mierka 1: „auto“ vo VM zvolil 2 (lišta dvojnásobná). Na HW ju neskôr nastaví Device Manager.
 hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1 })
 
+
 -- ── prostredie ────────────────────────────────────────────────────────────────
 hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
 hl.env("XDG_SESSION_DESKTOP", "latteos")
@@ -77,7 +78,7 @@ bind(mod .. " + Return", hl.dsp.exec_cmd("foot"))
 bind(mod .. " + Space",  hl.dsp.exec_cmd("noctalia msg panel-toggle launcher"))     -- Text Bar / spúšťač
 bind(mod .. " + Tab",    hl.dsp.exec_cmd("noctalia msg window-switcher"))            -- prehľad pásky
 bind(mod .. " + A",      hl.dsp.exec_cmd("noctalia msg panel-toggle control-center"))
-bind(mod .. " + E",      hl.dsp.exec_cmd("xdg-open " .. (os.getenv("HOME") or "~")))  -- Súbory
+bind(mod .. " + E",      hl.dsp.exec_cmd("latte-app subory"))                        -- Súbory (Data Manager)
 bind(mod .. " + Q",      hl.dsp.window.close())
 bind(mod .. " + F",      hl.dsp.window.fullscreen())
 bind(mod .. " + V",      hl.dsp.window.float({ action = "toggle" }))

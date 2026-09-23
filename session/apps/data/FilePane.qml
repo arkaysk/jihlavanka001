@@ -1,0 +1,185 @@
+// FilePane — jeden panel súborov (Data Manager). Dva panely vedľa seba = štýl Total Commander.
+import QtQuick
+import Qt.labs.folderlistmodel
+import "../common"
+
+Rectangle {
+    id: pane
+    required property var theme
+    property string path: "/"
+    property bool active: false
+    property bool showHidden: false
+    property string filter: ""
+    property var history: []
+    property int historyIndex: -1
+    property int sortField: FolderListModel.Name
+    property bool sortReversed: false
+    readonly property var current: list.currentIndex >= 0 && list.currentIndex < folder.count ? entryAt(list.currentIndex) : null
+    readonly property alias count: folder.count
+
+    readonly property bool wide: width > 620        // stĺpec Druh
+    readonly property bool mid: width > 520         // stĺpec Upravené
+    readonly property real nameW: head.width - (mid ? 150 : 0) - 90 - (wide ? 120 : 0)
+    signal focusRequested()
+    signal openFile(string path)
+
+    color: "transparent"
+    border { color: active ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.45) : "transparent"; width: 1 }
+    radius: 10
+
+    function go(p, push) {
+        if (!p) return;
+        if (p.length > 1 && p.endsWith("/")) p = p.slice(0, -1);
+        path = p;
+        list.currentIndex = -1;
+        if (push !== false) {
+            history = history.slice(0, historyIndex + 1).concat([p]);
+            historyIndex = history.length - 1;
+        }
+    }
+    function up() { if (path !== "/") go(path.substring(0, path.lastIndexOf("/")) || "/"); }
+    function back() { if (historyIndex > 0) { historyIndex--; go(history[historyIndex], false); } }
+    function forward() { if (historyIndex < history.length - 1) { historyIndex++; go(history[historyIndex], false); } }
+    function openCurrent() {
+        const e = current; if (!e) return;
+        if (e.isDir) go(e.path); else pane.openFile(e.path);
+    }
+    function entryAt(i) {
+        return {
+            name: folder.get(i, "fileName"), path: folder.get(i, "filePath"), isDir: folder.get(i, "fileIsDir"),
+            size: folder.get(i, "fileSize"), modified: folder.get(i, "fileModified"), suffix: (folder.get(i, "fileSuffix") || "").toLowerCase()
+        };
+    }
+
+    // druh a ikona podľa prípony
+    function kind(e) {
+        if (e.isDir) return ["Priečinok", "folder"];
+        const s = e.suffix;
+        const m = {
+            "jpg": ["Obrázok", "photo"], "jpeg": ["Obrázok", "photo"], "png": ["Obrázok", "photo"], "webp": ["Obrázok", "photo"], "gif": ["Obrázok", "photo"], "svg": ["Obrázok", "photo"],
+            "mp3": ["Hudba", "music"], "flac": ["Hudba", "music"], "ogg": ["Hudba", "music"], "wav": ["Hudba", "music"],
+            "mp4": ["Video", "movie"], "mkv": ["Video", "movie"], "webm": ["Video", "movie"],
+            "txt": ["Text", "file-text"], "md": ["Text", "file-text"], "toml": ["Nastavenia", "file-text"], "conf": ["Nastavenia", "file-text"], "json": ["Dáta", "file-code"],
+            "pdf": ["PDF dokument", "file-text"], "zip": ["Archív", "file-zip"], "gz": ["Archív", "file-zip"], "xz": ["Archív", "file-zip"], "tar": ["Archív", "file-zip"],
+            "rpm": ["Balík", "package"], "flatpakref": ["Balík", "package"], "appimage": ["Aplikácia", "apps"], "desktop": ["Aplikácia", "apps"],
+            "sh": ["Skript", "terminal-2"], "py": ["Kód", "file-code"], "rs": ["Kód", "file-code"], "qml": ["Kód", "file-code"], "lua": ["Kód", "file-code"], "luau": ["Kód", "file-code"],
+            "exe": ["Windows program", "apps"], "iso": ["Obraz disku", "device-floppy"]
+        };
+        return m[s] || [s ? s.toUpperCase() + " súbor" : "Súbor", "file"];
+    }
+    function human(bytes) {
+        if (bytes < 1024) return bytes + " B";
+        const u = ["kB", "MB", "GB", "TB"]; let v = bytes / 1024, i = 0;
+        while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+        return v.toFixed(v < 10 ? 1 : 0).replace(".", ",") + " " + u[i];
+    }
+
+    FolderListModel {
+        id: folder
+        folder: "file://" + pane.path
+        showDirsFirst: true
+        showDotAndDotDot: false
+        showHidden: pane.showHidden
+        caseSensitive: false
+        nameFilters: pane.filter === "" ? [] : ["*" + pane.filter + "*"]
+        sortField: pane.sortField
+        sortReversed: pane.sortReversed
+    }
+
+    // hlavička stĺpcov
+    Row {
+        id: head
+        x: 8; y: 6; width: parent.width - 16; height: 28
+        component Col: Item {
+            id: c
+            property string label
+            property int field
+            property real w
+            width: w; height: parent.height
+            Text {
+                anchors { left: parent.left; leftMargin: 8; verticalCenter: parent.verticalCenter }
+                text: c.label + (pane.sortField === c.field ? (pane.sortReversed ? "  ↓" : "  ↑") : "")
+                color: pane.theme.fgDim; font { family: pane.theme.fontUi; pixelSize: 12; weight: Font.Bold }
+            }
+            MouseArea {
+                anchors.fill: parent
+                onClicked: { if (pane.sortField === c.field) pane.sortReversed = !pane.sortReversed; else { pane.sortField = c.field; pane.sortReversed = false; } }
+            }
+        }
+        Col { label: "Názov"; field: FolderListModel.Name; w: pane.nameW }
+        Col { label: "Upravené"; field: FolderListModel.Time; w: 150; visible: pane.mid }
+        Col { label: "Veľkosť"; field: FolderListModel.Size; w: 90 }
+        Col { label: "Druh"; field: FolderListModel.Type; w: 120; visible: pane.wide }
+    }
+    Rectangle { x: 8; y: head.y + head.height; width: parent.width - 16; height: 1; color: pane.theme.line }
+
+    ListView {
+        id: list
+        anchors { top: head.bottom; topMargin: 4; left: parent.left; right: parent.right; bottom: parent.bottom; margins: 8 }
+        clip: true
+        model: folder
+        currentIndex: -1
+        boundsBehavior: Flickable.StopAtBounds
+        highlightMoveDuration: 0
+        keyNavigationEnabled: true
+
+        delegate: Rectangle {
+            id: rowItem
+            required property int index
+            required property string fileName
+            required property bool fileIsDir
+            required property var fileModified
+            required property real fileSize
+            required property string fileSuffix
+            required property string filePath
+            readonly property var k: pane.kind({ isDir: fileIsDir, suffix: (fileSuffix || "").toLowerCase() })
+            readonly property bool selected: ListView.isCurrentItem
+            width: list.width; height: 32; radius: 8
+            color: selected ? (pane.active ? Qt.rgba(pane.theme.primary.r, pane.theme.primary.g, pane.theme.primary.b, 0.22) : pane.theme.hover)
+                            : (rma.containsMouse ? Qt.rgba(pane.theme.fg.r, pane.theme.fg.g, pane.theme.fg.b, 0.04) : "transparent")
+            Row {
+                anchors.verticalCenter: parent.verticalCenter
+                Item {
+                    width: pane.nameW; height: 32
+                    Glyph { x: 8; anchors.verticalCenter: parent.verticalCenter; name: rowItem.k[1]; size: 17; color: rowItem.fileIsDir ? pane.theme.primary : pane.theme.fgDim }
+                    Text {
+                        x: 34; width: parent.width - 40; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight
+                        text: rowItem.fileName; color: pane.theme.fg
+                        font { family: pane.theme.fontUi; pixelSize: 13; weight: rowItem.fileIsDir ? Font.DemiBold : Font.Normal }
+                    }
+                }
+                Text {
+                    visible: pane.mid; width: 150; leftPadding: 8; anchors.verticalCenter: parent.verticalCenter
+                    text: Qt.formatDateTime(rowItem.fileModified, "d. M. yyyy  HH:mm"); color: pane.theme.fgDim
+                    font { family: pane.theme.fontUi; pixelSize: 12 }
+                }
+                Text {
+                    width: 90; leftPadding: 8; anchors.verticalCenter: parent.verticalCenter
+                    text: rowItem.fileIsDir ? "—" : pane.human(rowItem.fileSize); color: pane.theme.fgDim
+                    font { family: pane.theme.fontUi; pixelSize: 12 }
+                }
+                Text {
+                    visible: pane.wide; width: 120; leftPadding: 8; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight
+                    text: rowItem.k[0]; color: pane.theme.fgDim
+                    font { family: pane.theme.fontUi; pixelSize: 12 }
+                }
+            }
+            MouseArea {
+                id: rma; anchors.fill: parent; hoverEnabled: true
+                onClicked: { list.currentIndex = rowItem.index; pane.focusRequested(); }
+                onDoubleClicked: { list.currentIndex = rowItem.index; pane.openCurrent(); }
+            }
+        }
+
+        Text {
+            anchors.centerIn: parent; visible: folder.count === 0 && folder.status === FolderListModel.Ready
+            text: pane.filter !== "" ? "Nič nevyhovuje „" + pane.filter + "“" : "Priečinok je prázdny"
+            color: pane.theme.fgDim; font { family: pane.theme.fontUi; pixelSize: 13 }
+        }
+    }
+
+    function moveSelection(d) {
+        const n = Math.max(0, Math.min(folder.count - 1, list.currentIndex + d));
+        list.currentIndex = n; list.positionViewAtIndex(n, ListView.Contain);
+    }
+}
