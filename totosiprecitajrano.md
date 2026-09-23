@@ -16,7 +16,7 @@ Denník práce, kým si spal. Najnovšie hore. Na konci sú **veci, ktoré čaka
 | B. Opraviť Noctalia Greeter (MIT) | nájsť únik pamäte jadra v jeho kompozitore | neznáme; je to cudzí C++ kód |
 | C. Prefarbiť tuigreet | iba farby textového greetera | žiadne, ale je to stále text |
 
-Robím **A** a C nechávam ako zálohu. Stav nájdeš nižšie v denníku.
+Robím **A** a C nechávam ako zálohu. **Hotové a predvolené**, pozri denník.
 
 ### Nemám Fedora účet
 
@@ -32,6 +32,19 @@ nižšie):
 ---
 
 ## Denník
+
+### 23. 9. 2026, 21:15: vlastný greeter LatteOS ✅ (je predvolený)
+- `session/greeter/shell.qml`: obrazovka prihlásenia v Quickshelli (modul `Quickshell.Services.Greetd`)
+  v štýle Latte. Obsahuje tapetu, veľké hodiny (Fraunces), sklenenú kartu so šálkou, meno a heslo,
+  výber relácie **LatteOS / LatteOS SAFE** (predvolená podľa režimu z `latte-boot`), dôvod režimu
+  vľavo dole a tlačidlá Reštartovať a Vypnúť.
+- Beží pod **labwc + pixman + Qt software**, teda bez GL a GPU, na kombinácii overenej v F1.
+- Otestované naostro: greetd → greeter → prihlásenie (heslo napísal automaticky `wtype`) → relácia
+  LatteOS s témou Latte. Pamäť stabilná, CPU v pokoji 0 %, greeter ~90 MB + labwc ~50 MB.
+- `/etc/latteos/boot.toml`: `greeter = "latte"`. Ak greeter do 10 s spadne, nasleduje `tuigreet`.
+  Návrat na textový: `greeter = "tui"`.
+- Naposledy prihlásené meno si pamätá v `/var/lib/greetd/latte-last-user`.
+- Screenshoty: `setup/f1/results/latte-greeter-live.png`, `latteos-session-latte.png`.
 
 ### 23. 9. 2026, 21:10: téma Latte pre Noctaliu ✅
 - `session/noctalia/`: paleta **Latte** (`palettes/Latte.json`, tmavá aj svetlá) a `config.toml`.

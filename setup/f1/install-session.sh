@@ -43,6 +43,10 @@ sudo install -m644 "$S"/fonts/*.ttf "$S"/fonts/OFL-*.txt /usr/share/fonts/latteo
 sudo fc-cache -f /usr/share/fonts/latteos
 sudo install -m644 "$S"/wallpapers/*.jpg /usr/share/backgrounds/latteos/
 
+echo "== greeter LatteOS (Quickshell QML pod labwc + pixman)"
+sudo install -Dm644 "$S/greeter/shell.qml" /usr/share/latteos/greeter/shell.qml
+for f in rc.xml environment; do sudo install -Dm644 "$S/greeter/labwc/$f" "/usr/share/latteos/greeter/labwc/$f"; done
+
 echo "== systemd + tmpfiles + /etc/latteos"
 sudo install -Dm644 "$S/systemd/latte-boot.service" /usr/lib/systemd/system/latte-boot.service
 sudo install -Dm644 "$S/systemd/latteos.tmpfiles" /usr/lib/tmpfiles.d/latteos.conf
