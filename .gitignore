@@ -3,9 +3,8 @@ __pycache__/
 .venv/
 *.swp
 .vscode/
-# generuje latte-appearance (~/.config/labwc je symlink na session/labwc)
-session/labwc/themerc-override
 
-# cudzie repozitáre stiahnuté cez resources/fetch.sh — referencia/fork zdroje,
-# netreba ich v histórii tohto repa (pozri resources/MANIFEST.md)
-resources/*/
+# cudzie repozitáre a uložené články z resources/fetch.sh — netrackované
+resources/upstream/
+resources/docs/
+resources/fetch.log
