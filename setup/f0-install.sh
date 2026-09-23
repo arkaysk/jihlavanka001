@@ -18,7 +18,7 @@ SESSION=(greetd greetd-selinux tuigreet labwc foot fuzzel xorg-x11-server-Xwayla
 # --- NORMAL: Hyprland sada z COPR lionheartp/Hyprland -------------------------
 HYPR=(hyprland hyprland-devel hyprlock hypridle xdg-desktop-portal-hyprland
       hyprpolkitagent hyprland-qt-support hyprland-guiutils hyprpicker uwsm cliphist
-      quickshell matugen)
+      quickshell matugen noctalia-git noctalia-greeter-git)
 # --- Qt pre shell ------------------------------------------------------------
 QT=(qt6-qtwayland qt6-qtmultimedia qt6-qtsvg qt6-qt5compat)
 # --- písma a ikony (radar: Inter + JetBrains Mono) -----------------------------
@@ -27,6 +27,8 @@ FONTS=(rsms-inter-fonts rsms-inter-vf-fonts jetbrains-mono-fonts
 # --- vývoj: C++/Rust/Go, balenie RPM (hyprland-latte), Lua --------------------
 DEV=(git gcc-c++ cmake meson ninja-build rust cargo golang
      rpm-build rpmdevtools dnf5-plugins lua lua-devel)
+# --- F1 testy: seatd (kompozitor zo SSH), GL klienti, rozlíšenie ------------------
+TEST=(seatd kitty wlr-randr)
 # --- AI (CPU, malý model; služba sa nepovoľuje) --------------------------------
 AI=(ollama)
 
@@ -34,9 +36,11 @@ dnf -y install dnf5-plugins
 dnf -y copr enable lionheartp/Hyprland
 
 dnf -y install "${GRAPHICS[@]}" "${VM[@]}" "${SESSION[@]}" "${HYPR[@]}" \
-               "${QT[@]}" "${FONTS[@]}" "${DEV[@]}" "${AI[@]}"
+               "${QT[@]}" "${FONTS[@]}" "${DEV[@]}" "${TEST[@]}" "${AI[@]}"
 
 systemctl enable --now vboxservice.service || true
+systemctl enable --now seatd.service || true
+usermod -aG seat "${SUDO_USER:-user}" || true
 
 echo
 echo "== F0 hotové. Kontrola:"

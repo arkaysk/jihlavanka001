@@ -46,9 +46,14 @@ clone wlroots             https://gitlab.freedesktop.org/wlroots/wlroots.git
 clone dankmaterialshell   https://github.com/AvengeMedia/DankMaterialShell.git
 clone quickshell          https://github.com/quickshell-mirror/quickshell.git
 clone caelestia-shell     https://github.com/caelestia-dots/shell.git
+# Caelestia: zdroj prvkov pre silnejšie PC (stupeň Plný) — animácie, dashboard, pluginy
+clone caelestia-dotfiles  https://github.com/caelestia-dots/caelestia.git
+clone caelestia-cli       https://github.com/caelestia-dots/cli.git
 clone matugen             https://github.com/InioX/matugen.git
 # referencie pre UI prvky (Prebrať z …)
 clone noctalia-shell      https://github.com/noctalia-dev/noctalia-shell.git
+clone noctalia-greeter    https://github.com/noctalia-dev/noctalia-greeter.git
+clone noctalia-plugins    https://github.com/noctalia-dev/noctalia-plugins.git
 clone end4-dots-hyprland  https://github.com/end-4/dots-hyprland.git
 clone ml4w-dotfiles       https://github.com/mylinuxforwork/dotfiles.git
 

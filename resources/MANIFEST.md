@@ -14,7 +14,7 @@ resources/
   docs/         uložené články z radaru (NEtrackované)
 ```
 
-Stav k 23. 9. 2026: stiahnutých 27 repozitárov (~1,1 GB) a 10 článkov.
+Stav k 23. 9. 2026: stiahnutých 31 repozitárov (~1,1 GB) a 10 článkov.
 
 ## Repozitáre (`upstream/`)
 
@@ -28,11 +28,15 @@ Stav k 23. 9. 2026: stiahnutých 27 repozitárov (~1,1 GB) a 10 článkov.
 | `hyprwindowshade` | [HyprWindowShade](https://github.com/ManofJELLO/HyprWindowShade) | MIT | Prebrať z | vzor pre shadery okien (témy) |
 | `labwc` | [labwc](https://github.com/labwc/labwc) 0.20.2 | GPL-2.0 | núdzový režim | kompozitor **SAFE režimu** (pixman, bez GPU); vo Fedore 44 ako balík |
 | `wlroots` | [wlroots](https://gitlab.freedesktop.org/wlroots/wlroots) 0.21-dev | MIT | — | knižnica pod labwc; vmwgfx patch pre SAFE s GL |
-| `dankmaterialshell` | [DankMaterialShell](https://github.com/AvengeMedia/DankMaterialShell) | MIT | Prebrať / forknúť | kandidát č. 1 na základ shellu (Quickshell + Go), má Fedora spec |
+| `dankmaterialshell` | [DankMaterialShell](https://github.com/AvengeMedia/DankMaterialShell) | MIT | záloha | náhradný shell, ak by alfa Noctalie zlyhávala (Quickshell + Go), vo Fedore 44 ako balík |
 | `quickshell` | [Quickshell](https://github.com/quickshell-mirror/quickshell) | LGPL-3.0 | Prebrať | QML runtime pod DMS/Caelestia |
-| `caelestia-shell` | [Caelestia shell](https://github.com/caelestia-dots/shell) | GPL-3.0 | Prebrať | kandidát č. 2 na základ shellu |
+| `caelestia-shell` | [Caelestia shell](https://github.com/caelestia-dots/shell) 2.3 | GPL-3.0 | **zdroj prvkov** | prvky pre silnejšie PC (stupeň Plný): dashboard, `background/Visualiser`, výkonové krúžky, animácie (`assets/bongocat.gif`, `kurukuru.gif`), morfujúce panely |
+| `caelestia-dotfiles` | [Caelestia dotfiles](https://github.com/caelestia-dots/caelestia) | — (overiť) | zdroj prvkov | Hyprland konfigurácia, témy aplikácií (foot, btop, fish…) |
+| `caelestia-cli` | [caelestia-cli](https://github.com/caelestia-dots/cli) | GPL-3.0 | zdroj prvkov | ovládací skript: témy, tapety, nahrávanie |
 | `matugen` | [matugen](https://github.com/InioX/matugen) | GPL-2.0 | Prebrať | farby z tapety; vo Fedore 44 ako balík |
-| `noctalia-shell` | [Noctalia](https://github.com/noctalia-dev/noctalia-shell) | MIT | Prebrať z | vzor: dock, notifikácie, OSD, greeter |
+| `noctalia-shell` | [Noctalia v5](https://github.com/noctalia-dev/noctalia-shell) 5.1.0 | MIT | **zvolený shell (F3)** | natívny shell (C++/GLES, bez Qt), backendy Hyprland aj labwc |
+| `noctalia-greeter` | [Noctalia Greeter](https://github.com/noctalia-dev/noctalia-greeter) 1.5.0 | MIT | kandidát F1 | obrazovka prihlásenia pre greetd, vlastný wlroots kompozitor |
+| `noctalia-plugins` | [noctalia-plugins](https://github.com/noctalia-dev/noctalia-plugins) | MIT | vzor | 138 pluginov (widgety, panely, launcher providery) |
 | `end4-dots-hyprland` | [end-4 dots](https://github.com/end-4/dots-hyprland) | GPL-3.0 | Prebrať z | vzor: prehľad okien, AI sidebar |
 | `ml4w-dotfiles` | [ML4W](https://github.com/mylinuxforwork/dotfiles) | GPL-3.0 | Prebrať z | vzor: Settings App (všetko prepínačmi) |
 | `proton` | [Proton](https://github.com/ValveSoftware/Proton) `proton-11.0-1` | BSD-3 + zmiešané | Prebrať | predvolený Proton (bez submodulov, len referencia) |
@@ -76,6 +80,6 @@ LinuxCapable (NVIDIA na Fedore), Veda.sk (Qwen3-14B-sk). V prípade potreby ich 
 
 ## Licencie — pozor pri forku
 
-- GPL (Caelestia, cosmic-files, Mission Center, umu, labwc, end-4, ML4W): odvodený kód musí ostať GPL.
+- GPL (Caelestia: prvky sa **prepisujú** do Noctalie, nekopírujú; skopírovaný kód by musel ostať GPL, cosmic-files, Mission Center, umu, labwc, end-4, ML4W): odvodený kód musí ostať GPL.
 - Session služba (platená) musí byť **samostatný program** a nesmie linkovať GPL kód.
 - DMS, Noctalia, Hyprland, wlroots, Ollama, MangoHud: MIT/BSD, bez tejto povinnosti.

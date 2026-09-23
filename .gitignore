@@ -8,3 +8,6 @@ __pycache__/
 resources/upstream/
 resources/docs/
 resources/fetch.log
+
+# Rust build
+/target/

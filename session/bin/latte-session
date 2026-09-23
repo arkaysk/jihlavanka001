@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# latte-session [safe] — relácia LatteOS po prihlásení (spúšťa ju greetd cez wayland-sessions/*.desktop).
+#
+# Režim berie z /run/latteos/session.env (zapísal latte-boot select pri štarte).
+# NORMAL: Hyprland + Noctalia. Ak Hyprland spadne skôr, než je relácia zdravá (60 s),
+#         relácia sa hneď prepne do SAFE; pád sa zaráta do počítadla (latte-boot session-start).
+# SAFE:   labwc + pixman (bez GL/GPU) + Noctalia, záloha foot; ponuka latte-safe.
+set -u
+
+share=/usr/share/latteos
+state="${XDG_STATE_HOME:-$HOME/.local/state}/latteos"
+mkdir -p "$state"
+exec >>"$state/session.log" 2>&1
+echo "=== latte-session $(date -Is) args=$*"
+
+LATTE_MODE=safe LATTE_RENDERER=pixman LATTE_TIER=safe
+if [ -r /run/latteos/session.env ]; then
+    set -a; . /run/latteos/session.env; set +a
+else
+    echo "chýba /run/latteos/session.env (latte-boot select nebežal) → SAFE"
+fi
+chosen_safe=0
+[ "${1:-}" = safe ] && { LATTE_MODE=safe; chosen_safe=1; }
+export LATTE_MODE LATTE_RENDERER LATTE_TIER
+
+export XDG_SESSION_TYPE=wayland XDG_SESSION_DESKTOP=latteos
+export LIBSEAT_BACKEND="${LIBSEAT_BACKEND:-logind}"   # z greetd seat cez logind; testy zo SSH: seatd
+export QT_QPA_PLATFORM=wayland GDK_BACKEND=wayland,x11 MOZ_ENABLE_WAYLAND=1
+
+run_safe() {
+    echo "SAFE: labwc + pixman (dôvod: ${1:-režim SAFE})"
+    printf '%s\n' "${1:-režim SAFE}" > "$XDG_RUNTIME_DIR/latte-safe-reason"
+    export LATTE_MODE=safe WLR_RENDERER=pixman LIBGL_ALWAYS_SOFTWARE=1
+    unset MESA_LOADER_DRIVER_OVERRIDE
+    export XDG_CURRENT_DESKTOP=labwc:wlroots
+    exec labwc -C "$share/labwc"
+}
+
+if [ $chosen_safe -eq 1 ]; then
+    run_safe "zvolené pri prihlásení (LatteOS SAFE)"
+fi
+if [ "$LATTE_MODE" != normal ]; then
+    run_safe "$(grep -m1 '^reason' /run/latteos/mode.toml 2>/dev/null | cut -d'"' -f2)"
+fi
+
+latte-boot session-start
+if [ $? -eq 3 ]; then
+    run_safe "opakované pády relácie NORMAL"
+fi
+
+export XDG_CURRENT_DESKTOP=Hyprland
+t0=$(date +%s)
+# strážcom je latte-session (pád → SAFE), nie start-hyprland: ten po páde reštartuje Hyprland
+# bez -c (vygeneruje cudziu konfiguráciu) a zakryje pád. LATTE_HYPRLAND=false simuluje pád (test).
+"${LATTE_HYPRLAND:-Hyprland}" -c "$share/hypr/hyprland.conf"
+rc=$?
+dt=$(( $(date +%s) - t0 ))
+echo "Hyprland skončil: rc=$rc po ${dt}s"
+
+if [ $rc -eq 0 ]; then
+    latte-boot ok >/dev/null     # riadne odhlásenie nie je pád
+    exit 0
+fi
+if [ $dt -lt 60 ]; then
+    run_safe "Hyprland spadol po ${dt} s (rc=$rc)"
+fi
+exit $rc

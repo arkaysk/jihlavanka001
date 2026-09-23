@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# latte-greeter — obrazovka prihlásenia (greetd default_session).
+# Predvolene textový tuigreet (bez GPU). Noctalia Greeter sa zapína v /etc/latteos/boot.toml
+# (greeter = "noctalia"): pod greetd na VirtualBoxe však prepúšťa pamäť jadra (~36 MB/s,
+# setup/f1/RESULTS.md), preto je zatiaľ vypnutý. Ak grafický greeter zlyhá, použije sa tuigreet.
+LATTE_MODE=safe LATTE_RENDERER=pixman
+[ -r /run/latteos/session.env ] && . /run/latteos/session.env
+
+session="LatteOS"
+[ "$LATTE_MODE" = safe ] && session="LatteOS SAFE"
+export LIBSEAT_BACKEND=logind
+[ "$LATTE_RENDERER" != hw ] && export WLR_RENDERER=pixman LIBGL_ALWAYS_SOFTWARE=1
+
+tui() {
+    exec tuigreet --time --remember --remember-session \
+        --sessions /usr/share/latteos/sessions --cmd /usr/bin/latte-session --greeting "LatteOS — prihlásenie (režim: ${LATTE_MODE^^})"
+}
+greeter="$(sed -n 's/^greeter *= *"\?\([a-z]*\)"\?.*/\1/p' /etc/latteos/boot.toml 2>/dev/null)"
+[ "${greeter:-tui}" = noctalia ] || tui
+
+t0=$(date +%s)
+/usr/bin/noctalia-greeter-session -- --session "$session"
+rc=$?
+# greeter skončí po úspešnom prihlásení (rc=0); rýchly pád → textová záloha
+if [ $rc -ne 0 ] && [ $(( $(date +%s) - t0 )) -lt 10 ]; then
+    logger -t latte-greeter "noctalia-greeter zlyhal (rc=$rc), prechádzam na tuigreet"
+    tui
+fi
+exit $rc
