@@ -98,13 +98,13 @@ flowchart TD
 
 ## Fázy
 
-### F0 — Základ VM *(z väčšej časti hotové)*
+### F0 — Základ VM *(hotové 23. 9. 2026)*
 - [x] Fedora 44 Server vo VirtualBoxe, VMSVGA s 3D.
 - [x] Root LV rozšírený z 15 GB na celý disk (52 GB, `lvextend -r`), Fedora Server ho predvolene nechá malý.
 - [x] Všetky balíky cez [setup/f0-install.sh](setup/f0-install.sh) (23. 9. 2026): Mesa 26.2.3, VirtualBox guest additions
   (`vboxservice` beží), COPR `lionheartp/Hyprland` (Hyprland 0.56.2, Quickshell 0.3.1, matugen 4.2), labwc 0.9.6,
   greetd a tuigreet, PipeWire, portály, písma, vývojové nástroje (C++, Rust, Go, rpm-build) a Ollama.
-- [ ] Snapshot VM „čistý základ“, aby sa dalo vždy vrátiť. Robí sa v GUI VirtualBoxu na hostiteľovi.
+- [x] Snapshot VM „f0“ (čistý základ) vo VirtualBoxe.
 
 **Namerané v F0** (bez spustenej relácie, `eglinfo -B -p gbm`, `vulkaninfo`):
 
