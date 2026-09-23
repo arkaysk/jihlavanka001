@@ -22,7 +22,7 @@ sudo usermod -aG latte "$user"
 
 echo "== binárky a skripty → /usr/bin"
 sudo install -Dm755 "$repo/target/release/latte-boot" /usr/bin/latte-boot
-for f in latte-session latte-safe latte-greeter; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
+for f in latte-session latte-safe latte-greeter latte-theme; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
 
 echo "== konfigurácie relácií → /usr/share/latteos"
 sudo install -Dm644 "$S/hypr/hyprland.conf" /usr/share/latteos/hypr/hyprland.conf
@@ -49,6 +49,9 @@ sudo install -d /usr/share/fonts/latteos /usr/share/backgrounds/latteos
 sudo install -m644 "$S"/fonts/*.ttf "$S"/fonts/OFL-*.txt /usr/share/fonts/latteos/
 sudo fc-cache -f /usr/share/fonts/latteos
 sudo install -m644 "$S"/wallpapers/*.jpg /usr/share/backgrounds/latteos/
+sudo install -d /usr/share/latteos/themes
+sudo install -m644 "$S"/themes/*.theme /usr/share/latteos/themes/
+sudo install -m644 "$S"/noctalia/palettes/*.json /usr/share/latteos/noctalia/palettes/
 
 echo "== greeter LatteOS (Quickshell QML pod labwc + pixman)"
 sudo install -Dm644 "$S/greeter/shell.qml" /usr/share/latteos/greeter/shell.qml

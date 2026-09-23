@@ -30,6 +30,17 @@ local items = {
   { "Zamknúť obrazovku", "Super+L", "lock", "zamknut lock", { "noctalia", "msg", "session", "lock" } },
 }
 
+-- témy LatteOS: „Téma: Rubín“ … (latte-theme set <id>)
+for _, f in ipairs(noctalia.listDir("/usr/share/latteos/themes") or {}) do
+  local id = string.match(f, "^([%w_-]+)%.theme$")
+  if id then
+    local body = noctalia.readFile("/usr/share/latteos/themes/" .. f) or ""
+    local name = string.match(body, "\nname = ([^\n]+)") or id
+    local desc = string.match(body, "\ndesc = ([^\n]+)") or ""
+    table.insert(items, { "Téma: " .. name, desc, "palette", "tema theme vzhlad farby " .. id, { "latte-theme", "set", id } })
+  end
+end
+
 function onQuery(text)
   local q = string.lower(text or "")
   local results = {}
@@ -38,8 +49,11 @@ function onQuery(text)
     return
   end
   for i, it in ipairs(items) do
-    local score = noctalia.fuzzyScore(q, string.lower(it[1] .. " " .. it[4]))
+    local hay = string.lower(it[1] .. " " .. it[4])
+    local score = noctalia.fuzzyScore(q, hay)
     if score then
+      -- presná zhoda so slovom (napr. „tema“, „stupen“) má prednosť pred fuzzy zhodou aplikácií
+      if string.find(" " .. it[4] .. " ", " " .. q, 1, true) then score = score + 1000 end
       table.insert(results, { id = tostring(i), title = it[1], subtitle = it[2], glyph = it[3], score = score })
     end
   end

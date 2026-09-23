@@ -31,4 +31,16 @@ function M.load()
     return out
 end
 
+--- téma LatteOS (~/.config/latteos/theme → /usr/share/latteos/themes/<id>.theme)
+function M.theme()
+    local home = os.getenv("HOME") or ""
+    local cfg = os.getenv("XDG_CONFIG_HOME") or (home .. "/.config")
+    local id = (read_file(cfg .. "/latteos/theme") or "latte"):match("^%s*([%w_-]+)") or "latte"
+    local body = read_file("/usr/share/latteos/themes/" .. id .. ".theme")
+              or read_file("/usr/share/latteos/themes/latte.theme") or ""
+    local t = { id = id }
+    for k, v in body:gmatch("\n?([%w_]+) = ([^\n]*)") do t[k] = v end
+    return t
+end
+
 return M

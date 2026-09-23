@@ -5,14 +5,17 @@
 
 package.path = "/usr/share/latteos/hypr/?.lua;/usr/share/latteos/hypr/?/init.lua;" .. package.path
 
-local mode    = require("latte.mode").load()
+local modemod = require("latte.mode")
+local mode    = modemod.load()
+local theme   = modemod.theme()
 local tiers   = require("latte.tiers")
 local windows = require("latte.windows")
 
 -- ── farby Latte (session/noctalia/palettes/Latte.json) ────────────────────────
 local colors = {
-    active   = { colors = { "rgb(e4b283)", "rgb(c98a55)" }, angle = 45 },
-    inactive = "rgba(4a3b30aa)",
+    active   = { colors = { "rgb(" .. (theme.border_active or "e4b283") .. ")",
+                            "rgb(" .. ((theme.id == "latte") and "c98a55" or (theme.border_active or "e4b283")) .. ")" }, angle = 45 },
+    inactive = "rgba(" .. (theme.border_inactive or "4a3b30") .. "aa)",
     shadow   = 0xcc0b0806,
     glow          = 0xaae4b283,
     glow_inactive = 0x00000000,
@@ -60,7 +63,10 @@ if mode.renderer == "vm-3d" then
     hl.config({ render = { commit_timing_enabled = false } })
 end
 
-tiers.apply(mode.tier, colors)
+-- téma bez efektov (Úsporná, klasické) obmedzí aj efekty kompozitora
+local tier = mode.tier
+if theme.effects == "ziadne" and (tier == "plny" or tier == "standard" or tier == "usporny") then tier = "minimalny" end
+tiers.apply(tier, colors)
 windows.setup()
 
 -- ── skratky ───────────────────────────────────────────────────────────────────

@@ -13,6 +13,17 @@ local tierNames = { "Automaticky (podľa HW)", "Plný", "Štandard", "Úsporný"
 local windowModes = { "paska", "dlazdice", "plavajuce" }
 local windowNames = { "Nekonečná páska", "Dlaždice", "Plávajúce okná" }
 
+-- témy (id + názov) z /usr/share/latteos/themes
+local themeIds, themeNames = {}, {}
+for _, f in ipairs(noctalia.listDir("/usr/share/latteos/themes") or {}) do
+  local id = string.match(f, "^([%w_-]+)%.theme$")
+  if id then
+    local body = noctalia.readFile("/usr/share/latteos/themes/" .. f) or ""
+    table.insert(themeIds, id)
+    table.insert(themeNames, string.match(body, "\nname = ([^\n]+)") or id)
+  end
+end
+
 local st = {}
 local confirm = nil       -- akcia napájania čakajúca na potvrdenie
 
@@ -30,6 +41,8 @@ local function load()
   st.window = noctalia.fileExists(windowFile) and trim(noctalia.readFile(windowFile)) or "paska"
   st.forceSafe = noctalia.fileExists("/var/lib/latteos/force-safe")
   st.user = noctalia.getenv("USER") or "používateľ"
+  local th = cfgHome .. "/latteos/theme"
+  st.theme = noctalia.fileExists(th) and trim(noctalia.readFile(th)) or "latte"
 end
 
 local function section(title, children)
@@ -50,6 +63,8 @@ local function latteRows(safe, modeText)
   if st.reason ~= "" then
     table.insert(rows, ui.label({ text = st.reason, fontSize = 11, color = "on_surface_variant", maxWidth = 330, maxLines = 3 }))
   end
+  table.insert(rows, ui.label({ text = "Téma", fontSize = 12, color = "on_surface_variant" }))
+  table.insert(rows, ui.select({ options = themeNames, selectedIndex = indexOf(themeIds, st.theme), onChange = "onTheme" }))
   table.insert(rows, ui.label({ text = "Stupeň výkonu", fontSize = 12, color = "on_surface_variant" }))
   table.insert(rows, ui.select({ options = tierNames, selectedIndex = indexOf(tiers, st.tierChoice), onChange = "onTier", enabled = not safe }))
   table.insert(rows, ui.label({ text = "Režim okien (Super+W)", fontSize = 12, color = "on_surface_variant" }))
@@ -133,6 +148,11 @@ function onTier(index, _text)
   run({ "hyprctl", "reload" })          -- Lua modul prečíta stupeň znova
   noctalia.notify("Stupeň výkonu", tierNames[(tonumber(index) or 0) + 1])
   load(); render()
+end
+
+function onTheme(index, _text)
+  local id = themeIds[(tonumber(index) or 0) + 1]
+  if id then run({ "latte-theme", "set", id }); st.theme = id; render() end
 end
 
 function onWindow(index, _text)

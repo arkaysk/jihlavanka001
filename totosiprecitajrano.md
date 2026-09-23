@@ -33,6 +33,19 @@ nižšie):
 
 ## Denník
 
+### 23. 9. 2026, 21:35: F3, 14 tém LatteOS ✅ (materiály zatiaľ bez animácie)
+- `session/themes/make-themes.py` vygeneruje **14 tém** podľa návrhu (farby vytiahnuté z náhľadov):
+  Latte, Mráz, Brúsený hliník, Striebro, Zlato, Biely onyx, Onyx, Jantár, Rubín, Zirkón,
+  Klasik – kancelária / herný launcher / svetlé sklo, Úsporná (FPS).
+- Každá téma má paletu Noctalie, svetlý alebo tmavý režim, farbu okrajov okien v Hyprlande a voliteľne
+  tapetu. Témy bez efektov (Úsporná, klasické) obmedzia aj efekty kompozitora.
+- Prepínanie: `latte-theme set rubin`, v Text Bare „téma …“ alebo v systémovom menu → Téma.
+  Overené naostro (Rubín, Kancelária, späť Latte).
+- **Pohyblivé materiály** (mráz, ktorý rastie a topí sa pod myšou, odlesk kovu, žilky kameňa, iskrenie
+  fazety, rozpad okna) zatiaľ **nie sú**. Potrebujú shadery vo vlastnom forku Noctalie (C++/GLES)
+  a pluginy Hyprlandu pre okná. Vo VM by aj tak išli iba pri vynútenom stupni Plný. Téma má na ne
+  pripravený kľúč `material`.
+
 ### 23. 9. 2026, 21:32: F3, Text Bar (plugin) ✅
 - `session/noctalia/plugins/textbar/`: pole „Hľadaj, pýtaj sa, spúšťaj…“ na lište so **štyrmi režimami**
   (ikona = režim; **pravý klik alebo koliesko** prepína, klik otvorí spúšťač v danom režime):

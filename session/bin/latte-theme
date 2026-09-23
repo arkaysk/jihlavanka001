@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# latte-theme — témy LatteOS (session/themes, inspo návrh: „témy materiálov“, „drahokamy a klasické“).
+#   latte-theme list          zoznam tém
+#   latte-theme current       aktuálna téma
+#   latte-theme set <id>      prepne tému: paleta a režim Noctalie, tapeta, okraje okien Hyprlandu
+# Voľba sa ukladá do ~/.config/latteos/theme; Lua modul Hyprlandu si z nej berie farby a efekty.
+set -u
+dir=/usr/share/latteos/themes
+cfg="${XDG_CONFIG_HOME:-$HOME/.config}/latteos"
+get() { sed -n "s/^$2 = //p" "$dir/$1.theme"; }
+current() { cat "$cfg/theme" 2>/dev/null || echo latte; }
+
+case "${1:-list}" in
+list)
+    for f in "$dir"/*.theme; do
+        id="$(basename "$f" .theme)"
+        mark=" "; [ "$id" = "$(current)" ] && mark="*"
+        printf '%s %-11s %-24s %s\n' "$mark" "$id" "$(get "$id" name)" "$(get "$id" desc)"
+    done ;;
+current)
+    current ;;
+set)
+    id="${2:?použitie: latte-theme set <id>}"
+    [ -f "$dir/$id.theme" ] || { echo "neznáma téma: $id (latte-theme list)"; exit 1; }
+    mkdir -p "$cfg" && printf '%s\n' "$id" > "$cfg/theme"
+    noctalia msg color-scheme-set custom "$(get "$id" palette)" >/dev/null 2>&1
+    noctalia msg theme-mode-set "$(get "$id" mode)" >/dev/null 2>&1
+    wp="$(get "$id" wallpaper)"
+    [ -n "$wp" ] && noctalia msg wallpaper-set "/usr/share/backgrounds/latteos/$wp" >/dev/null 2>&1
+    [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && hyprctl reload >/dev/null 2>&1
+    notify-send -a LatteOS "Téma" "$(get "$id" name)" 2>/dev/null
+    echo "téma: $(get "$id" name)" ;;
+*)
+    echo "použitie: latte-theme list | current | set <id>"; exit 2 ;;
+esac
