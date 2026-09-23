@@ -38,6 +38,22 @@ nižšie):
 
 ## Denník
 
+### 23. 9. 2026, 22:00: Nastavenia LatteOS (aplikácia) ✅
+- `session/apps/nastavenia.qml` (spúšťa `latte-app nastavenia [sekcia]`, systémové menu, Text Bar), na tej
+  istej kostre ako Súbory, **presne podľa tvojho návrhu V2**:
+  - vľavo sekcie s bodkou stavu (plná = hotové, prázdna = plán),
+  - v strede nadpis Fraunces, úvod a karty,
+  - vpravo **Stav · Oblasť · Uložené v**.
+- Hotové sekcie:
+  - **Domov:** režim, grafika, stupeň, téma, okná, pády,
+  - **Vzhľad:** 14 tém ako karty, tapety s náhľadom,
+  - **Okná:** páska / dlaždice / plávajúce,
+  - **Výkon:** Automaticky / Plný / Štandard / Úsporný / Minimálny / Softvér,
+  - **Štart a prihlásenie:** ďalší štart NORMAL/SAFE, počítadlo pádov s vynulovaním, typ greetera.
+- Sekcie Softvér, Dáta, Zariadenia, Účet a Súkromie/NET sú zatiaľ „Zatiaľ len plán“ s odkazom na manažéra.
+- Pôvodné nastavenia Noctalie ostali dostupné ako **„Nastavenia shellu“**.
+- Screenshoty: `setup/f1/results/f3-nastavenia-*.png`.
+
 ### 23. 9. 2026, 21:55: F4, Súbory (Data Manager), prototyp ✅
 - Podľa tvojho návrhu V2 (`inspo/forklift vzhlad.png`) a Forkliftu. **Spoločná kostra aplikácií**
   (`session/apps/common/`):

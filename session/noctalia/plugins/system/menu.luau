@@ -114,7 +114,8 @@ local function render()
       }),
 
       section("Systém", {
-        action("Nastavenia", nil, function() run({ "noctalia", "msg", "settings-open" }) end),
+        action("Nastavenia", nil, function() panel.close(); run({ "latte-app", "nastavenia" }) end),
+        action("Nastavenia shellu", "lišta, panely", function() run({ "noctalia", "msg", "settings-open" }) end),
         action("Správca procesov", "Ctrl+Shift+Esc", function()
           panel.close()
           noctalia.runInTerminal(noctalia.commandExists("btop") and "btop" or "top")
