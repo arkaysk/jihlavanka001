@@ -66,7 +66,7 @@ local function render()
   barWidget.render(ui.row({ width = W, height = H, gap = 2, align = "center", justify = "center", radius = 12,
                             fill = hovered and "primary/0.14" or "primary/0.06",
                             onHover = function(state) hovered = state == "true"; noctalia.setUpdateInterval(moving() and 100 or 30000); render() end,
-                            tooltip = "Aplikácie · pravý klik: App Manager" }, row))
+                            tooltip = "App Manager · aplikácie, inštalácia, aktualizácie" }, row))
 end
 
 function update()
@@ -80,5 +80,5 @@ function update()
   render()
 end
 
-function onClick() noctalia.runAsync({ "noctalia", "msg", "panel-toggle", "launcher" }) end
-function onRightClick() noctalia.runAsync({ "latte-app", "aplikacie" }) end
+-- jediná akcia: App Manager (spúšťanie má Text Bar, žiadny druhý spúšťač — zadanie 24. 9.)
+function onClick() noctalia.runAsync({ "latte-app", "aplikacie" }) end

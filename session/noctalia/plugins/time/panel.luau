@@ -1,9 +1,10 @@
 --!nonstrict
--- Panel času: Čas · Oznámenia · Kalendár.
---   Čas        veľké hodiny, dátum, týždeň; ďalšie časové pásma (Nastavenia › Systém › Dátum a čas)
---   Oznámenia  Nerušiť, história oznámení Noctalie, oznámenia z mobilu (KDE Connect)
---   Kalendár   mesiac, vlastný plánovač udalostí (~/.local/share/latteos/events.json, pripomenutie
---              v čase udalosti robí widget) a napojenie na kalendáre a to-do cez kalendár Noctalie
+-- Panel času: Čas · Oznámenia · Kalendár (otvára ho hodiny, zvonček alebo dátum na lište).
+--   Čas        veľké hodiny, dátum, týždeň; časové pásma; stopky, minútka, budíky; počasie
+--   Oznámenia  zoznam oznámení, Nerušiť, oznámenia z mobilu (KDE Connect)
+--   Kalendár   mesiac, plánovač udalostí (~/.local/share/latteos/events.json), úlohy (todo.json);
+--              zvonenie a pripomenutia strážia hodiny na lište, aj keď je panel zatvorený
+local C = require("./common.luau")
 local home = noctalia.getenv("HOME") or ""
 local cfgHome = noctalia.getenv("XDG_CONFIG_HOME") or (home .. "/.config")
 local dataHome = noctalia.getenv("XDG_DATA_HOME") or (home .. "/.local/share")
@@ -17,7 +18,8 @@ local zoneNames = { ["Europe/London"] = "Londýn", ["America/New_York"] = "New Y
                     ["Asia/Tokyo"] = "Tokio", ["Asia/Shanghai"] = "Peking", ["Asia/Kolkata"] = "Dillí", ["Australia/Sydney"] = "Sydney",
                     ["Europe/Moscow"] = "Moskva", ["UTC"] = "UTC" }
 
-local st = { tab = "cas", zones = {}, dnd = false, phone = nil, events = {}, ym = nil, sel = nil, newTitle = "", newTime = "" }
+local st = { tab = "cas", zones = {}, dnd = false, phone = nil, events = {}, ym = nil, sel = nil, newTitle = "", newTime = "",
+             todos = {}, newTodo = "", timers = nil, timerIn = "", alarmIn = "", seq = 0 }   -- seq: nový key = prázdne pole po pridaní
 
 local function trim(s) return (string.gsub(s or "", "^%s*(.-)%s*$", "%1")) end
 local function iso(y, m, d) return string.format("%04d-%02d-%02d", y, m, d) end
@@ -107,11 +109,104 @@ end
 
 local function tabButton(id, label, glyph)
   return ui.button({ text = label, glyph = glyph, selected = st.tab == id, variant = st.tab == id and nil or "ghost", flexGrow = 1,
-                     onClick = function() st.tab = id; noctalia.writeFile(tabFile, id); render() end })
+                     onClick = function() st.tab = id; noctalia.writeFile(tabFile, id); if id == "oznamenia" then C.markSeen() end; render() end })
 end
 local function heading(t) return ui.label({ text = t, fontSize = 12, fontWeight = "bold", color = "on_surface_variant" }) end
 local function note(t) return ui.label({ text = t, fontSize = 12, color = "on_surface_variant", maxWidth = 370, maxLines = 4 }) end
 local function card(children) return ui.column({ fill = "surface_variant", radius = 14, padding = 12, gap = 6, align = "stretch" }, children) end
+
+-- ── Stopky · Minútka · Budík ────────────────────────────────────────────────
+local function saveT() C.saveTimers(st.timers) end
+function timersSection()
+  st.timers = st.timers or C.loadTimers()
+  local tm = st.timers
+  local sw, tim = tm.sw, tm.timer
+  local out = { ui.separator({}), heading("STOPKY") }
+  table.insert(out, ui.row({ align = "center", gap = 8 }, {
+    ui.label({ text = C.fmtMs(C.swElapsed(sw), not sw.running), fontSize = 28, fontWeight = "bold", flexGrow = 1 }),
+    ui.button({ glyph = sw.running and "player-pause" or "player-play", variant = "primary", tooltip = sw.running and "Pozastaviť" or "Štart",
+                onClick = function()
+                  if sw.running then sw.acc = C.swElapsed(sw); sw.running = false else sw.start = noctalia.nowMs(); sw.running = true end
+                  saveT(); render()
+                end }),
+    ui.button({ glyph = "flag", variant = "ghost", tooltip = "Medzičas", enabled = sw.running,
+                onClick = function() table.insert(sw.laps, 1, C.swElapsed(sw)); saveT(); render() end }),
+    ui.button({ glyph = "refresh", variant = "ghost", tooltip = "Vynulovať",
+                onClick = function() tm.sw = { running = false, start = 0, acc = 0, laps = {} }; saveT(); render() end }),
+  }))
+  for i, lap in ipairs(sw.laps) do
+    if i > 5 then break end
+    table.insert(out, ui.row({ gap = 8 }, { ui.label({ text = "medzičas " .. (#sw.laps - i + 1), fontSize = 12, color = "on_surface_variant", flexGrow = 1 }),
+                                           ui.label({ text = C.fmtMs(lap, true), fontSize = 13 }) }))
+  end
+
+  table.insert(out, heading("MINÚTKA"))
+  if tim.endMs and tim.endMs > 0 then
+    table.insert(out, ui.row({ align = "center", gap = 8 }, {
+      ui.label({ text = C.fmtMs(tim.endMs - noctalia.nowMs() + 999), fontSize = 28, fontWeight = "bold", flexGrow = 1 }),
+      ui.button({ glyph = "player-pause", variant = "ghost", tooltip = "Pozastaviť",
+                  onClick = function() tim.left = tim.endMs - noctalia.nowMs(); tim.endMs = 0; saveT(); render() end }),
+      ui.button({ glyph = "x", variant = "ghost", tooltip = "Zrušiť", onClick = function() tim.endMs = 0; tim.left = 0; saveT(); render() end }),
+    }))
+  else
+    local row = {}
+    if (tim.left or 0) > 0 then
+      table.insert(row, ui.button({ text = "Pokračovať " .. C.fmtMs(tim.left), glyph = "player-play", variant = "primary",
+                                    onClick = function() tim.endMs = noctalia.nowMs() + tim.left; tim.left = 0; saveT(); render() end }))
+    end
+    for _, mins in ipairs({ 1, 5, 10, 25 }) do
+      table.insert(row, ui.button({ text = mins .. " min", glyph = "hourglass", variant = "outline", controlSize = "sm",
+                                    onClick = function() tim.durMs = mins * 60000; tim.endMs = noctalia.nowMs() + tim.durMs; tim.left = 0; saveT(); render() end }))
+    end
+    table.insert(out, ui.row({ gap = 6, align = "center" }, row))
+    table.insert(out, ui.input({ key = "minutka" .. st.seq, focus = st.seq > 0, placeholder = "Vlastná: 90 (min) alebo 1:30 (min:s) · Enter spustí", onChange = "onTimerIn", onSubmit = "onTimerStart" }))
+  end
+
+  table.insert(out, heading("BUDÍK"))
+  if #tm.alarms == 0 then table.insert(out, note("Žiadny budík. Zvoní aj pri zatvorenom paneli (oznámenie a zvuk).")) end
+  for i, a in ipairs(tm.alarms) do
+    table.insert(out, ui.row({ align = "center", gap = 8 }, {
+      ui.label({ text = a.time, fontSize = 20, fontWeight = "bold", width = 70 }),
+      ui.label({ text = (a.label ~= "" and a.label) or (a.once and "raz" or "každý deň"), fontSize = 12, color = "on_surface_variant", flexGrow = 1 }),
+      ui.toggle({ checked = a.on == true, onChange = "onAlarm" .. i }),
+      ui.button({ glyph = "x", variant = "ghost", controlSize = "sm", tooltip = "Odstrániť",
+                  onClick = function() table.remove(tm.alarms, i); saveT(); render() end }),
+    }))
+  end
+  table.insert(out, ui.input({ key = "budik" .. st.seq, focus = st.seq > 0, placeholder = "Nový budík: 07:00 alebo 07:00 Vstávať · Enter pridá", onChange = "onAlarmIn", onSubmit = "onAlarmAdd" }))
+  return out
+end
+local function setAlarm(i, v) local a = st.timers and st.timers.alarms[i]; if a then a.on = v == "true"; a.last = ""; saveT() end end
+function onAlarm1(v) setAlarm(1, v) end
+function onAlarm2(v) setAlarm(2, v) end
+function onAlarm3(v) setAlarm(3, v) end
+function onAlarm4(v) setAlarm(4, v) end
+function onAlarm5(v) setAlarm(5, v) end
+function onAlarm6(v) setAlarm(6, v) end
+function onAlarm7(v) setAlarm(7, v) end
+function onAlarm8(v) setAlarm(8, v) end
+function onAlarm9(v) setAlarm(9, v) end
+function onAlarm10(v) setAlarm(10, v) end
+function onTimerIn(t) st.timerIn = t or "" end
+function onTimerStart(_t)
+  local v = C.trim(st.timerIn)
+  local m, sec = string.match(v, "^(%d+):(%d%d)$")
+  local ms = m and ((tonumber(m) * 60 + tonumber(sec)) * 1000) or ((tonumber(v) or 0) * 60000)
+  if ms <= 0 then noctalia.notifyError("Minútka", "Zadaj minúty (90) alebo min:s (1:30)"); return end
+  st.timers.timer.durMs = ms; st.timers.timer.endMs = noctalia.nowMs() + ms; st.timers.timer.left = 0
+  st.timerIn = ""; st.seq = st.seq + 1
+  saveT(); render()
+end
+function onAlarmIn(t) st.alarmIn = t or "" end
+function onAlarmAdd(_t)
+  local h, mi, label = string.match(C.trim(st.alarmIn), "^(%d%d?):(%d%d)%s*(.*)$")
+  if not h or tonumber(h) > 23 or tonumber(mi) > 59 then noctalia.notifyError("Budík", "Čas v tvare 07:00"); return end
+  if #st.timers.alarms >= 10 then noctalia.notifyError("Budík", "Najviac 10 budíkov"); return end
+  table.insert(st.timers.alarms, { time = string.format("%02d:%02d", tonumber(h), tonumber(mi)), label = label or "", on = true, last = "" })
+  table.sort(st.timers.alarms, function(a, b) return a.time < b.time end)
+  st.alarmIn = ""; st.seq = st.seq + 1
+  saveT(); render()
+end
 
 -- ── Čas ──────────────────────────────────────────────────────────────────────
 local function tabTime()
@@ -135,6 +230,8 @@ local function tabTime()
       ui.label({ text = z.hm, fontSize = 18, fontWeight = "bold" }),
     }))
   end
+  -- stopky, minútka, budík
+  for _, n in ipairs(timersSection()) do table.insert(body, n) end
   -- počasie
   table.insert(body, ui.separator({}))
   table.insert(body, heading("POČASIE" .. ((weather and weather.place ~= "") and (" · " .. weather.place) or "")))
@@ -173,13 +270,28 @@ local function tabNotifications()
       ui.toggle({ checked = st.dnd, onChange = "onDnd" }),
       ui.label({ text = "Nerušiť", fontSize = 14, flexGrow = 1 }),
     }),
-    ui.button({ text = "História oznámení", glyph = "bell", contentAlign = "start",
-                onClick = function() panel.close(); noctalia.runAsync({ "noctalia", "msg", "panel-open", "control-center", "notifications" }) end }),
     ui.button({ text = "Vymazať históriu", glyph = "trash", variant = "ghost", contentAlign = "start",
-                onClick = function() noctalia.runAsync({ "noctalia", "msg", "notification-clear-history" }); noctalia.notify("Oznámenia", "História vymazaná") end }),
+                onClick = function() noctalia.runAsync({ "noctalia", "msg", "notification-clear-history" }, function() render() end); noctalia.notify("Oznámenia", "História vymazaná") end }),
     ui.separator({}),
-    heading("OZNÁMENIA Z MOBILU"),
   }
+  local list = C.notifications()
+  if #list == 0 then table.insert(body, note("Žiadne oznámenia.")) end
+  local now = noctalia.nowMs()
+  for i, n in ipairs(list) do
+    if i > 30 then break end
+    local ago = (now - n.at) // 60000
+    local when = ago < 1 and "teraz" or (ago < 60 and ("pred " .. ago .. " min") or os.date("%d. %m. %H:%M", n.at // 1000))
+    table.insert(body, card({
+      ui.row({ gap = 8, align = "center" }, {
+        ui.label({ text = n.app ~= "" and n.app or "Systém", fontSize = 11, color = "primary", flexGrow = 1 }),
+        ui.label({ text = when, fontSize = 11, color = "on_surface_variant" }),
+      }),
+      ui.label({ text = n.summary, fontSize = 13, fontWeight = "bold", maxWidth = 370, maxLines = 2 }),
+      n.body ~= "" and note(n.body) or nil,
+    }))
+  end
+  table.insert(body, ui.separator({}))
+  table.insert(body, heading("OZNÁMENIA Z MOBILU"))
   if st.phone == nil then
     table.insert(body, card({
       ui.label({ text = "KDE Connect nie je nainštalovaný", fontSize = 13, fontWeight = "bold" }),
@@ -256,18 +368,44 @@ local function tabCalendar()
   end
   table.insert(body, ui.row({ gap = 6, align = "center" }, {
     ui.input({ placeholder = "14:00", width = 70, onChange = "onNewTime", onSubmit = "onAdd" }),
-    ui.input({ placeholder = "Nová udalosť… (Enter pridá)", flexGrow = 1, onChange = "onNewTitle", onSubmit = "onAdd" }),
+    ui.input({ key = "udalost" .. st.seq, focus = st.seq > 0, placeholder = "Nová udalosť… (Enter pridá)", flexGrow = 1, onChange = "onNewTitle", onSubmit = "onAdd" }),
   }))
 
+  -- úlohy (to-do): počet nesplnených je na lište pri dátume
   table.insert(body, ui.separator({}))
-  table.insert(body, heading("KALENDÁRE A ÚLOHY"))
+  table.insert(body, heading("ÚLOHY"))
+  local open, done = {}, {}
+  for i, t in ipairs(st.todos) do table.insert(t.done and done or open, { i = i, t = t }) end
+  if #st.todos == 0 then table.insert(body, note("Žiadne úlohy. Nesplnené úlohy uvidíš na lište pri dátume.")) end
+  for _, group in ipairs({ open, done }) do
+    for _, it in ipairs(group) do
+      table.insert(body, ui.row({ align = "center", gap = 8 }, {
+        ui.button({ glyph = it.t.done and "square-check" or "square", variant = "ghost", controlSize = "sm", tooltip = it.t.done and "Znovu otvoriť" or "Hotovo",
+                    onClick = function() it.t.done = not it.t.done; C.saveTodos(st.todos); render() end }),
+        ui.label({ text = it.t.title, fontSize = 13, flexGrow = 1, maxWidth = 250, maxLines = 2, color = it.t.done and "on_surface_variant" or "on_surface" }),
+        (it.t.date and it.t.date ~= "") and ui.label({ text = it.t.date == C.todayIso() and "dnes" or string.sub(it.t.date, 9, 10) .. ". " .. tonumber(string.sub(it.t.date, 6, 7)) .. ".", fontSize = 11, color = "primary" }) or ui.spacer({ width = 0 }),
+        ui.button({ glyph = "x", variant = "ghost", controlSize = "sm", tooltip = "Odstrániť",
+                    onClick = function() table.remove(st.todos, it.i); C.saveTodos(st.todos); render() end }),
+      }))
+    end
+  end
+  table.insert(body, ui.input({ key = "todo" .. st.seq, focus = st.seq > 0, placeholder = "Nová úloha… (Enter pridá, na vybraný deň: začni „!“)", onChange = "onNewTodo", onSubmit = "onTodoAdd" }))
+
+  table.insert(body, ui.separator({}))
+  table.insert(body, heading("ÚČTY KALENDÁROV"))
   table.insert(body, note("Google Kalendár, Apple iCloud, Nextcloud/CalDAV a odkazy ICS (Outlook, Proton, Todoist, TickTick, Microsoft To Do) sa pripájajú v kalendári Noctalie; ich udalosti uvidíš tam."))
   table.insert(body, ui.button({ text = "Otvoriť kalendár a účty", glyph = "calendar", contentAlign = "start",
                                  onClick = function() panel.close(); noctalia.runAsync({ "noctalia", "msg", "panel-open", "control-center", "calendar" }) end }))
   return body
 end
 
+local function live()
+  local tm = st.timers
+  return st.tab == "cas" and tm ~= nil and (tm.sw.running or (tm.timer.endMs or 0) > 0)
+end
+
 function render()
+  panel.setWantsSecondTicks(live())
   local content = st.tab == "oznamenia" and tabNotifications() or (st.tab == "kalendar" and tabCalendar() or tabTime())
   panel.render(ui.column({ flexGrow = 1, gap = 12, align = "stretch" }, {
     ui.row({ gap = 6, align = "center" }, {
@@ -278,6 +416,26 @@ function render()
     }),
     ui.scroll({ flexGrow = 1, gap = 10, align = "stretch" }, content),
   }))
+end
+
+function onNewTodo(t) st.newTodo = t or "" end
+function onTodoAdd(_t)
+  local title = C.trim(st.newTodo)
+  local dated = string.sub(title, 1, 1) == "!"
+  if dated then title = C.trim(string.sub(title, 2)) end
+  if title == "" then return end
+  table.insert(st.todos, { title = title, done = false, date = dated and st.sel or "" })
+  C.saveTodos(st.todos)
+  st.newTodo = ""; st.seq = st.seq + 1
+  render()
+end
+
+-- stopky a minútka v paneli bežia naživo (tik panelu raz za sekundu, iba keď niečo beží)
+function update()
+  if not live() then panel.setWantsSecondTicks(false); return end
+  local fresh = C.loadTimers()               -- hodiny na lište mohli minútku medzitým ukončiť
+  if (fresh.timer.endMs or 0) == 0 then st.timers.timer.endMs = 0 end
+  render()
 end
 
 function onDnd(value)
@@ -294,7 +452,7 @@ function onAdd(_t)
   if string.match(time, "^%d:%d%d$") then time = "0" .. time end
   table.insert(st.events, { date = st.sel, time = time, title = title })
   saveEvents()
-  st.newTitle = ""
+  st.newTitle = ""; st.seq = st.seq + 1
   render()
 end
 
@@ -303,6 +461,9 @@ function onOpen(_ctx)
   local saved = trim(noctalia.readFile(tabFile) or "")
   if saved == "cas" or saved == "oznamenia" or saved == "kalendar" then st.tab = saved end
   loadEvents()
+  st.todos = C.loadTodos()
+  st.timers = C.loadTimers()
+  if st.tab == "oznamenia" then C.markSeen() end
   render()
   refresh()
 end

@@ -70,6 +70,22 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 16:50: lišta — hodiny, zvonček, dátum s úlohami, App Manager, šálka ✅ (bod 2)
+- **Ostrov Čas** má tri časti: **hodiny** · **zvonček s počtom nových oznámení** · **dátum s počtom úloh** („št 24. 9. (2)“).
+  - Klik na hodiny: časové pásma, **stopky** (medzičasy), **minútka** (1/5/10/25 min alebo vlastná), **budíky**
+    a počasie. Zvonia aj pri zatvorenom paneli, bežiace stopky a minútka sú vidieť na lište.
+  - Klik na zvonček: **zoznam oznámení** priamo v našom paneli (nie v Noctalii) a Nerušiť. Pravý klik prepne Nerušiť.
+  - Klik na dátum: kalendár, udalosti a **úlohy**. Úloha začínajúca „!“ sa naviaže na vybraný deň.
+- **Panely sa otvárajú pri kliknutom ostrove.** Tvar L (panel zrastený s lištou) vyžaduje viditeľný pás lišty.
+  Skúsil som ho, ale podľa teba ostávajú **ostrovy oddelené, len s menšími medzerami** (6 px namiesto 12).
+  Panely preto „vyrastajú“ tesne nad svojím ostrovom.
+- **Dlaždica aplikácií** = iba App Manager (spúšťanie je v Text Bare). App Manager sa otvorí vľavo dole
+  nad dlaždicou, Správca zariadení vpravo dole. **Správca zariadení** je teraz úplne vpravo. **Šálka** je širšia.
+- **Oprava NET:** pri Discorde klik na NET (tvoj o 16:06) nič nevypol, lebo trieda okna „discord“ ≠ Flatpak
+  „com.discordapp.Discord“. Teraz sa trieda preloží na aplikáciu a pri neúspechu príde chybové oznámenie.
+- **Kapsa (tvoj náčrt):** široký kontajner s 8 slotmi (plné/prázdne podľa histórie schránky), navrchu výrez
+  priamo v okne, do ktorého čiastočne zapadne ikona odloženého súboru. Robím to ako bod 6.
+
 ### 24. 9. 2026, 16:10: jednotné okenné tlačidlá, NET až pri sieti, opravené portály ✅ (bod 1)
 - **– □ ✕ všade:** okná bez vlastnej hlavičky (terminál, Qt/KDE, VLC…) dostanú titulok od kompozitora
   (plugin hyprbars, farby podľa témy a svetlého/tmavého režimu). GTK/GNOME aplikácie a Firefox majú vlastnú

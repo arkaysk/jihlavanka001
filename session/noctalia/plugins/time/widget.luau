@@ -1,22 +1,13 @@
 --!nonstrict
--- Čas a dátum na lište (napr. „07:33 · št 24. 9.“). Klik otvorí panel Čas · Oznámenia · Kalendár,
--- pravý klik otvorí rovno Kalendár.
-local days = { "ne", "po", "ut", "st", "št", "pi", "so" }
-local longDays = { "nedeľa", "pondelok", "utorok", "streda", "štvrtok", "piatok", "sobota" }
-local months = { "januára", "februára", "marca", "apríla", "mája", "júna", "júla", "augusta", "septembra", "októbra", "novembra", "decembra" }
-local tabFile = noctalia.pluginDataDir() .. "/panel-tab"
-local home = noctalia.getenv("HOME") or ""
-local eventsFile = (noctalia.getenv("XDG_DATA_HOME") or (home .. "/.local/share")) .. "/latteos/events.json"
+-- Hodiny na lište („07:33“). Klik = panel Čas (pásma, stopky, budík, minútka, počasie).
+-- Hodiny strážia aj pripomenutia plánovača, budíky a minútku (zvonia, aj keď je panel zatvorený);
+-- keď beží stopky alebo minútka, ukazujú ich priebeh vedľa času.
+local C = require("./common.luau")
 local reminded = {}      -- pripomenuté udalosti v tomto behu (dátum|čas|názov)
 
--- pripomenutie z plánovača v čase udalosti (panel Kalendár)
 local function remind(t)
-  local raw = noctalia.readFile(eventsFile)
-  if not raw then return end
-  local ok, list = pcall(noctalia.json.decode, raw)
-  if not ok or type(list) ~= "table" then return end
-  local date, hm = string.format("%04d-%02d-%02d", t.year, t.month, t.day), string.format("%02d:%02d", t.hour, t.min)
-  for _, e in ipairs(list) do
+  local date, hm = C.iso(t.year, t.month, t.day), string.format("%02d:%02d", t.hour, t.min)
+  for _, e in ipairs(C.loadEvents()) do
     local key = (e.date or "") .. "|" .. (e.time or "") .. "|" .. (e.title or "")
     if e.date == date and e.time == hm and not reminded[key] then
       reminded[key] = true
@@ -26,18 +17,36 @@ local function remind(t)
 end
 
 function update()
-  noctalia.setUpdateInterval(15000)
   local t = os.date("*t")
-  barWidget.setText(string.format("%02d:%02d  ·  %s %d. %d.", t.hour, t.min, days[t.wday], t.day, t.month))
-  barWidget.setTooltip({ { "Dnes", string.format("%s %d. %s %d", longDays[t.wday], t.day, months[t.month], t.year) },
-                         { "Klik", "čas, oznámenia, kalendár" } })
+  local hm = string.format("%02d:%02d", t.hour, t.min)
+  local tm = C.loadTimers()
+  local changed, extra = false, ""
+  -- minútka
+  if tm.timer.endMs and tm.timer.endMs > 0 then
+    local left = tm.timer.endMs - noctalia.nowMs()
+    if left <= 0 then
+      tm.timer.endMs = 0; changed = true
+      C.ring("Minútka", "Čas vypršal (" .. C.fmtMs(tm.timer.durMs) .. ")")
+    else
+      extra = "  ⏳ " .. C.fmtMs(left + 999)
+    end
+  end
+  if tm.sw.running then extra = extra .. "  ⏱ " .. C.fmtMs(C.swElapsed(tm.sw)) end
+  -- budíky
+  local today = C.todayIso()
+  for _, a in ipairs(tm.alarms) do
+    if a.on and a.time == hm and a.last ~= today then
+      a.last = today; changed = true
+      C.ring("Budík · " .. hm, (a.label and a.label ~= "") and a.label or "Budík LatteOS")
+      if a.once then a.on = false end
+    end
+  end
+  if changed then C.saveTimers(tm) end
+  noctalia.setUpdateInterval(extra ~= "" and 1000 or 5000)
+  barWidget.setText(hm .. extra)
+  barWidget.setTooltip({ { "Klik", "časové pásma, stopky, budík, minútka" } })
   remind(t)
 end
 
-local function open(tab)
-  if tab then noctalia.writeFile(tabFile, tab) end
-  noctalia.togglePanel("latteos/time:panel")
-end
-
-function onClick() open(nil) end
-function onRightClick() open("kalendar") end
+function onClick() C.open("cas") end
+function onRightClick() C.open("cas") end

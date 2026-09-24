@@ -49,12 +49,12 @@ control_center_placement = "attached"
 [bar.main]
 position           = "bottom"
 thickness          = 56
-background_opacity = 0.0          # lišta sama je neviditeľná, vidieť len ostrovy
+background_opacity = 0.0          # lišta sama je neviditeľná, vidieť len ostrovy (oddelené, s menšími medzerami)
 radius             = 16
 margin_ends        = 12
 margin_edge        = 10
 padding            = 0
-widget_spacing     = 12
+widget_spacing     = 6
 shadow             = true
 reserve_space      = true
 capsule            = true
@@ -76,7 +76,7 @@ enabled = true
 
 [[bar.main.capsule_group]]
 id      = "time"
-members = ["latte-time", "notifications"]
+members = ["latte-time", "latte-bell", "latte-date"]
 enabled = true
 
 [[bar.main.capsule_group]]
@@ -91,7 +91,7 @@ enabled = true
 
 [[bar.main.capsule_group]]
 id      = "devices"
-members = ["files", "tray", "latte-dev", "network", "volume", "battery"]
+members = ["files", "tray", "network", "volume", "battery", "latte-dev"]
 enabled = true
 
 # ── Widgety ────────────────────────────────────────────────────────────────────
@@ -106,9 +106,16 @@ type = "latteos/apps:tile"
 format         = "{:%H:%M}"
 tooltip_format = "{:%A, %-d. %B %Y}"
 
-# čas + dátum LatteOS (plugin latteos/time): klik = panel Čas · Oznámenia · Kalendár, pravý klik = Kalendár
+# ostrov Čas (plugin latteos/time): hodiny (pásma, stopky, budík, minútka) · zvonček s počtom nových
+# oznámení (pravý klik = Nerušiť) · dátum s počtom úloh „št 24. 9. (3)“ (kalendár a úlohy)
 [widget.latte-time]
 type = "latteos/time:clock"
+
+[widget.latte-bell]
+type = "latteos/time:bell"
+
+[widget.latte-date]
+type = "latteos/time:date"
 
 # šálka Latte = systémové menu LatteOS (plugin latteos/system); riadiace centrum ostáva v ostrove zariadení
 [widget.latte-cup]

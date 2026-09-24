@@ -4,6 +4,7 @@
   latte-net status APP_ID          on | off
   latte-net off APP_ID             aplikácia nesmie na internet
   latte-net on APP_ID              aplikácia smie na internet (predvolené)
+  latte-net resolve TRIEDA          id aplikácie pre triedu okna (status/on/off ju prekladajú samy)
   latte-net list                   aplikácie s vypnutým NET
   latte-net used PID               1, ak proces alebo jeho potomkovia majú spojenie mimo lo (inak 0)
   latte-net exec -- PRÍKAZ…        spustí príkaz bez siete (bubblewrap --unshare-net; zostane iba lo)
@@ -28,6 +29,25 @@ def find_desktop(app):
         if os.path.exists(p):
             return p
     return None
+
+
+def resolve(app):
+    """Trieda okna → id .desktop súboru (discord → com.discordapp.Discord, cez StartupWMClass alebo koniec id)."""
+    if find_desktop(app):
+        return app
+    low = app.lower()
+    for d in DIRS:
+        for p in sorted(glob.glob(d + "/*.desktop")):
+            base = os.path.basename(p)[:-8]
+            if base.lower() == low or base.lower().endswith("." + low):
+                return base
+            try:
+                m = re.search(r"^StartupWMClass=(.*)$", open(p, encoding="utf-8", errors="replace").read(), re.M)
+            except OSError:
+                continue
+            if m and m.group(1).strip().lower() == low:
+                return base
+    return app
 
 
 def is_flatpak(app):
@@ -150,7 +170,11 @@ def main(a):
             print("latte-net: chýba bubblewrap, spúšťam so sieťou", file=sys.stderr)
             os.execvp(cmd[0], cmd)
         os.execvp("bwrap", ["bwrap", "--dev-bind", "/", "/", "--unshare-net", "--die-with-parent", "--"] + cmd)
-    if len(a) == 2 and a[0] in ("status", "on", "off"):
+    if len(a) == 2 and a[0] in ("status", "on", "off", "resolve"):
+        a = [a[0], resolve(a[1])]
+        if a[0] == "resolve":
+            print(a[1])
+            return 0
         if a[0] == "status":
             print(status(a[1]))
             return 0

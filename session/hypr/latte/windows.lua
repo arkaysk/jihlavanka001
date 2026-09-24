@@ -41,6 +41,12 @@ function W.setup()
         dwindle = { preserve_split = true },
     })
     float_rule = hl.window_rule({ name = "latte-plavajuce", match = { class = ".*" }, float = true })
+    -- okná otvárané z ostrovov lišty vyrastajú pri svojom ostrove (zadanie 24. 9.): App Manager vľavo dole
+    -- nad dlaždicou aplikácií, Správca zariadení vpravo dole; lišta je hrubá 56 px + okraj 10 px
+    hl.window_rule({ name = "latte-z-listy-aplikacie", match = { class = "^org\\.quickshell$", title = "^Aplikácie — LatteOS$" },
+                     float = true, move = { "12", "monitor_h-window_h-72" } })
+    hl.window_rule({ name = "latte-z-listy-zariadenia", match = { class = "^org\\.quickshell$", title = "^Správca zariadení — LatteOS$" },
+                     float = true, move = { "monitor_w-window_w-12", "monitor_h-window_h-72" } })
     W.apply(load_mode(), false)
 end
 

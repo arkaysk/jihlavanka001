@@ -90,7 +90,17 @@ ShellRoot {
         if (cls === "" || isLatte || status.running) return;
         status.c = cls; status.command = ["latte-net", "status", cls]; status.running = true;
     }
-    Process { id: toggle; onExited: nz.checkOff() }
+    Process {
+        id: toggle
+        property bool turnOff: false
+        onExited: (code) => {
+            nz.checkOff();
+            tell.command = code === 0
+                ? ["notify-send", "-a", "LatteOS", "-i", "network-wired", (turnOff ? "NET vypnutý: " : "NET zapnutý: ") + nz.cls, "Platí od ďalšieho spustenia aplikácie."]
+                : ["notify-send", "-a", "LatteOS", "-u", "critical", "NET sa nedá prepnúť: " + nz.cls, "Aplikácia sa nenašla medzi spúšťačmi (.desktop)."];
+            tell.running = true;
+        }
+    }
     Process { id: tell }
 
     // poloha znaku (logické súradnice monitora)
@@ -127,12 +137,9 @@ ShellRoot {
             MouseArea {
                 id: ma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    const turnOff = !nz.netOff;
-                    toggle.command = ["latte-net", turnOff ? "off" : "on", nz.cls]; toggle.running = true;
-                    tell.command = ["notify-send", "-a", "LatteOS", "-i", "network-wired",
-                                    turnOff ? "NET vypnutý: " + nz.cls : "NET zapnutý: " + nz.cls,
-                                    "Platí od ďalšieho spustenia aplikácie."];
-                    tell.running = true;
+                    toggle.turnOff = !nz.netOff;
+                    toggle.command = ["latte-net", toggle.turnOff ? "off" : "on", nz.cls];
+                    toggle.running = true;
                 }
             }
         }
