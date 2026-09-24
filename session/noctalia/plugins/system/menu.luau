@@ -1,6 +1,8 @@
 --!nonstrict
--- LatteOS — systémové menu (panel). Sekcie podľa návrhu plochy: Relácia · Systém · LatteOS · Napájanie.
--- Stav číta zo súborov LatteOS; zmeny robí cez latte-boot, hyprctl eval (Lua modul) a noctalia msg.
+-- LatteOS — systémové menu šálky (zadanie 24. 9., bod 4): navrchu účet a jeho typ s Odhlásiť hneď vedľa,
+-- potom Nastavenia a Monitor, rýchly stupeň výkonu a režim okien (v Nastaveniach › Lišta sa dajú skryť:
+-- ~/.config/latteos/cup-quick = off) a napájanie. App Manager a Správca zariadení majú vlastné ostrovy,
+-- témy, informácie o systéme a Nastavenia shellu sú v Nastaveniach.
 
 local home = noctalia.getenv("HOME") or ""
 local cfgHome = noctalia.getenv("XDG_CONFIG_HOME") or (home .. "/.config")
@@ -12,17 +14,6 @@ local tiers = { "auto", "plny", "standard", "usporny", "minimalny", "softver" }
 local tierNames = { "Automaticky (podľa HW)", "Plný", "Štandard", "Úsporný", "Minimálny", "Softvér (VM)" }
 local windowModes = { "paska", "dlazdice", "plavajuce" }
 local windowNames = { "Nekonečná páska", "Dlaždice", "Plávajúce okná" }
-
--- témy (id + názov) z /usr/share/latteos/themes
-local themeIds, themeNames = {}, {}
-for _, f in ipairs(noctalia.listDir("/usr/share/latteos/themes") or {}) do
-  local id = string.match(f, "^([%w_-]+)%.theme$")
-  if id then
-    local body = noctalia.readFile("/usr/share/latteos/themes/" .. f) or ""
-    table.insert(themeIds, id)
-    table.insert(themeNames, string.match(body, "\nname = ([^\n]+)") or id)
-  end
-end
 
 local st = {}
 local confirm = nil       -- akcia napájania čakajúca na potvrdenie
@@ -41,8 +32,17 @@ local function load()
   st.window = noctalia.fileExists(windowFile) and trim(noctalia.readFile(windowFile)) or "paska"
   st.forceSafe = noctalia.fileExists("/var/lib/latteos/force-safe")
   st.user = noctalia.getenv("USER") or "používateľ"
-  local th = cfgHome .. "/latteos/theme"
-  st.theme = noctalia.fileExists(th) and trim(noctalia.readFile(th)) or "latte"
+  st.quick = trim(noctalia.readFile(cfgHome .. "/latteos/cup-quick") or "") ~= "off"
+  st.face = nil
+  for _, f in ipairs({ home .. "/.face", "/var/lib/AccountsService/icons/" .. st.user }) do
+    if noctalia.fileExists(f) then st.face = f; break end
+  end
+  noctalia.runAsync({ "sh", "-c", 'getent passwd "$USER" | cut -d: -f5 | cut -d, -f1; id -nG' }, function(r)
+    local name, groups = string.match(r.stdout or "", "^([^\n]*)\n([^\n]*)")
+    st.fullName = trim(name or "")
+    st.admin = groups ~= nil and (" " .. groups .. " "):find(" wheel ") ~= nil
+    render()
+  end)
 end
 
 local function section(title, children)
@@ -63,16 +63,10 @@ local function latteRows(safe, modeText)
   if st.reason ~= "" then
     table.insert(rows, ui.label({ text = st.reason, fontSize = 11, color = "on_surface_variant", maxWidth = 330, maxLines = 3 }))
   end
-  table.insert(rows, ui.label({ text = "Téma", fontSize = 12, color = "on_surface_variant" }))
-  table.insert(rows, ui.select({ options = themeNames, selectedIndex = indexOf(themeIds, st.theme), onChange = "onTheme" }))
   table.insert(rows, ui.label({ text = "Stupeň výkonu", fontSize = 12, color = "on_surface_variant" }))
   table.insert(rows, ui.select({ options = tierNames, selectedIndex = indexOf(tiers, st.tierChoice), onChange = "onTier", enabled = not safe }))
   table.insert(rows, ui.label({ text = "Režim okien (Super+W)", fontSize = 12, color = "on_surface_variant" }))
   table.insert(rows, ui.select({ options = windowNames, selectedIndex = indexOf(windowModes, st.window), onChange = "onWindow", enabled = not safe }))
-  table.insert(rows, ui.row({ gap = 10, align = "center" }, {
-    ui.toggle({ checked = st.forceSafe, onChange = "onForceSafe" }),
-    ui.label({ text = "Nabudúce naštartovať SAFE", flexGrow = 1 }),
-  }))
   if safe then
     table.insert(rows, action("Skúsiť NORMAL znova", "odhlási", function()
       run({ "latte-boot", "reset" })
@@ -82,7 +76,7 @@ local function latteRows(safe, modeText)
   return rows
 end
 
-local function render()
+function render()
   local safe = st.mode == "safe"
   local tierShown = (st.tierChoice ~= "auto") and (st.tierChoice .. " (vynútený)") or st.tier
   local modeText = (safe and "SAFE" or "NORMAL") .. " · " .. st.renderer .. " · stupeň " .. tierShown
@@ -97,35 +91,38 @@ local function render()
     }))
   end
 
-  panel.render(ui.column({ flexGrow = 1, gap = 14, align = "stretch" }, {
-    ui.row({ align = "center", justify = "space_between", gap = 8 }, {
-      ui.column({ gap = 2 }, {
-        ui.label({ text = st.user, fontSize = 17, fontWeight = "bold", color = "on_surface" }),
-        ui.label({ text = "Domáci účet", fontSize = 12, color = "on_surface_variant" }),
+  local who = (st.fullName and st.fullName ~= "") and st.fullName or st.user
+  local kind = st.admin == nil and "…" or (st.admin and "Správca (môže inštalovať a meniť systém)" or "Štandardný účet")
+  local body = {
+    -- účet: meno, typ účtu; Odhlásiť a Zamknúť hneď vedľa
+    ui.row({ align = "center", gap = 10 }, {
+      st.face and ui.image({ path = st.face, width = 44, height = 44, radius = 22, fit = "cover" })
+        or ui.row({ width = 44, height = 44, radius = 22, fill = "primary/0.18", align = "center", justify = "center" },
+                  { ui.label({ text = string.upper(string.sub(who, 1, 1)), fontSize = 20, fontWeight = "bold", color = "primary" }) }),
+      ui.column({ gap = 2, flexGrow = 1 }, {
+        ui.label({ text = who, fontSize = 16, fontWeight = "bold", color = "on_surface", maxWidth = 170, maxLines = 1 }),
+        ui.label({ text = kind, fontSize = 11, color = "on_surface_variant", maxWidth = 170, maxLines = 2 }),
       }),
-      ui.button({ glyph = "close", onClick = function() panel.close() end }),
+      ui.button({ glyph = "lock", variant = "ghost", tooltip = "Zamknúť (Super+L)", onClick = function() panel.close(); run({ "noctalia", "msg", "session", "lock" }) end }),
+      ui.button({ text = "Odhlásiť", glyph = "logout", variant = "outline", onClick = function() run({ "noctalia", "msg", "session", "logout" }) end }),
     }),
-
-    ui.scroll({ flexGrow = 1, gap = 14 }, {
-      section("Relácia", {
-        action("Zamknúť", "Super+L", function() run({ "noctalia", "msg", "session", "lock" }) end),
-        action("Odhlásiť", nil, function() run({ "noctalia", "msg", "session", "logout" }) end),
-        ui.button({ text = "Prihlásiť mobilný účet (pripravujeme)", enabled = false, variant = "ghost", contentAlign = "start" }),
-      }),
-
-      section("Systém", {
-        action("Nastavenia", nil, function() panel.close(); run({ "latte-app", "nastavenia" }) end),
-        action("Nastavenia shellu", "lišta, panely", function() run({ "noctalia", "msg", "settings-open" }) end),
-        action("Aplikácie", "App Manager", function() panel.close(); run({ "latte-app", "aplikacie" }) end),
-        action("Správca zariadení", nil, function() panel.close(); run({ "latte-app", "zariadenia" }) end),
-        action("Monitor", "Ctrl+Shift+Esc", function() panel.close(); run({ "latte-app", "monitor" }) end),
-      }),
-
-      section("LatteOS", latteRows(safe, modeText)),
-
-      section("Napájanie", { ui.row({ gap = 8 }, power) }),
+    ui.row({ gap = 8 }, {
+      ui.button({ text = "Nastavenia", glyph = "settings", variant = "primary", flexGrow = 1,
+                  onClick = function() panel.close(); run({ "latte-app", "nastavenia" }) end }),
+      ui.button({ text = "Monitor", glyph = "activity", variant = "outline", flexGrow = 1, tooltip = "Ctrl+Shift+Esc",
+                  onClick = function() panel.close(); run({ "latte-app", "monitor" }) end }),
     }),
-  }))
+  }
+  if st.quick or safe then
+    table.insert(body, ui.separator({}))
+    table.insert(body, section("Rýchlo", latteRows(safe, modeText)))
+  end
+  table.insert(body, ui.separator({}))
+  table.insert(body, section("Napájanie", { ui.row({ gap = 8 }, power) }))
+  table.insert(body, ui.button({ text = "Upraviť túto ponuku", glyph = "adjustments", variant = "ghost", contentAlign = "start",
+                                 onClick = function() panel.close(); run({ "latte-app", "nastavenia", "lista" }) end }))
+
+  panel.render(ui.scroll({ flexGrow = 1, gap = 12, align = "stretch" }, body))
 end
 
 function run(argv)
@@ -148,11 +145,6 @@ function onTier(index, _text)
   run({ "hyprctl", "reload" })          -- Lua modul prečíta stupeň znova
   noctalia.notify("Stupeň výkonu", tierNames[(tonumber(index) or 0) + 1])
   load(); render()
-end
-
-function onTheme(index, _text)
-  local id = themeIds[(tonumber(index) or 0) + 1]
-  if id then run({ "latte-theme", "set", id }); st.theme = id; render() end
 end
 
 function onWindow(index, _text)

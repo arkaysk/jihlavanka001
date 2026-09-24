@@ -11,7 +11,7 @@ license     = "MIT"
 dependencies = []
 tags        = ["latteos", "system"]
 icon        = "coffee"
-description = "Systémové menu LatteOS: relácia, nastavenia, režim a stupeň výkonu, režim okien, napájanie."
+description = "Šálka: účet a Odhlásiť, Nastavenia, Monitor, rýchly stupeň a režim okien, napájanie."
 
 [[widget]]
 id    = "cup"
@@ -20,8 +20,8 @@ entry = "widget.luau"
 [[panel]]
 id        = "menu"
 entry     = "menu.luau"
-width     = 380
-height    = 700
+width     = 400
+height    = 470
 placement = "floating"   # pri kliknutom ostrove (attached by pri priehľadnej lište bol priehľadný)
 position  = "auto"
 open_near_click = true

@@ -63,6 +63,7 @@ ShellRoot {
     property string storage: ""
     property string mascot: "macka"
     property string barAnim: ""        // prázdne = podľa stupňa (VM: pod kurzorom)
+    property string cupQuick: ""       // prázdne = šálka ukazuje stupeň a režim okien, "off" = skryté
     property string barScene: "para"
     property bool wsWallpaper: false
     property string liveWp: ""
@@ -204,6 +205,8 @@ ShellRoot {
                onLoaded: app.mascot = text().trim() || "macka"; onLoadFailed: app.mascot = "macka" }
     FileView { path: app.cfgHome + "/latteos/bar-anim"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.barAnim = text().trim(); onLoadFailed: app.barAnim = "" }
+    FileView { path: app.cfgHome + "/latteos/cup-quick"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.cupQuick = text().trim(); onLoadFailed: app.cupQuick = "" }
     FileView { path: app.cfgHome + "/latteos/bar-scene"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.barScene = text().trim() || "para"; onLoadFailed: app.barScene = "para" }
     FileView { path: app.cfgHome + "/latteos/wallpaper-per-workspace"; printErrors: false; watchChanges: true; onFileChanged: reload()
@@ -1016,7 +1019,7 @@ ShellRoot {
                       onStepped: (v) => app.shellSet("bar.main.margin_ends", v, "Odsadenie od okrajov " + v) }
             Stepper { label: "Odsadenie od spodku"; value: parseInt(app.bar.margin_edge) || 10; step: 2; min: 0; max: 40
                       onStepped: (v) => app.shellSet("bar.main.margin_edge", v, "Odsadenie od spodku " + v) }
-            Stepper { label: "Medzera medzi ostrovmi"; value: parseInt(app.bar.widget_spacing) || 12; step: 2; min: 4; max: 32
+            Stepper { label: "Medzera medzi ostrovmi"; value: parseInt(app.bar.widget_spacing) || 6; step: 2; min: 4; max: 32
                       onStepped: (v) => app.shellSet("bar.main.widget_spacing", v, "Medzera " + v) }
             Heading { text: "DLAŽDICA APLIKÁCIÍ (vľavo)" }
             Segments {
@@ -1028,6 +1031,12 @@ ShellRoot {
                 options: [["para", "Para"], ["matrix", "Matrix"]]
                 value: app.barScene
                 onPicked: (v) => { app.barScene = v; app.writePref("bar-scene", v, "Textúra: " + v); }
+            }
+            Heading { text: "SYSTÉMOVÉ MENU (šálka)" }
+            Segments {
+                options: [["", "Rýchly stupeň a režim okien"], ["off", "Iba účet, Nastavenia, Monitor, napájanie"]]
+                value: app.cupQuick
+                onPicked: (v) => { app.cupQuick = v; app.writePref("cup-quick", v, v === "off" ? "Šálka bez rýchlych volieb" : "Šálka s rýchlymi voľbami"); }
             }
             Heading { text: "MASKOT" }
             Segments {

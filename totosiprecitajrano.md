@@ -70,6 +70,13 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 17:15: ponuka šálky ✅ (bod 4)
+- Navrchu je **účet**: meno, **typ účtu** (Správca / Štandardný) a hneď vedľa **Odhlásiť** a zámok. Pod tým
+  **Nastavenia** a **Monitor**, **Rýchlo** (stupeň výkonu, režim okien, stav NORMAL/SAFE) a **Napájanie**.
+- Rýchle voľby sa dajú skryť v Nastaveniach › Lišta a systémové menu. Tam sú aj „Ďalšie voľby lišty (Noctalia)“,
+  teda bývalé „Nastavenia shellu“. Témy sú v Nastaveniach › Motív. App Manager a Správca zariadení už
+  v šálke nie sú, majú vlastné ostrovy.
+
 ### 24. 9. 2026, 17:10: ovál okien vedľa šálky ✅ (bod 3)
 - Ovál zrkadlí **otvorené okná ikonami aplikácií** (aplikácie LatteOS majú svoje glyfy). Aktívne okno je
   zvýraznené, minimalizované sú tlmené na konci. Na začiatku je ikona **režimu okien** (páska / dlaždice /
