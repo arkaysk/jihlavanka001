@@ -70,6 +70,22 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 20:50: Digitálna pohoda — koľko času v ktorej aplikácii ✅
+- **Meranie** (latte-app pohoda, na pozadí): každých 5 s pripočíta čas aktívnemu oknu. Keď si 5 minút
+  nečinný, nepočíta, ale prehrávané video sa ráta. Aplikácie LatteOS rozlišuje podľa názvu (Súbory, Monitor…).
+  Raz za minútu zmeria pamäť aplikácie aj s podprocesmi. Údaje ostávajú v PC (~/.local/share/latteos/pohoda).
+- **Monitor › Čas v aplikáciách** (inšpirované videom a serpantinum, kód vlastný — serpantinum je AGPL):
+  - **Dnes**, porovnanie so včerajškom, **7 dní** s denným priemerom, **najviac používaná** aplikácia;
+  - **časová os dňa po hodinách** farebne podľa aplikácií (podržanie myši = čas v hodine);
+  - **koláč dňa** s legendou, **stĺpce za 7 dní**, zoznam aplikácií s ikonou (dnes, 7 dní, obvykle v RAM);
+  - **pravý klik = denný limit** 15 min – 3 h: 5 minút pred limitom a pri ňom príde oznámenie ako v Androide;
+  - prepínač na pozastavenie merania.
+- **App Manager › Nainštalované:** klik na aplikáciu ukáže aj **čas v aplikácii** (dnes, 30 dní), **v pamäti
+  obvykle / najviac** a **miesto na disku**.
+- **Animácie ako vo videu:** okná a plochy už majú pružinové krivky Hyprlandu a panely Noctalie sa animujú.
+  Vo VM (stupeň Softvér) sú však vypnuté, lebo by sa trhali. Rýchle spustenie sa teraz pri stupni s GPU
+  vysunie z dlaždice a prelína. Rovnako doplním ďalšie panely, keď budeme na reálnom HW (ROADMAP).
+
 ### 24. 9. 2026, 20:30: šípky Späť / Dopredu iba keď sa dajú použiť ✅
 - **Pravidlo pre všetky aplikácie LatteOS** (spoločná hlavička): šípka Späť je vidieť iba vtedy, keď je kam
   sa vrátiť, Dopredu iba po návrate. Aplikácie bez prechádzania (Monitor, Heidelberg, AI, Správca zariadení)

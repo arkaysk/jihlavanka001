@@ -40,6 +40,10 @@ ShellRoot {
     property var searchRpm: []
     // aktualizácie: súčasti LatteOS, ovládače a firmvér
     property var latte: null
+    // čas v aplikáciách (Digitálna pohoda, 30 dní) pre detail nainštalovanej aplikácie
+    property var well: null
+    readonly property var selWell: well && sel ? well.apps.find(w => w.desktop === sel.id || w["class"].toLowerCase() === sel.id.toLowerCase()) || null : null
+    function dur(sec) { sec = Math.round(sec || 0); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60); return h > 0 ? h + " h " + m + " min" : (m > 0 ? m + " min" : (sec > 0 ? "< 1 min" : "0 min")); }
     property var drv: null
     readonly property var categories: [["game", "Hry"], ["network", "Internet"], ["audiovideo", "Hudba a video"], ["graphics", "Grafika"],
                                        ["office", "Kancelária"], ["development", "Vývoj"], ["education", "Vzdelávanie"], ["science", "Veda"],
@@ -83,6 +87,7 @@ ShellRoot {
     Cmd { id: storeProc; command: ["latte-apps", "store", "home"]; onDone: (out) => { try { app.store = JSON.parse(out); } catch (e) { app.store = { error: true }; } } }
     Cmd { id: catProc; onDone: (out) => { try { const r = JSON.parse(out); app.categoryApps = app.categoryPage > 1 ? app.categoryApps.concat(r.apps) : r.apps; } catch (e) {} } }
     Cmd { id: appProc; onDone: (out) => { try { const r = JSON.parse(out); if (r && r.id === app.appPageId) app.appPage = r; } catch (e) {} } }
+    Cmd { id: wellProc; command: ["latte-sysmon", "pohoda", "30"]; onDone: (out) => { try { app.well = JSON.parse(out); } catch (e) {} } }
     Cmd { id: latteProc; command: ["latte-apps", "latteos"]; onDone: (out) => { try { app.latte = JSON.parse(out); } catch (e) {} } }
     Cmd { id: drvProc; command: ["latte-apps", "drivers"]; onDone: (out) => { try { app.drv = JSON.parse(out); } catch (e) {} } }
     Cmd { id: permProc; onDone: (out) => { try { app.perms = JSON.parse(out); } catch (e) { app.perms = {}; } } }
@@ -157,7 +162,7 @@ ShellRoot {
         if (k === "aktualizacie") { latteProc.running = true; drvProc.running = true; }
         if (k === "objavovat" && !store && !storeProc.running) storeProc.running = true;
         if (k === "check") { dlProc.running = true; if (checkPath !== "") check(checkPath); }
-        if (k === "nainstalovane" || k === "opravnenia") listProc.running = true;
+        if (k === "nainstalovane" || k === "opravnenia") { listProc.running = true; if (!wellProc.running) wellProc.running = true; }
     }
     Component.onCompleted: {
         go(section);
@@ -243,7 +248,10 @@ ShellRoot {
                            color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
                     Repeater {
                         model: parent.a ? [["Zdroj", app.srcName(parent.a) + (parent.a.scope === "user" ? " · tvoj účet" : " · systém")],
-                                           ["Balík", parent.a.package || "—"], ["Veľkosť", parent.a.sizeText || "—"], ["Spúšťa", parent.a.exec || "—"]] : []
+                                           ["Na disku", parent.a.sizeText || "—"],
+                                           ["Čas v aplikácii", app.selWell ? "dnes " + app.dur(app.selWell.today) + " · 30 dní " + app.dur(app.selWell.s) : "zatiaľ nepoužitá (meria Digitálna pohoda)"],
+                                           ["V pamäti obvykle", app.selWell && app.selWell.rss ? app.human(app.selWell.rss * 1024) + (app.selWell.rssMax ? " · najviac " + app.human(app.selWell.rssMax * 1024) : "") : "—"],
+                                           ["Balík", parent.a.package || "—"], ["Spúšťa", parent.a.exec || "—"]] : []
                         Column {
                             required property var modelData
                             width: parent.width; spacing: 1

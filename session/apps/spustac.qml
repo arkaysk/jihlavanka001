@@ -30,7 +30,11 @@ ShellRoot {
         function otvor(): void { sp.open = true; }
         function zavri(): void { sp.open = false; }
     }
-    onOpenChanged: { if (open) { query = ""; tab = "apps"; flatpakPs.running = true; } else closeMenu(); }
+    // animované otvorenie (vysunie sa z dlaždice) iba s GPU; pri softvérovom kreslení (VM) sa panel ukáže hneď
+    readonly property bool anim: ["softver", "minimalny", "safe"].indexOf(Quickshell.env("LATTE_TIER") || "softver") < 0
+    property real appear: 1
+    Behavior on appear { enabled: sp.anim; NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
+    onOpenChanged: { if (open && anim) { appear = 0; Qt.callLater(() => appear = 1); } if (open) { query = ""; tab = "apps"; flatpakPs.running = true; } else closeMenu(); }
 
     FileView {
         id: usageFile
@@ -170,6 +174,8 @@ ShellRoot {
         Rectangle {
             id: box
             x: 12; y: parent.height - height - 72; width: 660; height: 640; radius: 22
+            opacity: sp.appear
+            transform: [ Translate { y: (1 - sp.appear) * 36 }, Scale { origin.x: 0; origin.y: box.height; xScale: 0.96 + 0.04 * sp.appear; yScale: 0.96 + 0.04 * sp.appear } ]
             color: Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, 1)
             border { color: theme.outline; width: 1 }
             focus: true

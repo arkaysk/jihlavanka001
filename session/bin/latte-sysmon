@@ -7,6 +7,9 @@
   latte-sysmon hw            JSON: hardvér ako CPU-Z/HWiNFO (procesor, cache, doska/BIOS, pamäť, grafika, disky,
                              senzory, batéria, systém)
   latte-sysmon once          jeden snímok (bez procesov)
+  latte-sysmon rss PID       pamäť (RSS, kB) procesu aj s podprocesmi — pre Digitálnu pohodu
+  latte-sysmon pohoda [DNI]  JSON: Digitálna pohoda za posledných DNI dní (predvolene 7) — súčty po dňoch,
+                             po aplikáciách (s .desktop id, názvom a ikonou), dnešné hodiny, obvyklá RAM
 
 Telemetria: pri `stream` sa posledný snímok (bez zoznamu procesov) zapisuje aj do
 $XDG_RUNTIME_DIR/latteos/telemetry.json — jednoduché lokálne rozhranie pre OLED displeje chladenia,
@@ -468,6 +471,85 @@ def hardware():
     return info
 
 
+def tree_rss(root):
+    kids = {}
+    for d in os.listdir("/proc"):
+        if d.isdigit():
+            try:
+                ppid = read("/proc/%s/stat" % d).rsplit(")", 1)[1].split()[1]
+            except IndexError:
+                continue
+            kids.setdefault(ppid, []).append(d)
+    total, todo = 0, [str(root)]
+    while todo:
+        p = todo.pop()
+        for line in read("/proc/%s/status" % p).splitlines():
+            if line.startswith("VmRSS:"):
+                total += int(line.split()[1])
+        todo.extend(kids.get(p, []))
+    return total
+
+
+def desktop_index():
+    """trieda okna → (desktop id, názov, ikona) podľa StartupWMClass alebo id súboru."""
+    home = os.path.expanduser("~")
+    idx = {}
+    for d in (home + "/.local/share/flatpak/exports/share/applications", "/var/lib/flatpak/exports/share/applications",
+              "/usr/share/applications", home + "/.local/share/applications"):
+        for f in glob.glob(d + "/*.desktop"):
+            did = os.path.basename(f)[:-8]
+            kv = {}
+            for line in read(f).splitlines():
+                if line.startswith("[") and line != "[Desktop Entry]" and kv:
+                    break
+                if "=" in line:
+                    k, _, v = line.partition("=")
+                    kv.setdefault(k.strip(), v.strip())
+            ent = (did, kv.get("Name[sk]") or kv.get("Name", did), kv.get("Icon", ""))
+            for key in {did.lower(), did.split(".")[-1].lower(), kv.get("StartupWMClass", "").lower()} - {""}:
+                idx.setdefault(key, ent)
+    return idx
+
+
+def pohoda(days):
+    import datetime
+    base = os.path.join(os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")), "latteos", "pohoda")
+    idx = desktop_index()
+    today = datetime.date.today()
+    out = {"days": [], "apps": {}, "today": {}, "hours": [0] * 24, "hoursApps": [{} for _ in range(24)], "total": 0}
+    for i in range(days - 1, -1, -1):
+        d = (today - datetime.timedelta(days=i)).isoformat()
+        try:
+            j = json.load(open(os.path.join(base, d + ".json")))
+        except (OSError, ValueError):
+            j = {"apps": {}, "hours": []}
+        tot = sum(a.get("s", 0) for a in j.get("apps", {}).values())
+        out["days"].append({"date": d, "s": tot})
+        for c, a in j.get("apps", {}).items():
+            e = out["apps"].setdefault(c, {"class": c, "s": 0, "days": [0] * days, "rss": 0, "rssMax": 0, "title": ""})
+            e["s"] += a.get("s", 0)
+            e["days"][days - 1 - i] = a.get("s", 0)
+            if a.get("rss"):
+                e["rss"] = max(e["rss"], a["rss"]) if not e["rss"] else round((e["rss"] + a["rss"]) / 2)
+            e["rssMax"] = max(e["rssMax"], a.get("rssMax", 0))
+            e["title"] = a.get("title") or e["title"]
+        if i == 0:
+            out["today"] = {c: a.get("s", 0) for c, a in j.get("apps", {}).items()}
+            for h, row in enumerate(j.get("hours", [])[:24]):
+                out["hours"][h] = sum(row.values())
+                out["hoursApps"][h] = row
+    for c, e in out["apps"].items():
+        hit = idx.get(c.lower()) or idx.get(c.split(".")[-1].lower())
+        if c.startswith("latte:") or (c == "org.quickshell" and e["title"]):
+            t = c[6:] if c.startswith("latte:") else e["title"].replace(" — LatteOS", "")
+            hit = next((v for v in idx.values() if v[0].startswith("latteos-") and v[1] == t), None) or ("", t, "")
+        e["desktop"], e["name"], e["icon"] = (hit or ("", c, ""))
+        e["today"] = out["today"].get(c, 0)
+    out["apps"] = sorted(out["apps"].values(), key=lambda e: -e["s"])
+    out["total"] = sum(d["s"] for d in out["days"])
+    return out
+
+
 def main(a):
     cmd = a[0] if a else "once"
     state = {}
@@ -476,6 +558,12 @@ def main(a):
         for x in items:
             x["missing"] = bool(x.get("command")) and x["kind"] in ("autostart", "session", "cron") and not exists_cmd(x["command"] if x["kind"] != "cron" else " ".join(x["command"].split()[5:]))
         print(json.dumps(items, ensure_ascii=False))
+        return 0
+    if cmd == "rss" and len(a) == 2 and a[1].isdigit():
+        print(tree_rss(int(a[1])))
+        return 0
+    if cmd == "pohoda":
+        print(json.dumps(pohoda(int(a[1]) if len(a) > 1 and a[1].isdigit() else 7), ensure_ascii=False))
         return 0
     if cmd == "hw":
         print(json.dumps(hardware(), ensure_ascii=False))

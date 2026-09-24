@@ -363,3 +363,5 @@ flowchart TD
 - [x] 8 Heidelberg WYSIWYG, tlač, kontrola textu · [x] 9 greeter · [x] 10 Monitor · [x] 11 Ktulu a útek maskota · [x] 12 živá tapeta
 - [ ] tvar L (panel zrastený s lištou) iba pri viditeľnom páse lišty — ostrovy ostali oddelené podľa želania
 - [ ] Heidelberg: otvárať PDF · video tapeta s GPU otestovať na reálnom HW · Electron pruh (NET jazýček je hotový)
+- [x] Digitálna pohoda (pohoda.qml, Monitor › Čas v aplikáciách, limity, čas a RAM v App Manageri)
+- [ ] Plynulé animácie všetkých panelov a vyskakovacích okien pri stupni s GPU (vzor: video „Hyprland as fluid as it gets“) — otestovať na reálnom HW

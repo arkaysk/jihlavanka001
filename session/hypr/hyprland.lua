@@ -215,6 +215,8 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("latte-app plocha")
     -- App Manager: rýchle spustenie čaká skryté (otvára ho dlaždica aplikácií cez latte-spustac)
     hl.exec_cmd("latte-app spustac")
+    -- Digitálna pohoda: čas v aplikáciách (Monitor › Čas v aplikáciách)
+    hl.exec_cmd("latte-app pohoda")
     -- Barista (sprievodca prvým spustením) raz po prvom prihlásení
     do
         local f = io.open(cfgdir .. "/barista-done", "r")
