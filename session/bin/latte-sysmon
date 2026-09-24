@@ -11,6 +11,7 @@
                              a napätie CPU, doska, SMART diskov — Monitor si výsledok uloží do ~/.cache/latteos/hw-root.json
   latte-sysmon senzory       jeden snímok všetkých senzorov (ako HWiNFO: procesor po jadrách, hwmon, pamäť, disky,
                              sieť, grafika, batéria); v `stream` sú v poli "sensors"
+  latte-sysmon zvuk          „hrá HLASITOSŤ slúchadlá stlmené“ (1/0 …) — Digitálna pohoda › Sluch
   latte-sysmon sukromie      riadky „mic|camera<TAB>aplikácia“: kto práve používa mikrofón alebo kameru (indikátor na lište)
   latte-sysmon rss PID       pamäť (RSS, kB) procesu aj s podprocesmi — pre Digitálnu pohodu
   latte-sysmon pohoda-den DÁTUM [TRIEDA]   JSON pre stránku Čas v aplikáciách: deň (spolu, priemer, včera,
@@ -950,7 +951,7 @@ def desktop_index():
                 if "=" in line:
                     k, _, v = line.partition("=")
                     kv.setdefault(k.strip(), v.strip())
-            ent = (did, kv.get("Name[sk]") or kv.get("Name", did), kv.get("Icon", ""))
+            ent = (did, kv.get("Name[sk]") or kv.get("Name", did), kv.get("Icon", ""), kv.get("Categories", ""))
             for key in {did.lower(), did.split(".")[-1].lower(), kv.get("StartupWMClass", "").lower()} - {""}:
                 idx.setdefault(key, ent)
     return idx
@@ -993,6 +994,28 @@ def pohoda(days):
     out["apps"] = sorted(out["apps"].values(), key=lambda e: -e["s"])
     out["total"] = sum(d["s"] for d in out["days"])
     return out
+
+
+FUN_APPS = {"com.discordapp.discord", "discord", "steam", "com.valvesoftware.steam", "spotify", "com.spotify.client", "vlc", "org.videolan.vlc"}
+
+
+def pohoda_category(c, idx, over):
+    """práca / zábava / neutrálne — rovnaké pravidlá ako pohoda.qml (Pulse: Focus vs Leisure)."""
+    if c in over:
+        return over[c]
+    if c == "latte:Heidelberg":
+        return "praca"
+    if c.startswith("latte:"):
+        return "neutral"
+    if c.lower() in FUN_APPS:
+        return "zabava"
+    hit = idx.get(c.lower()) or idx.get(c.split(".")[-1].lower())
+    cs = set((hit[3] if hit and len(hit) > 3 else "").split(";"))
+    if cs & {"Game", "AudioVideo", "Video", "Audio", "Player", "Music"}:
+        return "zabava"
+    if cs & {"Development", "Office", "Education", "Science", "Engineering", "IDE", "TextEditor", "WordProcessor", "Spreadsheet"}:
+        return "praca"
+    return "neutral"
 
 
 def pohoda_day(date_s, only=None):
@@ -1075,7 +1098,52 @@ def pohoda_day(date_s, only=None):
         e.update(seconds=sec, percent=round(100 * sec / wtot))
         week_apps.append(e)
     prev = target - datetime.timedelta(days=1)
-    return {"date": target.isoformat(), "isToday": target == datetime.date.today(), "total": total,
+    # ── Pulse: čas pred obrazovkou, sústredenie, sluch, kategórie, cieľ ──
+    cfgd = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "latteos")
+    try:
+        over = json.load(open(os.path.join(cfgd, "pohoda-kategorie.json")))
+    except (OSError, ValueError):
+        over = {}
+    try:
+        goal = int(read(os.path.join(cfgd, "pohoda-ciel")) or 0)
+    except ValueError:
+        goal = 0
+    scr = [x for x in (j.get("screen") or []) if len(x) == 2]
+    screen_total = sum(b - a for a, b in scr)
+    sessions = []                                       # úseky spojené, ak je prestávka < 5 min
+    for a_, b_ in scr:
+        if sessions and a_ - sessions[-1][1] < 300:
+            sessions[-1][1] = b_
+        else:
+            sessions.append([a_, b_])
+    breaks = max(0, len(sessions) - 1)
+    stretch = j.get("stretch") or {"n": 0, "sum": 0, "longest": 0}
+    hearing = j.get("hearing") or {"listen": 0, "loud": 0, "loudHalves": [0] * 48}
+
+    def cat_split(jj):
+        out = {"praca": 0, "zabava": 0, "neutral": 0}
+        for c, a2 in jj["apps"].items():
+            out[pohoda_category(c, idx, over)] += a2.get("s", 0)
+        return out
+    for e in apps:
+        e["category"] = pohoda_category(e["class"], idx, over)
+    week_cats = {"praca": 0, "zabava": 0, "neutral": 0}
+    week_focus = []
+    for wd in week_days:
+        jj = load(wd)
+        for k2, v2 in cat_split(jj).items():
+            week_cats[k2] += v2
+        week_focus += [dict(f, date=wd.isoformat()) for f in (jj.get("focus") or [])]
+    for e in week_apps:
+        e["category"] = pohoda_category(e["class"], idx, over)
+    pulse = {"screenTotal": screen_total, "screen": scr, "sessions": len(sessions),
+             "longestSession": max((b_ - a_ for a_, b_ in sessions), default=0), "breaks": breaks,
+             "switches": j.get("switches", 0), "stretchN": stretch.get("n", 0), "stretchLongest": stretch.get("longest", 0),
+             "stretchAvg": round(stretch["sum"] / stretch["n"]) if stretch.get("n") else 0,
+             "hearing": hearing, "focus": j.get("focus") or [], "weekFocus": week_focus,
+             "categories": cat_split(j), "weekCategories": week_cats, "goal": goal,
+             "weekTotal": sum(w["total"] for w in week), "prevWeekTotal": sum(secs(d2 - datetime.timedelta(days=7), only) for d2 in week_days)}
+    return {"date": target.isoformat(), "isToday": target == datetime.date.today(), "total": total, "pulse": pulse,
             "average": round(sum(past) / len(past)) if past else 0, "yesterday": secs(prev, only),
             "weekRange": "%d. %d. – %d. %d." % (monday.day, monday.month, week_days[-1].day, week_days[-1].month),
             "week": week, "month": month, "monthName": ["január", "február", "marec", "apríl", "máj", "jún", "júl", "august", "september", "október", "november", "december"][target.month - 1],
@@ -1091,6 +1159,22 @@ def main(a):
         for x in items:
             x["missing"] = bool(x.get("command")) and x["kind"] in ("autostart", "session", "cron") and not exists_cmd(x["command"] if x["kind"] != "cron" else " ".join(x["command"].split()[5:]))
         print(json.dumps(items, ensure_ascii=False))
+        return 0
+    if cmd == "zvuk":
+        def pj(*args):
+            try:
+                return json.loads(subprocess.run(["pactl", "-f", "json"] + list(args), capture_output=True, text=True, timeout=2).stdout or "[]")
+            except Exception:
+                return []
+        info = pj("info")
+        default = info.get("default_sink_name", "") if isinstance(info, dict) else ""
+        sinks = pj("list", "sinks")
+        sink = next((x for x in sinks if x.get("name") == default), sinks[0] if sinks else {})
+        vols = [int(str(v.get("value_percent", "0")).rstrip("%") or 0) for v in (sink.get("volume") or {}).values()]
+        port = (sink.get("active_port") or "").lower()
+        head = int("headphone" in port or "headset" in port or "bluez" in (sink.get("name") or "") or "hdmi" in port and False)
+        playing = int(any(not x.get("corked") and x.get("sink") == sink.get("index") for x in pj("list", "sink-inputs")))
+        print(playing, max(vols) if vols else 0, head, int(bool(sink.get("mute"))))
         return 0
     if cmd == "sukromie":
         wins = window_pids()

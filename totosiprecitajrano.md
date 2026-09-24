@@ -73,6 +73,54 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 ## Zadanie 24. 9. večer (22:04): Monitor ako HWiNFO/CPU-Z, pohoda ako Pulse, maskot ako tamagoči s útekmi
 Poradie: 1. Monitor (hotové nižšie) → 2. Digitálna pohoda podľa Pulse → 3. maskot (nové postavy, potreby, útek z ostrova).
 
+**Doplnené 25. 9. (tvoje odkazy):**
+- **Kolekcia maskotov** (tvoj návrh „LatteOS Pet Collection“), každý s vlastnou osobnosťou:
+  Coffee Dragon, Homebrew (kávový sliz v šálke), Meow of Cathulhu, Firefly, Little Fox, Pixel Maid, Mini Robot, Raccoon,
+  Void Baby Dragon a Capybara. Každý má animácie v pokoji, v pohybe a pri spánku.
+  - **Režimy** prevezmem z návrhu:
+    - **OFF**;
+    - **SLOT** (sedí vo svojom ostrove na lište);
+    - **WORLD** (občas vybehne z brlohu: chodí po lište, sadá na titulky okien, lezie po okrajoch, pri nečinnosti spí alebo sa zaujíma o kurzor);
+    - **CHAOS** (voľne po celej ploche, hrá sa s kurzorom).
+  - **Bezpečnosť:** maskot je iba obrázok vo vrstve nad plochou, bez prístupu k súborom. Balíčky od komunity
+    budú iba dáta (sprity + JSON s osobnosťou), žiadny kód.
+  - **Technika úteku:** samostatná priehľadná vrstva (layer-shell) nad oknami, ktorá prepúšťa kliky okrem samotného maskota.
+    Polohy okien zistí z `hyprctl clients` (titulky, okraje). Pri softvérovom vykresľovaní pobeží pomaly (4 obr/s),
+    s GPU plynulo.
+- **Živé tapety — [aura](https://github.com/antwny/aura):** Rust + mpv, pauza pri hre a zakrytej ploche, farby z videa.
+  Je však napísaná pre COSMIC (libcosmic) a má licenciu GPL-3.0. Prevezmem **princíp** (mpv vo vrstve pozadia a pauza,
+  keď je plocha zakrytá alebo beží hra na celú obrazovku) do našej tapety, nie celú aplikáciu. Do resources si ju naklonujem
+  ako vzor.
+- **[skwd-wall](https://github.com/liixini/skwd-wall):** je postavený na Quickshelli ako my, takže sa dá dobre prevziať.
+  Ponúka 4 výbery tapiet vykresľované na GPU, 39 prechodov (až po „piesok“), obrázky, videá aj scény Wallpaper Engine
+  a farby cez matugen. Pri nečinnosti nekreslí. Režim prezentácie tapiet vyzerá použiteľne pre Nastavenia › Tapeta.
+- **Efekty aj na okná a popupy?** Áno, ale iba na reálnom HW s GPU:
+  - **popupy a panely LatteOS** sú v Quickshelli, takže rovnaké shadery (ShaderEffect) sa dajú použiť priamo;
+  - **okná aplikácií** kreslí Hyprland, teda treba plugin so shaderom na okno (vzor hypr-darkwindow, už je v resources)
+    alebo animácie Hyprlandu;
+  - pri stupni Softvér ostanú vypnuté (pravidlo „každý prvok má variant bez shaderov“).
+
+### 25. 9. 2026: Digitálna pohoda podľa Pulse ✅
+Monitor › Čas v aplikáciách má karty:
+- **Prehľad:** „Dobré popoludnie“, kruh s dnešným časom voči dennému cieľu, rozdelenie medzi aplikácie,
+  práve používaná aplikácia, týždeň, najviac dnes s osou dňa, karta Sústredenie, denný cieľ (2–8 h), sluch a kategórie.
+- **Čas obrazovky:** aktívny čas na osi dňa, sedenia (delí ich prestávka ≥ 5 min), najdlhší úsek, prestávky,
+  prepnutia aplikácií, priemerné a najdlhšie sústredenie v jednej aplikácii.
+- **Aplikácie:** doterajší pohľad (deň, týždeň, mesiac, limity).
+- **Sústredenie:** sedenie 15–90 min a spôsob riešenia rozptýlení.
+  - **Upozorniť:** oznámenie, najviac raz za minútu.
+  - **Odsunúť:** okno sa minimalizuje a vrátiš ho z lišty.
+  - Rozptýlenie je aplikácia z kategórie **Zábava**. Kategórie (Práca, Zábava, Neutrálne) prepneš pri každej
+    aplikácii, predvolene sa určia podľa .desktop (hry, video, hudba, Discord = zábava; vývoj, kancelária = práca).
+  - Ukazuje históriu sedení týždňa (dokončené alebo prerušené, počet rozptýlení).
+- **Sluch:** čas počúvania a hlasného počúvania v slúchadlách (hlasitosť ≥ prah 60–90 %) na osi dňa
+  a odporúčanie WHO. Je to odhad podľa hlasitosti systému, nie meranie decibelov.
+- **Prehľady:** denný priemer, týždeň spolu oproti minulému, práca vs zábava, top aplikácie a počet sedení sústredenia.
+
+Tracker (`pohoda.qml`) po novom zapisuje aj úseky aktivity, prepnutia, sústredenie, sluch a sedenia.
+Sústredenie ovláda cez IPC (`fokusStart`, `fokusStop`). Otestované: sedenie 1 min sa dokončilo a v režime Odsunúť
+sa foot označený ako zábava presunul medzi minimalizované okná. Testovacie záznamy som zo tvojho dňa vymazal.
+
 ### 25. 9. 2026: Monitor › Hardvér ako CPU-Z a Senzory ako HWiNFO ✅
 - **Hardvér** má karty ako CPU-Z:
   - **Procesor:** kódové meno (napr. Rocket Lake), technológia v nm, rodina/model/stepping, inštrukcie

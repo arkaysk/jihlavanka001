@@ -25,6 +25,8 @@ Stav k 23. 9. 2026: stiahnutých 31 repozitárov (~1,1 GB) a 10 článkov.
 | `xdg-desktop-portal-hyprland` | [xdph](https://github.com/hyprwm/xdg-desktop-portal-hyprland) | BSD-3 | Prebrať | zdieľanie obrazovky (Discord, OBS) |
 | `hyprland-plugins` | [hyprland-plugins](https://github.com/hyprwm/hyprland-plugins) (commit podľa `hyprpm.toml`) | BSD-3 | Prebrať | plugin **hyprbars**: jednotné okenné tlačidlá – □ ✕ (`setup/f1/build-hyprbars.sh`, `latte/bars.lua`) |
 | `serpantinum` | [serpantinum](https://github.com/ilyamiro/serpantinum) (ilyamiro) | AGPL-3.0 | Prebrať | vzhľad Digitálnej pohody → `session/apps/data/PohodaView.qml` (samostatný súbor pod AGPL-3.0-or-later s uvedením pôvodu); meranie a dáta sú vlastné |
+| `aura` | [aura](https://github.com/antwny/aura) (antwny) | GPL-3.0 | Vzor | živá tapeta: mpv vo vrstve pozadia, pauza pri zakrytí plochy a hre, farby z videa — princíp, nie kód (je pre COSMIC) |
+| `skwd-wall` | [skwd-wall](https://github.com/liixini/skwd-wall) (liixini) | GPL-3.0 | Vzor / prebrať | výber tapiet na GPU, 39 prechodov, Wallpaper Engine scény; ak sa prevezme kód, samostatný súbor pod GPL-3.0 |
 | `hyprlock` | [hyprlock](https://github.com/hyprwm/hyprlock) | BSD-3 | Prebrať z | zamknutie obrazovky |
 | `hypr-darkwindow` | [Hypr-DarkWindow](https://github.com/micha4w/Hypr-DarkWindow) | MIT | Prebrať z | vzor pre shadery okien (témy) |
 | `hyprwindowshade` | [HyprWindowShade](https://github.com/ManofJELLO/HyprWindowShade) | MIT | Prebrať z | vzor pre shadery okien (témy) |

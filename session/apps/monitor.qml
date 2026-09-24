@@ -734,9 +734,37 @@ ShellRoot {
         id: pPohoda
         // vzhľad podľa serpantinum (AGPL-3.0) je v samostatnom súbore data/PohodaView.qml
         Item {
+            id: pohodaPage
+            // karty podľa Pulse (data/PohodaPulse.qml); „Aplikácie“ = pôvodný pohľad (data/PohodaView.qml)
+            property string tab: "prehlad"
+            Row {
+                id: pohodaTabs
+                spacing: 4
+                Repeater {
+                    model: [["prehlad", "Prehľad"], ["obrazovka", "Čas obrazovky"], ["aplikacie", "Aplikácie"], ["sustredenie", "Sústredenie"], ["sluch", "Sluch"], ["prehlady", "Prehľady"]]
+                    Rectangle {
+                        required property var modelData
+                        readonly property bool on: pohodaPage.tab === modelData[0]
+                        width: ptl.implicitWidth + 24; height: 32; radius: 10
+                        color: on ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.18) : (ptm.containsMouse ? theme.hover : theme.field)
+                        border { color: on ? theme.primary : "transparent"; width: 1.5 }
+                        Text { id: ptl; anchors.centerIn: parent; text: modelData[1]; color: theme.fg; font { family: theme.fontUi; pixelSize: 12; weight: on ? Font.Bold : Font.Medium } }
+                        MouseArea { id: ptm; anchors.fill: parent; hoverEnabled: true; onClicked: pohodaPage.tab = modelData[0] }
+                    }
+                }
+            }
+            PohodaPulse {
+                visible: pohodaPage.tab !== "aplikacie"
+                anchors { fill: parent; topMargin: 44; bottomMargin: 40 }
+                theme: app.th
+                page: pohodaPage.tab
+                onOpenApps: pohodaPage.tab = "aplikacie"
+                onStatus: (t) => app.status = t
+            }
             PohodaView {
                 id: pview
-                anchors { fill: parent; bottomMargin: 40 }
+                visible: pohodaPage.tab === "aplikacie"
+                anchors { fill: parent; topMargin: 44; bottomMargin: 40 }
                 theme: app.th
                 limits: app.limits
                 onLimitMenu: (e, x, y) => {
