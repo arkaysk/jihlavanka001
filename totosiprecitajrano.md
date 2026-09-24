@@ -70,6 +70,14 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 18:00: greeter — Caps Lock, Num Lock, zobrazenie hesla, písma ✅ (bod 9)
+- Pod heslom sa ukáže **„⇪ Caps Lock je zapnutý“** alebo **„Num Lock je vypnutý“**. Stav sa berie z LED
+  klávesnice a zároveň z písaných znakov: veľké písmeno bez Shiftu znamená Caps Lock, kláves vpravo bez
+  číslice znamená vypnutý Num Lock.
+- **Oko** v poli hesla heslo ukáže alebo skryje.
+- **Písma ako v systéme:** hodiny a dátum sú v Manrope ako na lište (predtým pätkové Fraunces). Nadpisy
+  ostali vo Fraunces ako v aplikáciách. Uvidíš to pri najbližšom odhlásení.
+
 ### 24. 9. 2026, 17:55: Heidelberg ako plnohodnotný editor ✅ (bod 8)
 - **Režim Dokument** (docx, odt, rtf, epub, html a každý nový dokument) je **WYSIWYG na strane papiera**:
   - písmo (výber s náhľadom v danom písme), veľkosť, **B** *I* U S, farby;

@@ -47,6 +47,46 @@ ShellRoot {
     property string status: ""
     property bool statusError: false
     property bool busy: false
+    // Caps Lock / Num Lock: LED klávesnice (/sys/class/leds, číta každý) + odhad z písaných znakov
+    property bool capsLed: false
+    property bool numLed: true
+    property bool hasNumLed: false
+    property int capsGuess: -1              // -1 nevie, 0 vypnutý, 1 zapnutý (podľa posledného písmena)
+    property bool numpadDead: false         // kláves numerickej klávesnice nenapísal číslicu → Num Lock vypnutý
+    readonly property bool capsOn: capsGuess === -1 ? capsLed : capsGuess === 1
+    readonly property bool numOff: numpadDead || (hasNumLed && !numLed && numpadUsed)
+    property bool numpadUsed: false
+    property bool showPass: false
+    // test bez klávesnice (setup/f1/headless.sh): LATTE_GREETER_TEST_LOCKS=1 ukáže obe upozornenia
+    Component.onCompleted: if (testMode && Quickshell.env("LATTE_GREETER_TEST_LOCKS") === "1") { capsGuess = 1; numpadDead = true; showPass = true; }
+    Process {
+        id: ledProc
+        command: ["sh", "-c", "c=0; n=; for f in /sys/class/leds/*::capslock/brightness; do [ -r \"$f\" ] && [ \"$(cat \"$f\")\" != 0 ] && c=1; done; for f in /sys/class/leds/*::numlock/brightness; do [ -r \"$f\" ] && { [ \"$(cat \"$f\")\" != 0 ] && n=1 || n=${n:-0}; }; done; echo \"$c ${n:--}\""]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const f = this.text.trim().split(" ");
+                const caps = f[0] === "1";
+                if (caps !== root.capsLed) root.capsGuess = -1;        // LED sa zmenila → veriť LED
+                root.capsLed = caps;
+                root.hasNumLed = f[1] !== "-"; root.numLed = f[1] === "1";
+            }
+        }
+    }
+    Timer { interval: 500; repeat: true; running: true; triggeredOnStart: true; onTriggered: if (!ledProc.running) ledProc.running = true }
+    function keyHint(ev) {
+        const t = ev.text || "";
+        if (t.length === 1 && t.toLowerCase() !== t.toUpperCase()) {       // písmeno
+            const shift = (ev.modifiers & Qt.ShiftModifier) !== 0;
+            const upper = t === t.toUpperCase();
+            root.capsGuess = (upper !== shift) ? 1 : 0;
+        }
+        if (ev.modifiers & Qt.KeypadModifier) {
+            root.numpadUsed = true;
+            root.numpadDead = !/^[0-9.,]$/.test(t) && [Qt.Key_Enter, Qt.Key_Plus, Qt.Key_Minus, Qt.Key_Asterisk, Qt.Key_Slash].indexOf(ev.key) < 0;
+        }
+        if (ev.key === Qt.Key_CapsLock) root.capsGuess = root.capsGuess === -1 ? (root.capsLed ? 0 : 1) : 1 - root.capsGuess;
+        if (ev.key === Qt.Key_NumLock) root.numpadDead = false;
+    }
 
     // ── vzhľad z Nastavení › Účet › Prihlasovanie ──────────────────────────────
     property var conf: ({ background: "/usr/share/backgrounds/latteos/latteos-wallpaper1.jpg", color: "#1B1410",
@@ -304,7 +344,8 @@ ShellRoot {
                     id: clock
                     anchors.horizontalCenter: parent.horizontalCenter
                     color: root.cText
-                    font { family: root.fDisplay; pixelSize: Math.min(win.height * 0.11, 104); weight: Font.DemiBold }
+                    // hodiny ako na lište a v zámke systému (Manrope); pätkové písmo iba v nadpisoch
+                    font { family: root.fUi; pixelSize: Math.min(win.height * 0.11, 104); weight: Font.Bold; letterSpacing: -2 }
                     text: Qt.formatTime(new Date(), "HH:mm")
                 }
                 Text {
@@ -412,12 +453,13 @@ ShellRoot {
                         border { color: passInput.activeFocus ? root.cAccent : "transparent"; width: 1 }
                         TextInput {
                             id: passInput
-                            anchors { fill: parent; leftMargin: 14; rightMargin: 14 }
+                            anchors { fill: parent; leftMargin: 14; rightMargin: 48 }
                             verticalAlignment: TextInput.AlignVCenter
                             color: root.cText; selectionColor: root.cAccent
-                            echoMode: TextInput.Password; passwordCharacter: "•"
+                            echoMode: root.showPass ? TextInput.Normal : TextInput.Password; passwordCharacter: "•"
                             font { family: root.fUi; pixelSize: 15 }
                             focus: true
+                            Keys.onPressed: (ev) => root.keyHint(ev)
                             enabled: !root.busy
                             KeyNavigation.tab: userInput
                             onAccepted: { root.login(userInput.text.trim(), text); text = ""; }
@@ -428,6 +470,45 @@ ShellRoot {
                             anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
                             visible: passInput.text === ""; text: "Heslo"; color: root.cDim
                             font { family: root.fUi; pixelSize: 15 }
+                        }
+                        // ukázať / skryť heslo (oko)
+                        Rectangle {
+                            anchors { right: parent.right; rightMargin: 6; verticalCenter: parent.verticalCenter }
+                            width: 34; height: 32; radius: 8
+                            color: eyeMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                            Canvas {
+                                id: eye
+                                anchors.centerIn: parent; width: 22; height: 16
+                                property bool open: root.showPass
+                                onOpenChanged: requestPaint()
+                                onPaint: {
+                                    const c = getContext("2d"); c.reset();
+                                    c.strokeStyle = root.cDim; c.lineWidth = 1.6;
+                                    c.beginPath(); c.moveTo(1, 8); c.quadraticCurveTo(11, -3, 21, 8); c.quadraticCurveTo(11, 19, 1, 8); c.stroke();
+                                    c.beginPath(); c.arc(11, 8, 3, 0, Math.PI * 2); c.stroke();
+                                    if (!open) { c.beginPath(); c.moveTo(3, 15); c.lineTo(19, 1); c.stroke(); }
+                                }
+                            }
+                            MouseArea { id: eyeMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                        onClicked: { root.showPass = !root.showPass; passInput.forceActiveFocus(); } }
+                        }
+                    }
+                    // upozornenia pri hesle: Caps Lock zapnutý, Num Lock vypnutý
+                    Row {
+                        visible: root.capsOn || root.numOff
+                        spacing: 8
+                        Repeater {
+                            model: (root.capsOn ? [["⇪", "Caps Lock je zapnutý"]] : []).concat(root.numOff ? [["⇭", "Num Lock je vypnutý"]] : [])
+                            Rectangle {
+                                required property var modelData
+                                width: wr.implicitWidth + 20; height: 28; radius: 14
+                                color: Qt.rgba(228 / 255, 178 / 255, 131 / 255, 0.18); border { color: root.cAccent; width: 1 }
+                                Row {
+                                    id: wr; anchors.centerIn: parent; spacing: 6
+                                    Text { text: modelData[0]; color: root.cAccent; font { family: root.fUi; pixelSize: 14; weight: Font.Bold } }
+                                    Text { text: modelData[1]; color: root.cText; font { family: root.fUi; pixelSize: 12; weight: Font.DemiBold } }
+                                }
+                            }
                         }
                     }
 
