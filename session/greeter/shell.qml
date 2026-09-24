@@ -6,7 +6,8 @@
 //   LATTE_MODE (normal|safe), LATTE_RENDERER, LATTE_REASON — z /run/latteos (latte-boot select)
 //   LATTE_GREETER_TEST=1 — náhľad bez greetd (tlačidlo Prihlásiť iba ukáže stav)
 // Súbory (skupina latte smie zapisovať z Nastavení, greeter iba číta):
-//   /var/lib/latteos/greeter/greeter.conf    background, color, dim, panel (log|text|none), panel_title, panel_text
+//   /var/lib/latteos/greeter/greeter.conf    background, color, dim, panel (log|text|rss|pocasie|none), panel_title,
+//                                            panel_text, rss_url, lat, lon, place
 //   /var/lib/latteos/greeter/last-crash.log  prvý log z posledného pádu (píše latte-session)
 //   /var/lib/greetd/latte-recent             posledné dva prihlásené účty (píše greeter)
 import QtQuick
@@ -49,10 +50,11 @@ ShellRoot {
 
     // ── vzhľad z Nastavení › Účet › Prihlasovanie ──────────────────────────────
     property var conf: ({ background: "/usr/share/backgrounds/latteos/latteos-wallpaper1.jpg", color: "#1B1410",
-                          dim: "0.55", panel: "log", panel_title: "", panel_text: "" })
+                          dim: "0.55", panel: "log", panel_title: "", panel_text: "",
+                          rss_url: "https://www.aktuality.sk/rss/", lat: "48.74", lon: "19.15", place: "Banská Bystrica" })
     property string crashLog: ""
     FileView {
-        path: "/var/lib/latteos/greeter/greeter.conf"
+        path: Quickshell.env("LATTE_GREETER_CONF") || "/var/lib/latteos/greeter/greeter.conf"   // premenná iba pre testy
         printErrors: false
         onLoaded: {
             const c = Object.assign({}, root.conf);
@@ -65,7 +67,38 @@ ShellRoot {
         printErrors: false
         onLoaded: root.crashLog = text().trim()
     }
-    readonly property bool panelVisible: conf.panel === "text" ? conf.panel_text !== "" : conf.panel === "log"
+    readonly property bool panelVisible: conf.panel === "text" ? conf.panel_text !== "" : (conf.panel === "log" || conf.panel === "rss" || conf.panel === "pocasie")
+
+    // ── novinky (RSS) a počasie (Open-Meteo, bez kľúča) pre ľavý panel ─────────
+    property var news: []
+    property var weather: null
+    property string netNote: ""
+    Process {
+        id: rssProc
+        command: ["curl", "-s", "-m", "6", "-A", "LatteOS greeter", root.conf.rss_url]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const items = [];
+                const re = /<item[\s\S]*?<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/g;
+                let m; while ((m = re.exec(this.text)) && items.length < 8) items.push(m[1].replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#039;|&apos;/g, "'").trim());
+                root.news = items; root.netNote = items.length ? "" : "Novinky sa nepodarilo načítať (bez siete?)";
+            }
+        }
+    }
+    Process {
+        id: weatherProc
+        command: ["curl", "-s", "-m", "6", "https://api.open-meteo.com/v1/forecast?latitude=" + root.conf.lat + "&longitude=" + root.conf.lon
+                  + "&current=temperature_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto&forecast_days=4"]
+        stdout: StdioCollector { onStreamFinished: { try { root.weather = JSON.parse(this.text); root.netNote = ""; } catch (e) { root.netNote = "Počasie sa nepodarilo načítať (bez siete?)"; } } }
+    }
+    function wmo(c) {
+        if (c === 0) return ["Jasno", "☀"]; if (c <= 2) return ["Polojasno", "⛅"]; if (c === 3) return ["Zamračené", "☁"];
+        if (c <= 48) return ["Hmla", "🌫"]; if (c <= 57) return ["Mrholenie", "🌦"]; if (c <= 67) return ["Dážď", "🌧"];
+        if (c <= 77) return ["Sneh", "❄"]; if (c <= 82) return ["Prehánky", "🌦"]; if (c <= 86) return ["Snehové prehánky", "🌨"]; return ["Búrka", "⛈"];
+    }
+    onConfChanged: { if (conf.panel === "rss") rssProc.running = true; if (conf.panel === "pocasie") weatherProc.running = true; }
+    Timer { interval: 900000; repeat: true; running: root.conf.panel === "rss" || root.conf.panel === "pocasie"
+            onTriggered: { if (root.conf.panel === "rss") rssProc.running = true; else weatherProc.running = true; } }
 
     // ── používatelia: prvý bežný účet z /etc/passwd, alebo naposledy prihlásený ───
     property string lastUser: ""
@@ -201,20 +234,55 @@ ShellRoot {
                 radius: 16; color: root.cGlass; border { color: root.cOutline; width: 1 }
                 clip: true
                 readonly property bool isLog: root.conf.panel === "log"
+                readonly property bool isFeed: root.conf.panel === "rss" || root.conf.panel === "pocasie"
                 Column {
                     anchors { fill: parent; margins: 20 }
                     spacing: 10
                     Text {
-                        text: sidePanel.isLog ? "Posledný pád" : (root.conf.panel_title || "Správa")
+                        text: sidePanel.isLog ? "Posledný pád" : (root.conf.panel === "rss" ? (root.conf.panel_title || "Novinky") : (root.conf.panel === "pocasie" ? "Počasie · " + root.conf.place : (root.conf.panel_title || "Správa")))
                         color: root.cText; font { family: root.fDisplay; pixelSize: 20; weight: Font.DemiBold }
                     }
                     Text {
-                        visible: sidePanel.isLog
-                        text: root.crashLog === "" ? "Žiadny zaznamenaný pád. ☕" : "Vývojárska verzia · /var/lib/latteos/greeter/last-crash.log"
+                        visible: sidePanel.isLog || sidePanel.isFeed
+                        text: sidePanel.isFeed ? (root.conf.panel === "rss" ? root.conf.rss_url.replace(/^https?:\/\//, "").split("/")[0] : "Open-Meteo · aktualizácia každých 15 min") : root.crashLog === "" ? "Žiadny zaznamenaný pád. ☕" : "Vývojárska verzia · /var/lib/latteos/greeter/last-crash.log"
                         color: root.cDim; font { family: root.fUi; pixelSize: 12 }
                     }
                     Rectangle { width: parent.width; height: 1; color: root.cOutline }
+                    // novinky
+                    Repeater {
+                        model: root.conf.panel === "rss" ? root.news : []
+                        Text { required property string modelData; width: parent.width; wrapMode: Text.WordWrap; maximumLineCount: 3; elide: Text.ElideRight
+                               text: "•  " + modelData; color: root.cText; font { family: root.fUi; pixelSize: 14 } }
+                    }
+                    // počasie
+                    Column {
+                        visible: root.conf.panel === "pocasie" && !!root.weather && !!root.weather.current
+                        width: parent.width; spacing: 10
+                        Row {
+                            spacing: 14
+                            Text { text: root.weather && root.weather.current ? root.wmo(root.weather.current.weather_code)[1] : ""; color: root.cAccent; font { pixelSize: 52 } }
+                            Column {
+                                anchors.verticalCenter: parent.verticalCenter
+                                Text { text: root.weather && root.weather.current ? Math.round(root.weather.current.temperature_2m) + " °C" : ""; color: root.cText; font { family: root.fDisplay; pixelSize: 38; weight: Font.DemiBold } }
+                                Text { text: root.weather && root.weather.current ? root.wmo(root.weather.current.weather_code)[0] + " · vietor " + Math.round(root.weather.current.wind_speed_10m) + " km/h" : ""; color: root.cDim; font { family: root.fUi; pixelSize: 13 } }
+                            }
+                        }
+                        Repeater {
+                            model: root.weather && root.weather.daily ? root.weather.daily.time.slice(1) : []
+                            Row {
+                                required property string modelData
+                                required property int index
+                                spacing: 12
+                                readonly property int i: index + 1
+                                Text { width: 90; text: Qt.locale("sk_SK").toString(new Date(modelData + "T12:00:00"), "dddd"); color: root.cDim; font { family: root.fUi; pixelSize: 14 } }
+                                Text { width: 30; text: root.wmo(root.weather.daily.weather_code[i])[1]; color: root.cAccent; font { pixelSize: 16 } }
+                                Text { text: Math.round(root.weather.daily.temperature_2m_min[i]) + "° / " + Math.round(root.weather.daily.temperature_2m_max[i]) + "°"; color: root.cText; font { family: root.fUi; pixelSize: 14 } }
+                            }
+                        }
+                    }
+                    Text { visible: sidePanel.isFeed && root.netNote !== ""; width: parent.width; wrapMode: Text.WordWrap; text: root.netNote; color: root.cDim; font { family: root.fUi; pixelSize: 13 } }
                     Text {
+                        visible: !sidePanel.isFeed
                         width: parent.width
                         height: sidePanel.height - 110
                         wrapMode: sidePanel.isLog ? Text.WrapAnywhere : Text.WordWrap

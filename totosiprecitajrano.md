@@ -34,6 +34,18 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 11:50: greeter s počasím a novinkami, NET v hlavičkách, hľadanie všade ✅
+- **Ľavý panel obrazovky prihlásenia** má teraz aj režimy **Počasie** (teraz + 3 dni, Open-Meteo bez
+  účtu, mesto z Dátum, čas a poloha) a **Novinky (RSS)** (Aktuality.sk, STVR, Root.cz, Phoronix alebo
+  vlastný odkaz). Prepína sa v Nastaveniach › Účet › Prihlasovanie; vo vývojárskej verzii ostáva
+  predvolený log pádu. Screenshoty: `setup/f1/results/f1-greeter-pocasie.png`, `…-rss.png`.
+  Neoverené: či SELinux pustí greeter (doména xdm_t) na internet. Ak nie, panel napíše „bez siete“.
+- **Tlačidlo NET** v hlavičke každej aplikácie LatteOS teraz naozaj vypína internet (od ďalšieho spustenia).
+- **Súbory:** Enter v hľadaní = **hľadať všade** (aj v podpriečinkoch), klik otvorí priečinok s nájdenou položkou.
+- **Hra má prednosť:** hra z Herne dostane viac CPU (vlastný systemd scope) a profil Výkon; po hre sa všetko vráti.
+- Nové kontroly bez obrazovky: `setup/f1/apps-check.sh` (8 aplikácií) a `setup/f1/plugins-check.sh`
+  (11 pluginov), oba prešli bez chýb. Prehľad komponentov: `session/README.md`.
+
 ### 24. 9. 2026, 11:55: F6 — NET pre každú aplikáciu ✅
 - V **App Manageri › Oprávnenia a NET** má každá aplikácia vypínač internetu. Doteraz to fungovalo iba
   pre Flatpak, teraz aj pre bežné aplikácie:

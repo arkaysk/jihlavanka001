@@ -51,7 +51,8 @@ ShellRoot {
     property bool noAnim: false
     property string cursorSize: "24"
     property bool dnd: false
-    property var greeterConf: ({ background: "/usr/share/backgrounds/latteos/latteos-wallpaper1.jpg", color: "#1B1410", dim: "0.55", panel: "log", panel_title: "", panel_text: "" })
+    property var greeterConf: ({ background: "/usr/share/backgrounds/latteos/latteos-wallpaper1.jpg", color: "#1B1410", dim: "0.55", panel: "log", panel_title: "", panel_text: "",
+                                 rss_url: "https://www.aktuality.sk/rss/", lat: "48.74", lon: "19.15", place: "Banská Bystrica" })
     property string crashLog: ""
     property var ai: ({})             // latte-ai status
     property var aiModels: []
@@ -173,7 +174,7 @@ ShellRoot {
     function setGreeter(k, v) {
         const c = Object.assign({}, greeterConf); c[k] = v; greeterConf = c;
         let out = "# LatteOS — vzhľad obrazovky prihlásenia (zapísali Nastavenia › Účet › Prihlasovanie)\n";
-        for (const key of ["background", "color", "dim", "panel", "panel_title", "panel_text"])
+        for (const key of ["background", "color", "dim", "panel", "panel_title", "panel_text", "rss_url", "lat", "lon", "place"])
             out += key + " = \"" + String(c[key] || "").replace(/"/g, "'").replace(/\n/g, "\\n") + "\"\n";
         greeterFile.setText(out);
         status = "Obrazovka prihlásenia uložená (prejaví sa pri ďalšom prihlásení)";
@@ -840,12 +841,30 @@ ShellRoot {
                       onStepped: (v) => app.setGreeter("dim", v.toFixed(2)) }
             Heading { text: "ĽAVÝ PANEL" }
             Segments {
-                options: [["log", "Log posledného pádu"], ["text", "Vlastný text"], ["none", "Nič"]]
+                options: [["log", "Log pádu"], ["pocasie", "Počasie"], ["rss", "Novinky (RSS)"], ["text", "Vlastný text"], ["none", "Nič"]]
                 value: app.greeterConf.panel
-                onPicked: (v) => app.setGreeter("panel", v)
+                onPicked: (v) => {
+                    app.setGreeter("panel", v);
+                    if (v === "pocasie") {   // poloha z Nastavení › Dátum, čas a poloha
+                        const lat = app.location.latitude || "48.74", lon = app.location.longitude || "19.15";
+                        app.setGreeter("lat", lat); app.setGreeter("lon", lon);
+                    }
+                }
             }
             Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
-                   text: "Vývojárska verzia: log. Vo vydanej verzii tu bude miesto pre RSS, novinky alebo počasie; zatiaľ vlastný text." }
+                   text: "Vývojárska verzia: log posledného pádu. Počasie berie polohu z Dátum, čas a poloha (Open-Meteo, bez účtu)." }
+            Column {
+                visible: app.greeterConf.panel === "rss"; spacing: 8; width: parent.width
+                Flow {
+                    width: parent.width; spacing: 8
+                    Repeater {
+                        model: [["https://www.aktuality.sk/rss/", "Aktuality.sk"], ["https://spravy.stvr.sk/feed/", "Správy STVR"], ["https://www.root.cz/rss/clanky/", "Root.cz"], ["https://www.phoronix.com/rss.php", "Phoronix"]]
+                        Card { required property var modelData; width: 170; height: 48; title: modelData[1]; sub: ""; selected: app.greeterConf.rss_url === modelData[0]
+                               onClicked: { app.setGreeter("rss_url", modelData[0]); app.setGreeter("panel_title", modelData[1]); } }
+                    }
+                }
+                Field { text: app.greeterConf.rss_url; placeholder: "vlastný RSS odkaz"; onCommitted: (t) => { if (t !== "" && t !== app.greeterConf.rss_url) app.setGreeter("rss_url", t); } }
+            }
             Column {
                 visible: app.greeterConf.panel === "text"; spacing: 8
                 Field { text: app.greeterConf.panel_title; placeholder: "Nadpis (napr. Dnes)"; onCommitted: (t) => { if (t !== app.greeterConf.panel_title) app.setGreeter("panel_title", t); } }
@@ -1013,7 +1032,12 @@ ShellRoot {
                         required property var modelData
                         width: 150; height: 52; title: modelData[0]; sub: modelData[1] + ", " + modelData[2]
                         selected: Math.abs((parseFloat(app.location.latitude) || 48.74) - modelData[1]) < 0.01 && Math.abs((parseFloat(app.location.longitude) || 19.15) - modelData[2]) < 0.01
-                        onClicked: app.run(["sh", "-c", "latte-shellset set location.latitude \"$1\" && latte-shellset set location.longitude \"$2\"", "sh", String(modelData[1]), String(modelData[2])], "Poloha: " + modelData[0])
+                        onClicked: {
+                            app.run(["sh", "-c", "latte-shellset set location.latitude \"$1\" && latte-shellset set location.longitude \"$2\"", "sh", String(modelData[1]), String(modelData[2])], "Poloha: " + modelData[0]);
+                            // počasie na obrazovke prihlásenia pre to isté mesto
+                            app.setGreeter("place", modelData[0]); app.setGreeter("lat", String(modelData[1])); app.setGreeter("lon", String(modelData[2]));
+                            app.status = "Poloha: " + modelData[0];
+                        }
                     }
                 }
             }
