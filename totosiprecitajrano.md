@@ -1,42 +1,98 @@
 # Toto si prečítaj ráno ☕
 
-> **⚠️ Ráno najprv reštartuj VM.** Okolo 21:40 sa grafika VM dostala do zlého stavu: `vmwgfx` nevie
-> alokovať buffery, takže greeter aj relácia nemajú obrazovku. Zvnútra VM to reštartovať nemôžem, bežím
-> na nej. Po reštarte by mala naskočiť obrazovka prihlásenia LatteOS. Príčina je popísaná nižšie
-> („Pády Hyprlandu vo VM“).
-
 Denník práce, kým si spal. Najnovšie hore. Na konci sú **veci, ktoré čakajú na tvoje rozhodnutie**.
+
+> Stav 24. 9. ráno: VM beží, tvoja relácia (Hyprland + Noctalia) tiež a nová lišta sa v nej ukázala
+> sama, lebo Noctalia načíta zmeny za behu. Jedna vec sa pokazila a je opravená: počas inštalácie sa
+> Hyprland na chvíľu dostal do núdzového režimu (červený rámik hore). Viac v denníku.
 
 ---
 
-## Odpovede na tvoje otázky
+## Odpovede na tvoje otázky (24. 9.)
 
-### Dá sa napísať vlastný greeter alebo prerobiť iný do nášho vzhľadu?
+### Dajú sa položky lišty prerozdeliť inam, ako súčasť iných menu?
+Áno. Lišta je z **ostrovov** (`[[bar.main.capsule_group]]` v `session/noctalia/config.toml`). Každý
+ostrov je zoznam widgetov, dajú sa presúvať medzi ostrovmi a ostrovy medzi ľavou, strednou a pravou
+časťou. Panely sa dajú zlučovať: oznámenia sú teraz aj záložkou v paneli Čas. Zvonček v ostrove času
+som nechal ako rýchly vstup, dá sa odobrať jedným riadkom. Grafický editor rozloženia zatiaľ nie je
+(ťahanie myšou); dovtedy to zmením podľa tvojho slova.
 
-Áno, obe cesty sú reálne:
+### Kde je mačka? 🐱
+Na lište vpravo, pred schránkou. Bongocat z Caelestie som **nepoužil**: je to cudzia kresba pod GPL-3
+a pôvodný „bongo cat“ má vlastného autora. Nakreslil som vlastných pixel maskotov:
+**Latte mačka**, **Mokka** (čierna) a **Zrnko** (kávové minimonštrum). Keď hrá hudba, ťukajú labkami
+do rytmu, inak sedia a žmurkajú a v noci či pri Nerušiť spia. Klik ich pohladká, pravý klik prepne
+maskota. Voľba je aj v Nastaveniach › Prostredie › Lišta.
 
-| Cesta | Čo to znamená | Riziko |
-|---|---|---|
-| **A. Vlastný greeter v Quickshelli** (zvolené) | Quickshell má priamo modul `Quickshell.Services.Greetd` (prihlásenie cez greetd). Obrazovka prihlásenia je potom jeden QML súbor v štýle Latte a beží pod labwc s pixmanom, teda na overenej kombinácii bez GPU, ktorá pamäť neprepúšťa. | nízke: iba QML, kompozitor je overený |
-| B. Opraviť Noctalia Greeter (MIT) | nájsť únik pamäte jadra v jeho kompozitore | neznáme; je to cudzí C++ kód |
-| C. Prefarbiť tuigreet | iba farby textového greetera | žiadne, ale je to stále text |
-
-Robím **A** a C nechávam ako zálohu. **Hotové a predvolené**, pozri denník.
-
-### Nemám Fedora účet
-
-To nevadí. COPR je iba pohodlnejšia distribúcia balíka `hyprland-latte`. Dovtedy funguje lokálny
-repozitár `latteos-local` (`/var/lib/latteos/repo`) a COPR má vylúčené `hyprland*`, takže `dnf upgrade`
-patchovaný Hyprland neprepíše. Keď budeme balíky rozdávať iným PC, možnosti sú tieto (rozhodnutie je
-nižšie):
-- založiť bezplatný Fedora účet (FAS) a COPR `latteos`,
-- balíky stavať cez GitHub Actions do GitHub Releases alebo vlastného dnf repozitára na GitHub Pages
-  (bez Fedora účtu),
-- neskôr pri Fedora Atomic balíky zapiecť priamo do obrazu (bootc), vtedy COPR netreba vôbec.
+### Svetlá/tmavá verzia každej témy, automaticky podľa slnka
+Hotové. Všetkých 14 tém má tmavú aj svetlú paletu. V Nastaveniach › Prostredie › Motív a farby si
+vyberieš **Podľa témy / Tmavá / Svetlá / Automaticky (slnko)**. Automatický režim prepína Noctalia
+podľa východu a západu slnka pre polohu. Predvolená poloha je stred Slovenska; zmena je v Systém ›
+Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ---
 
 ## Denník
+
+### 24. 9. 2026, 07:50: F5, OOM politika ✅ a oprava inštalátora
+- Pri nedostatku pamäte padne najprv **aplikácia**, nie lišta ani celá plocha (nápad z Ubuntu 26.10,
+  `session/oom/`). Okná aplikácií dostanú +300, Hyprland a Noctalia ostávajú na 0, dbus, PipeWire a
+  portály majú −500. Overené na tvojej relácii: nový terminál mal 300.
+- **Chyba, ktorú som spravil:** inštalátor prepisoval súbory Lua modulu po jednom a tvoj bežiaci
+  Hyprland sa pri zmene sám znovu načítal práve vo chvíli, keď `latte/mode.lua` chýbal. Prešiel do
+  núdzového režimu (červený rámik hore, skratky iba Super+Q/R/M). Spravil som `hyprctl reload` a chyba
+  zmizla. Inštalátor teraz vymieňa konfigurácie atomicky (dočasný súbor a premenovanie), takže sa to
+  nezopakuje.
+
+### 24. 9. 2026, 07:45: lišta: čas a dátum, dlaždica aplikácií, maskot ✅
+- **Ostrov času:** na lište je čas aj dátum (`07:45 · št 24. 9.`). Klik otvorí panel s tromi záložkami:
+  - **Čas:** veľké hodiny, dátum, týždeň, **časové pásma** (vyberieš v Nastaveniach).
+  - **Oznámenia:** Nerušiť, história, **oznámenia z mobilu** cez KDE Connect (Android; iPhone
+    obmedzene). KDE Connect nie je nainštalovaný, rozhodnutie je nižšie.
+  - **Kalendár:** mesiac, **vlastný plánovač** udalostí s pripomenutím v čase udalosti, napojenie na
+    Google Kalendár, iCloud, CalDAV (Nextcloud) a ICS odkazy (Outlook, Proton, Todoist, TickTick,
+    Microsoft To Do). To poskytuje kalendár Noctalie, netreba písať vlastných klientov.
+  - Pravý klik na čas otvorí rovno Kalendár.
+- **Dlaždica aplikácií** podľa starej verzie (`old/docs/lista-a-rohy.md`): široká, bez textu, ikona nad
+  pokojnou textúrou **Para** alebo **Matrix**. Klik otvorí spúšťač, pravý klik App Manager. Pohyb je
+  najviac 10 obr/s a vo VM beží iba pod kurzorom (šetrí CPU); dá sa zmeniť v Nastaveniach › Lišta.
+- Screenshoty: `setup/f1/results/f3-cas-*.png`, `f3-lista-v3.png`, `f3-nast2-lista.png`.
+
+### 24. 9. 2026, 07:35: Nastavenia s kartami, AI, greeter, štítky v Súboroch ✅
+- **Nastavenia** majú **vrstvené karty** ako v starej verzii (`old/main_setting_v2.md`):
+  - Softvér · Dáta · Hardvér · Účet · Prostredie + Systém. Vždy je otvorená jedna karta, ostatné sú
+    zmenšené „chrbty“ so súhrnom a stavom (● hotové, ◐ časť, ○ plán). Hlavné karty sa neposúvajú.
+  - Domov je stavový prehľad (režim, grafika, disk, AI, téma, účet) a ukazuje nedávno použité stránky.
+  - Nové stránky:
+    - **AI**, **Úložisko**, **Diagnostika a pády** (log posledného pádu),
+    - **Prihlasovanie** (greeter), **Motív** (svetlá/tmavá/auto), **Lišta** (hrúbka, šírka cez
+      odsadenie od okrajov, odsadenie od spodku, medzery),
+    - **Dátum a čas** (poloha, časové pásma), **O LatteOS**.
+  - Plánované stránky ukážu, čo na nich bude.
+- **AI** (`latte-ai`, Nastavenia › Softvér › AI, Text Bar /ai):
+  - Kde beží AI: **tento počítač** (Ollama), **domáci server** (OpenAI API; predvolene tvoje LM Studio
+    `http://192.168.56.1:1234`, voliteľne cez **SSH tunel** `pouzivatel@server`), alebo **veľké AI**
+    v cloude (Claude, ChatGPT, Gemini, Mistral s API kľúčom, uložený s právami 0600).
+  - Modely zo servera sa dajú vybrať kliknutím, pri každom je, či je načítaný. **Overené s tvojím LM
+    Studio:** model `qwen3-4b-thinking` odpovedal „Hlavné mesto Slovenska je Bratislava.“ (~30 s,
+    načítanie modelu).
+  - Poznámka: LM Studio sám nič nenačíta. Text Bar použije model, ktorý máš načítaný, alebo ten,
+    ktorý vyberieš v Nastaveniach.
+- **Greeter:**
+  - Nad menom sú **posledné dva prihlásené účty** na klik.
+  - Vľavo je panel s **prvým logom z posledného pádu**: `latte-session` ho po páde zapíše do
+    `/var/lib/latteos/greeter/last-crash.log`.
+  - V Nastaveniach › Účet › Prihlasovanie sa dá prepnúť na **vlastný text** alebo **nič**; neskôr tu
+    bude RSS, novinky a počasie.
+  - Pozadie (tapeta alebo iba farba), farba a stmavenie sa nastavujú v Nastaveniach.
+  - Screenshot: `setup/f1/results/f1-greeter-v2.png`, v teste bola ukážka logu, potom zmazaná.
+- **Súbory:**
+  - **Pravé kontextové menu:** Otvoriť, Otvoriť v druhom paneli, **Farba**, Premenovať, Kopírovať cestu,
+    Do Obľúbených, Terminál tu, Do koša. Na prázdnom mieste: Nový priečinok, skryté súbory, Terminál.
+  - **Farebné štítky** priečinkov: plná ikona v zázname aj v Obľúbených a bodka za názvom. Farba nie je
+    jediný nosič, ikona sa zmení aj tvarom.
+  - Vlastné Obľúbené cez pravý klik.
+  - Screenshot: `setup/f1/results/f4-subory-menu.png`.
 
 ### 23. 9. 2026, 22:05: Zariadenia (riadiace centrum, plugin) + herný režim ✅
 - `session/noctalia/plugins/devices/`: ikona na lište (pomaly sa strieda sieť, zvuk, ovládanie), klik
@@ -195,16 +251,45 @@ nižšie):
 
 ---
 
+## Staršie odpovede (23. 9.)
+
+### Dá sa napísať vlastný greeter alebo prerobiť iný do nášho vzhľadu?
+
+Áno, obe cesty sú reálne:
+
+| Cesta | Čo to znamená | Riziko |
+|---|---|---|
+| **A. Vlastný greeter v Quickshelli** (zvolené) | Quickshell má priamo modul `Quickshell.Services.Greetd` (prihlásenie cez greetd). Obrazovka prihlásenia je potom jeden QML súbor v štýle Latte a beží pod labwc s pixmanom, teda na overenej kombinácii bez GPU, ktorá pamäť neprepúšťa. | nízke: iba QML, kompozitor je overený |
+| B. Opraviť Noctalia Greeter (MIT) | nájsť únik pamäte jadra v jeho kompozitore | neznáme; je to cudzí C++ kód |
+| C. Prefarbiť tuigreet | iba farby textového greetera | žiadne, ale je to stále text |
+
+Robím **A** a C nechávam ako zálohu. **Hotové a predvolené**, pozri denník.
+
+### Nemám Fedora účet
+
+To nevadí. COPR je iba pohodlnejšia distribúcia balíka `hyprland-latte`. Dovtedy funguje lokálny
+repozitár `latteos-local` (`/var/lib/latteos/repo`) a COPR má vylúčené `hyprland*`, takže `dnf upgrade`
+patchovaný Hyprland neprepíše. Keď budeme balíky rozdávať iným PC, možnosti sú tieto (rozhodnutie je
+nižšie):
+- založiť bezplatný Fedora účet (FAS) a COPR `latteos`,
+- balíky stavať cez GitHub Actions do GitHub Releases alebo vlastného dnf repozitára na GitHub Pages
+  (bez Fedora účtu),
+- neskôr pri Fedora Atomic balíky zapiecť priamo do obrazu (bootc), vtedy COPR netreba vôbec.
+
+---
+
 ## Čaká na tvoje rozhodnutie
 
-1. **Distribúcia balíkov bez Fedora účtu:** FAS + COPR, GitHub Actions a vlastný repozitár, alebo
-   počkať na Atomic (bootc)? Zatiaľ nič netreba, lokálny repozitár stačí.
-2. **Malý AI model do VM na skúšku?** Text Bar v režime AI potrebuje model v Ollame. Vo VM (11 GB RAM)
-   by sa hodil malý model (~1–2 GB, napr. qwen2.5:1.5b). Qwen3-14B-sk (~9 GB v Q4) až na HW. Nič som
-   nesťahoval.
-3. **Predvolený režim okien:** dal som **nekonečnú pásku** (srdce návrhu). Radar ale varuje, že
-   nováčikovia z Windows chcú plávajúce okná. Zmena je jeden riadok (`latte/windows.lua`, `load_mode`).
-4. **Vypnúť 3D akceleráciu vo VirtualBoxe?** (Nastavenia VM → Obrazovka → „Zapnúť 3D akceleráciu“.)
-   LatteOS vo VM aj tak kreslí softvérovo. So zapnutým 3D Mesa občas siahne na ovládač `svga`, čo na
-   VirtualBoxe spúšťa chyby `vmw_msg_ioctl` a zrejme aj pády. Odporúčam **vypnúť** a sledovať, či pády zmiznú.
-   Je to iba nastavenie VM, LatteOS sa tomu prispôsobí sám (`latte-boot`).
+1. **Vypnúť 3D akceleráciu vo VirtualBoxe?** (Nastavenia VM → Obrazovka → „Zapnúť 3D akceleráciu“.)
+   LatteOS vo VM aj tak kreslí softvérovo; so zapnutým 3D Mesa občas siahne na `svga` a kernel hlási
+   `vmw_msg_ioctl Failed to open channel` (aj dnes ráno 4×). Odporúčam **vypnúť**.
+2. **KDE Connect pre oznámenia z mobilu?** Balík `kde-connect` z Fedory stiahne časť knižníc KDE
+   (~150 MB). Alternatíva bez KDE je `valent` (GTK, menej zrelý). Nenainštaloval som nič; tlačidlo je
+   v paneli Čas › Oznámenia.
+3. **Cloudové AI:** ak chceš Claude, ChatGPT alebo Gemini, vlož API kľúč v Nastaveniach › Softvér › AI.
+   Kľúč nikam neposielam, uloží sa iba do `~/.config/latteos/ai-keys`.
+4. **Poradie ostrovov na lište:** maskot je vpravo pred schránkou a zvonček ostal v ostrove času.
+   Chceš to inak?
+
+Vybavené (24. 9.): distribúcia balíkov počká na HW a Atomic · AI ide cez tvoje LM Studio · režim okien
+ostáva páska, ostatné sa prepnú z menu.
