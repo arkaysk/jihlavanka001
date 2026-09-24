@@ -98,6 +98,7 @@ done
 echo "== systemd + tmpfiles + /etc/latteos"
 sudo install -Dm644 "$S/systemd/latte-boot.service" /usr/lib/systemd/system/latte-boot.service
 sudo install -Dm644 "$S/systemd/latteos.tmpfiles" /usr/lib/tmpfiles.d/latteos.conf
+sudo install -Dm644 "$S/systemd/latte-session.target" /usr/lib/systemd/user/latte-session.target
 # SELinux: greeter beží v doméne xdm_t a smie čítať iba xdm_var_run_t → štítok pre /run/latteos
 # (bez neho greeter nevidí session.env a vždy ponúkne SAFE; zistené testom 23. 9. 2026)
 if command -v semanage >/dev/null || sudo dnf -y -q install policycoreutils-python-utils; then

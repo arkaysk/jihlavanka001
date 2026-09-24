@@ -193,7 +193,9 @@ end)
 
 -- ── autoštart ─────────────────────────────────────────────────────────────────
 hl.on("hyprland.start", function()
-    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE LATTE_MODE LATTE_RENDERER LATTE_TIER")
+    -- prostredie pre systemd/D-Bus, potom graphical-session.target (portály pre Flatpak)
+    hl.exec_cmd("sh -c 'dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE "
+        .. "HYPRLAND_INSTANCE_SIGNATURE LATTE_MODE LATTE_RENDERER LATTE_TIER; systemctl --user start latte-session.target'")
     hl.exec_cmd("noctalia")
     -- história schránky pre Kapsu (text aj obrázky)
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
@@ -203,6 +205,8 @@ hl.on("hyprland.start", function()
         local f = io.open(cfgdir .. "/live-wallpaper", "r")
         if f then f:close(); hl.exec_cmd("latte-app zivatapeta") end
     end
+    -- znak NET pre cudzie okná (ukáže sa, až keď aplikácia použije sieť)
+    hl.exec_cmd("latte-app netznak")
     -- Barista (sprievodca prvým spustením) raz po prvom prihlásení
     do
         local f = io.open(cfgdir .. "/barista-done", "r")

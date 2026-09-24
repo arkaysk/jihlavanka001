@@ -189,7 +189,7 @@ flowchart TD
 - [x] Greeter: greetd + **tuigreet** (textový, bez GPU), ponúka iba „LatteOS“ a „LatteOS SAFE“. Noctalia Greeter je vypnutý (`greeter = "tui"`): pod greetd prepúšťa pamäť jadra ~36 MB/s.
 - [x] **Celý štart overený 23. 9. 2026:** Plymouth → `latte-boot` (NORMAL · sw-gl) → tuigreet → LatteOS (Hyprland + Noctalia) → `latte-boot ok` po 60 s. Boot 13,4 s.
 - [ ] Presunuté ďalej: distribúcia balíkov pre iné PC. **Rozhodnuté 24. 9. 2026:** čaká sa na HW testovací stroj a Atomic (bootc); dovtedy lokálny repozitár `latteos-local`, COPR má `excludepkgs=hyprland*`.
-- [ ] Presunuté ďalej: Noctalia Greeter bez úniku pamäte (F3), grafická SAFE relácia s `nomodeset`, systemd user integrácia relácie (`latte-session.target`).
+- [ ] Presunuté ďalej: Noctalia Greeter bez úniku pamäte (F3), grafická SAFE relácia s `nomodeset`, systemd user integrácia relácie (`latte-session.target` ✅ 24. 9.).
 
 ### F2 — Hyprland Lua modul LatteOS *(základ hotový 23. 9. 2026)*
 - [x] `session/hypr/hyprland.lua` + `latte/{mode,tiers,windows}.lua`: načíta `/run/latteos/mode.toml`
@@ -209,7 +209,8 @@ flowchart TD
   (`latte/snap.lua`, rešpektuje lištu). Overené na živej relácii.
 - [x] **Jednotné okenné tlačidlá** (hyprbars, `latte/bars.lua`): – □ ✕ v titulku okien bez vlastnej hlavičky, farby z palety;
   CSD aplikácie bez druhého pruhu; minimalizovať = `special:minimized` (Super+N / Super+Shift+N); aplikácie LatteOS rovnaké tlačidlá, NET iba pri spojení.
-- [ ] NET indikátor pre cudzie okná (iba ak aplikácia použila sieť), pripnutý pruh pre Electron.
+- [x] NET pre cudzie okná (`latte-app netznak`, `latte-net used PID`): znak v titulku / jazýček nad CSD oknom, iba po spojení von.
+- [x] GTK/Firefox – □ ✕ (`button-layout`), `latte-session.target` → graphical-session.target → portály bežia.
 - [ ] Ťahanie okna k okraju s ponukou rozložení (Lua API zatiaľ nemá udalosť konca ťahania).
 - [x] Gesto 4 prsty hore = prehľad pásky, dole = prázdna plocha; tapeta podľa plochy (voliteľné, Nastavenia › Pozadie);
   herný režim (`latte.game`).

@@ -5,6 +5,7 @@
   latte-net off APP_ID             aplikácia nesmie na internet
   latte-net on APP_ID              aplikácia smie na internet (predvolené)
   latte-net list                   aplikácie s vypnutým NET
+  latte-net used PID               1, ak proces alebo jeho potomkovia majú spojenie mimo lo (inak 0)
   latte-net exec -- PRÍKAZ…        spustí príkaz bez siete (bubblewrap --unshare-net; zostane iba lo)
 
 APP_ID je názov .desktop súboru bez prípony (napr. org.mozilla.firefox, foot).
@@ -86,7 +87,61 @@ def set_on(app):
     return 0
 
 
+def descendants(root):
+    kids = {}
+    for d in os.listdir("/proc"):
+        if d.isdigit():
+            try:
+                ppid = open("/proc/%s/stat" % d).read().rsplit(")", 1)[1].split()[1]
+            except (OSError, IndexError):
+                continue
+            kids.setdefault(ppid, []).append(d)
+    out, todo = [], [str(root)]
+    while todo:
+        p = todo.pop()
+        out.append(p)
+        todo.extend(kids.get(p, []))
+    return out
+
+
+def used(root):
+    """Tlačidlo NET sa ukáže až vtedy, keď aplikácia naozaj otvorí spojenie von (nie iba na lo)."""
+    inodes = set()
+    for p in descendants(root):
+        try:
+            for fd in os.listdir("/proc/%s/fd" % p):
+                try:
+                    t = os.readlink("/proc/%s/fd/%s" % (p, fd))
+                except OSError:
+                    continue
+                if t.startswith("socket:["):
+                    inodes.add(t[8:-1])
+        except OSError:
+            continue
+    if not inodes:
+        return False
+    for name in ("tcp", "tcp6", "udp", "udp6"):
+        try:
+            rows = open("/proc/net/" + name).read().splitlines()[1:]
+        except OSError:
+            continue
+        for r in rows:
+            f = r.split()
+            if len(f) < 10 or f[9] not in inodes:
+                continue
+            addr, port = f[2].split(":")
+            if int(port, 16) == 0 or set(addr) == {"0"}:
+                continue                                   # nepripojený / počúvajúci soket
+            if addr in ("0100007F", "00000000000000000000000001000000") or addr.endswith("0100007F") and len(addr) == 32 and addr.startswith("0000000000000000FFFF0000"):
+                continue                                   # 127.0.0.1, ::1, ::ffff:127.0.0.1
+            return True
+    return False
+
+
 def main(a):
+    if len(a) == 2 and a[0] == "used" and a[1].isdigit():
+        print(1 if used(int(a[1])) else 0)
+        return 0
     if len(a) >= 2 and a[0] == "exec":
         cmd = a[2:] if a[1] == "--" else a[1:]
         if not cmd:

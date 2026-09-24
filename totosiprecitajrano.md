@@ -70,6 +70,19 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 16:10: jednotné okenné tlačidlá, NET až pri sieti, opravené portály ✅ (bod 1)
+- **– □ ✕ všade:** okná bez vlastnej hlavičky (terminál, Qt/KDE, VLC…) dostanú titulok od kompozitora
+  (plugin hyprbars, farby podľa témy a svetlého/tmavého režimu). GTK/GNOME aplikácie a Firefox majú vlastnú
+  hlavičku, teraz tiež s – □ ✕ (predtým iba ✕). Aplikácie LatteOS majú rovnaké okrúhle tlačidlá.
+  Minimalizovať = okno sa skryje (Super+N), späť Super+Shift+N; neskôr z oválu okien v lište (bod 3).
+- **NET** sa ukáže, **až keď aplikácia otvorí spojenie von** (nie iba lokálne). Pri cudzích oknách je to malý
+  znak v titulku vedľa – □ ✕, pri oknách s vlastnou hlavičkou (Firefox, Electron) prilepený jazýček nad
+  horným okrajom okna. Klik vypne/zapne NET (platí od ďalšieho spustenia aplikácie).
+- **Opravená chyba, ktorú nebolo vidieť:** portály (xdg-desktop-portal) sa v relácii vôbec nespúšťali.
+  Flatpak aplikácie preto nemali výber súborov, zdieľanie obrazovky ani nastavenia systému. Relácia má
+  teraz vlastný systemd target, ktorý sa spustí po štarte Hyprlandu a skončí s ním.
+- Zostáva z bodu 1: vyskakovacie okná vyrastajúce z lišty (L-tvar) spravím spolu s bodom 2 (lišta).
+
 ### 24. 9. 2026, 15:30: grafický Inštalátor, Barista ukazuje inštaláciu, počasie v paneli Čas ✅
 - **Inštalátor** (`latte-app instalator`) namiesto terminálu: názov a popis balíka, veľkosť, pole na heslo
   správcu (ide iba cez stdin do sudo), pruh priebehu s krokmi, log pod „Podrobnosti“. Zlé heslo ohlási
