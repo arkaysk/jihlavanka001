@@ -137,6 +137,7 @@ ShellRoot {
             HeaderBar {
                 id: header
                 theme: theme
+                appId: "latteos-aplikacie"
                 anchors { left: side.right; right: parent.right; top: parent.top }
                 title: ({ objavovat: "Objavovať", aktualizacie: "Aktualizácie", nainstalovane: "Nainštalované", opravnenia: "Oprávnenia a NET", check: "Bude to fungovať?" })[app.section] || ""
                 searchPlaceholder: "Hľadať aplikáciu"

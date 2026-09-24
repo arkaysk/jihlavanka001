@@ -143,6 +143,7 @@ ShellRoot {
             HeaderBar {
                 id: header
                 theme: theme
+                appId: "latteos-monitor"
                 anchors { left: side.right; right: parent.right; top: parent.top }
                 title: ({ prehlad: "Prehľad", procesy: "Procesy", autorun: "Po štarte", telemetria: "Výstupy telemetrie" })[app.section]
                 searchPlaceholder: "Hľadať proces"

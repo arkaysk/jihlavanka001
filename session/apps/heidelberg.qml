@@ -124,6 +124,7 @@ ShellRoot {
             HeaderBar {
                 id: header
                 theme: theme
+                appId: "latteos-heidelberg"
                 anchors { left: side.right; right: parent.right; top: parent.top }
                 title: (app.path ? app.path.split("/").pop() : "Nový dokument") + (app.dirty ? "  •  neuložené" : "")
                 netVisible: false

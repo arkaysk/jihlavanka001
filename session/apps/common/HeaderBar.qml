@@ -2,6 +2,8 @@
 // Nástroje aplikácie sa vkladajú ako deti (default property → tools).
 import QtQuick
 import Quickshell.Io
+// NET: appId = názov .desktop súboru aplikácie (napr. latteos-subory); stav a prepnutie cez latte-net,
+// platí od ďalšieho spustenia aplikácie (bubblewrap bez siete).
 
 Rectangle {
     id: hb
@@ -12,6 +14,10 @@ Rectangle {
     property string searchPlaceholder: "Hľadať"
     property bool netVisible: true
     property bool netOn: true
+    property string appId: ""
+    Process { id: netStatus; running: hb.appId !== ""; command: ["latte-net", "status", hb.appId]
+              stdout: StdioCollector { onStreamFinished: hb.netOn = this.text.trim() !== "off" } }
+    Process { id: netSet }
     default property alias tools: toolRow.data
     signal back()
     signal forward()
@@ -79,7 +85,13 @@ Rectangle {
                 Rectangle { width: 8; height: 8; radius: 4; anchors.verticalCenter: parent.verticalCenter; color: hb.netOn ? hb.theme.primary : hb.theme.error }
                 Text { text: "NET"; color: hb.theme.fg; font { family: hb.theme.fontUi; pixelSize: 12; weight: Font.ExtraBold } }
             }
-            MouseArea { anchors.fill: parent; onClicked: { hb.netOn = !hb.netOn; hb.netToggled(hb.netOn) } }
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                    hb.netOn = !hb.netOn; hb.netToggled(hb.netOn);
+                    if (hb.appId !== "") { netSet.command = ["latte-net", hb.netOn ? "on" : "off", hb.appId]; netSet.running = true; }
+                }
+            }
         }
         IconButton { theme: hb.theme; glyph: "x"; tip: "Zavrieť"; onClicked: hb.closeRequested() }
     }

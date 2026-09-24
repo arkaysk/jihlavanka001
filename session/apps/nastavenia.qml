@@ -362,6 +362,7 @@ ShellRoot {
         HeaderBar {
             id: header
             theme: theme
+            appId: "latteos-nastavenia"
             anchors { left: side.right; right: parent.right; top: parent.top }
             title: (app.current.areaTitle ? app.current.areaTitle + " › " : "") + app.current.label
             canBack: app.historyIndex > 0

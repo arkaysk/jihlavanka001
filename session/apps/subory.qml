@@ -323,6 +323,7 @@ ShellRoot {
             HeaderBar {
                 id: header
                 theme: theme
+                appId: "latteos-subory"
                 anchors { left: side.right; right: parent.right; top: parent.top }
                 title: app.activePane ? (app.activePane.path === app.trashDir ? "Kôš" : app.activePane.path) : ""
                 canBack: app.activePane && app.activePane.historyIndex > 0
