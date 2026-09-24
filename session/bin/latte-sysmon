@@ -1,0 +1,301 @@
+#!/usr/bin/python3
+"""latte-sysmon — živý stav systému pre Monitor LatteOS (Process Manager) a iné zobrazovače.
+
+  latte-sysmon stream [s]    JSON riadok každú sekundu (alebo každých s): CPU, RAM, disky, sieť, teploty, procesy
+  latte-sysmon autorun       JSON: čo sa spúšťa pri štarte (XDG autostart, systemd user/system, časovače, cron)
+  latte-sysmon once          jeden snímok (bez procesov)
+
+Telemetria: pri `stream` sa posledný snímok (bez zoznamu procesov) zapisuje aj do
+$XDG_RUNTIME_DIR/latteos/telemetry.json — jednoduché lokálne rozhranie pre OLED displeje chladenia,
+Stream Deck a pod. (old/IDEAS.md: „poskytuje údaje cez štandardné lokálne rozhranie“). Monitor nič
+nekonfiguruje na cieľovom zariadení, iba dáva údaje.
+Iba čítanie /proc a /sys, bez práv správcu.
+"""
+import glob, json, os, pwd, subprocess, sys, time
+
+CLK = os.sysconf("SC_CLK_TCK")
+PAGE = os.sysconf("SC_PAGE_SIZE")
+ME = os.getuid()
+RUN = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "latteos")
+
+# procesy prostredia LatteOS (ukončenie má vplyv na celú plochu → varovanie)
+DESKTOP = {"Hyprland", "noctalia", "labwc", "qs", "quickshell", "greetd", "latte-session", "pipewire", "pipewire-pulse",
+           "wireplumber", "dbus-broker", "dbus-broker-lau", "dbus-daemon", "xdg-desktop-portal", "xdg-desktop-portal-hyprland",
+           "xdg-desktop-portal-gtk", "xdg-document-portal", "xdg-permission-store", "at-spi-bus-launcher", "at-spi2-registryd",
+           "systemd", "Xwayland", "gvfsd", "dconf-service", "gnome-keyring-daemon"}
+
+
+def read(path, default=""):
+    try:
+        with open(path) as f:
+            return f.read()
+    except OSError:
+        return default
+
+
+def cpu_times():
+    out = []
+    for line in read("/proc/stat").splitlines():
+        if line.startswith("cpu"):
+            f = line.split()
+            v = list(map(int, f[1:9]))
+            idle = v[3] + v[4]
+            out.append((sum(v), idle))
+    return out
+
+
+def meminfo():
+    m = {}
+    for line in read("/proc/meminfo").splitlines():
+        k, _, rest = line.partition(":")
+        m[k] = int(rest.split()[0]) * 1024 if rest.strip() else 0
+    total = m.get("MemTotal", 0)
+    avail = m.get("MemAvailable", 0)
+    return {"total": total, "used": total - avail, "avail": avail,
+            "swapTotal": m.get("SwapTotal", 0), "swapUsed": m.get("SwapTotal", 0) - m.get("SwapFree", 0)}
+
+
+def disk_io():
+    rd = wr = 0
+    for line in read("/proc/diskstats").splitlines():
+        f = line.split()
+        name = f[2]
+        if name.startswith(("loop", "ram", "zram", "dm-", "sr")) or name[-1].isdigit() and not name.startswith("nvme"):
+            continue
+        if name.startswith("nvme") and "p" in name[4:]:
+            continue
+        rd += int(f[5]) * 512
+        wr += int(f[9]) * 512
+    return rd, wr
+
+
+def net_io():
+    rx = tx = 0
+    for line in read("/proc/net/dev").splitlines()[2:]:
+        name, _, rest = line.partition(":")
+        if name.strip() == "lo":
+            continue
+        f = rest.split()
+        rx += int(f[0])
+        tx += int(f[8])
+    return rx, tx
+
+
+def temps():
+    out = []
+    for d in glob.glob("/sys/class/hwmon/hwmon*"):
+        name = read(d + "/name").strip()
+        for t in sorted(glob.glob(d + "/temp*_input"))[:4]:
+            try:
+                c = int(read(t).strip()) / 1000
+            except ValueError:
+                continue
+            label = read(t.replace("_input", "_label")).strip() or name
+            out.append({"sensor": name, "label": label, "c": round(c, 1)})
+    return out
+
+
+def filesystems():
+    out = []
+    seen = set()
+    for line in read("/proc/mounts").splitlines():
+        dev, mnt, fs = line.split()[:3]
+        if not dev.startswith("/dev/") or mnt.startswith(("/boot", "/snap")) or dev in seen:
+            continue
+        seen.add(dev)
+        try:
+            st = os.statvfs(mnt)
+        except OSError:
+            continue
+        total = st.f_blocks * st.f_frsize
+        out.append({"mount": mnt, "fs": fs, "total": total, "used": total - st.f_bavail * st.f_frsize})
+    return out
+
+
+def window_pids():
+    try:
+        r = subprocess.run(["hyprctl", "clients", "-j"], capture_output=True, text=True, timeout=2)
+        return {c["pid"]: c.get("class") or c.get("title") for c in json.loads(r.stdout or "[]")}
+    except Exception:
+        return {}
+
+
+USERS = {}
+
+
+def user_of(uid):
+    if uid not in USERS:
+        try:
+            USERS[uid] = pwd.getpwuid(uid).pw_name
+        except KeyError:
+            USERS[uid] = str(uid)
+    return USERS[uid]
+
+
+def processes(prev, dt, total_ticks, wins):
+    procs, now = [], {}
+    for pid_s in os.listdir("/proc"):
+        if not pid_s.isdigit():
+            continue
+        pid = int(pid_s)
+        stat = read("/proc/%d/stat" % pid)
+        if not stat:
+            continue
+        try:
+            name = stat[stat.index("(") + 1:stat.rindex(")")]
+            f = stat[stat.rindex(")") + 2:].split()
+            ppid, utime, stime, rss = int(f[1]), int(f[11]), int(f[12]), int(f[21]) * PAGE
+            uid = os.stat("/proc/%d" % pid).st_uid
+        except (ValueError, IndexError, OSError):
+            continue
+        ticks = utime + stime
+        now[pid] = ticks
+        cpu = 100.0 * (ticks - prev.get(pid, ticks)) / (CLK * dt) if dt > 0 else 0.0
+        if uid != ME and uid != 0:
+            kind = "system"
+        elif uid == 0:
+            kind = "system"
+        elif pid in wins:
+            kind = "app"
+        elif name in DESKTOP or name.startswith(("xdg-", "gvfs")):
+            kind = "desktop"
+        else:
+            kind = "helper"
+        procs.append({"pid": pid, "ppid": ppid, "name": name, "user": user_of(uid), "cpu": round(cpu, 1), "rss": rss,
+                      "kind": kind, "window": wins.get(pid, ""), "mine": uid == ME})
+    return procs, now
+
+
+def cmdline(pid):
+    return read("/proc/%d/cmdline" % pid).replace("\0", " ").strip()
+
+
+def snapshot(state, with_procs=True):
+    t = time.monotonic()
+    dt = t - state.get("t", t)
+    cpus = cpu_times()
+    prev = state.get("cpus", cpus)
+    usage = []
+    for (tot, idle), (ptot, pidle) in zip(cpus, prev):
+        d = tot - ptot
+        usage.append(round(100.0 * (1 - (idle - pidle) / d), 1) if d > 0 else 0.0)
+    rd, wr = disk_io()
+    rx, tx = net_io()
+    p = state.get("io", (rd, wr, rx, tx))
+    rate = lambda a, b: round((a - b) / dt) if dt > 0 else 0
+    load = read("/proc/loadavg").split()[:3]
+    snap = {
+        "time": int(time.time()),
+        "cpu": usage[0] if usage else 0, "cores": usage[1:],
+        "mem": meminfo(),
+        "disk": {"read": rate(rd, p[0]), "write": rate(wr, p[1])},
+        "net": {"rx": rate(rx, p[2]), "tx": rate(tx, p[3])},
+        "load": load, "uptime": int(float(read("/proc/uptime", "0 0").split()[0])),
+        "temps": temps(), "fs": filesystems(),
+    }
+    if with_procs:
+        if state.get("winT", 0) + 5 < t:          # okná z Hyprlandu raz za 5 s
+            state["wins"], state["winT"] = window_pids(), t
+        procs, ticks = processes(state.get("ticks", {}), dt, 0, state.get("wins", {}))
+        procs.sort(key=lambda x: (-x["cpu"], -x["rss"]))
+        for x in procs[:60]:
+            x["cmd"] = cmdline(x["pid"])[:300]
+        snap["procs"] = procs[:60]
+        snap["procCount"] = len(procs)
+        state["ticks"] = ticks
+    state.update(t=t, cpus=cpus, io=(rd, wr, rx, tx))
+    return snap
+
+
+def desktop_entries():
+    out = []
+    home = os.path.expanduser("~/.config/autostart")
+    files = {}
+    for d in ("/etc/xdg/autostart", home):
+        for f in sorted(glob.glob(d + "/*.desktop")):
+            files[os.path.basename(f)] = f          # používateľ prekryje systém
+    for base, f in sorted(files.items()):
+        kv = {}
+        for line in read(f).splitlines():
+            if "=" in line and not line.startswith("#"):
+                k, _, v = line.partition("=")
+                kv.setdefault(k.strip(), v.strip())
+        only = kv.get("OnlyShowIn", "")
+        out.append({"id": base, "kind": "autostart", "name": kv.get("Name", base), "command": kv.get("Exec", ""),
+                    "origin": f, "owner": "používateľ" if f.startswith(home) else "systém",
+                    "enabled": kv.get("Hidden", "false").lower() != "true" and kv.get("X-GNOME-Autostart-enabled", "true").lower() != "false",
+                    "note": ("iba " + only) if only else "", "canToggle": True})
+    return out
+
+
+def systemd_units(user):
+    base = ["systemctl"] + (["--user"] if user else [])
+    out = []
+    try:
+        r = subprocess.run(base + ["list-unit-files", "--state=enabled", "--type=service,timer", "--no-legend", "--no-pager"],
+                           capture_output=True, text=True, timeout=5)
+    except Exception:
+        return out
+    for line in r.stdout.splitlines():
+        f = line.split()
+        if not f:
+            continue
+        unit = f[0]
+        if unit.endswith("@.service"):
+            continue
+        out.append({"id": unit, "kind": "timer" if unit.endswith(".timer") else ("user-service" if user else "service"),
+                    "name": unit.rsplit(".", 1)[0], "command": "", "origin": "systemd --user" if user else "systemd (systém)",
+                    "owner": "používateľ" if user else "systém", "enabled": True, "canToggle": bool(user), "note": ""})
+    return out
+
+
+def cron():
+    try:
+        r = subprocess.run(["crontab", "-l"], capture_output=True, text=True, timeout=3)
+    except Exception:
+        return []
+    out = []
+    for i, line in enumerate(r.stdout.splitlines()):
+        if line.strip() and not line.startswith("#"):
+            out.append({"id": "cron:%d" % i, "kind": "cron", "name": line.split()[5] if len(line.split()) > 5 else line,
+                        "command": line, "origin": "crontab -l", "owner": "používateľ", "enabled": True, "canToggle": False, "note": ""})
+    return out
+
+
+def main(a):
+    cmd = a[0] if a else "once"
+    state = {}
+    if cmd == "autorun":
+        print(json.dumps(desktop_entries() + systemd_units(True) + systemd_units(False) + cron(), ensure_ascii=False))
+        return 0
+    if cmd == "once":
+        snapshot(state, False)
+        time.sleep(0.3)
+        print(json.dumps(snapshot(state, False), ensure_ascii=False))
+        return 0
+    if cmd == "stream":
+        every = float(a[1]) if len(a) > 1 else 1.0
+        os.makedirs(RUN, exist_ok=True)
+        snapshot(state)
+        while True:
+            time.sleep(every)
+            snap = snapshot(state)
+            try:
+                sys.stdout.write(json.dumps(snap, ensure_ascii=False) + "\n")
+                sys.stdout.flush()
+            except BrokenPipeError:
+                return 0
+            tele = {k: v for k, v in snap.items() if k != "procs"}
+            tmp = os.path.join(RUN, "telemetry.json.tmp")
+            with open(tmp, "w") as f:
+                json.dump(tele, f)
+            os.replace(tmp, os.path.join(RUN, "telemetry.json"))
+    print(__doc__.strip(), file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except KeyboardInterrupt:
+        sys.exit(0)

@@ -94,6 +94,7 @@ bind(mod .. " + Space",  hl.dsp.exec_cmd("noctalia msg panel-toggle launcher")) 
 bind(mod .. " + Tab",    hl.dsp.exec_cmd("noctalia msg window-switcher"))            -- prehľad pásky
 bind(mod .. " + A",      hl.dsp.exec_cmd("noctalia msg panel-toggle control-center"))
 bind(mod .. " + E",      hl.dsp.exec_cmd("latte-app subory"))                        -- Súbory (Data Manager)
+bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd("latte-app monitor"))                   -- Monitor (správca procesov)
 bind(mod .. " + Q",      hl.dsp.window.close())
 bind(mod .. " + F",      hl.dsp.window.fullscreen())
 bind(mod .. " + V",      hl.dsp.window.float({ action = "toggle" }))
