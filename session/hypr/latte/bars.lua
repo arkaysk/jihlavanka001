@@ -34,6 +34,21 @@ function B.setup(theme)
         if address and ws then hl.dispatch(hl.dsp.window.move({ workspace = tostring(ws.id), window = "address:" .. address })) end
     end
 
+    -- lišta (ovál okien): klik na ikonu = prepnúť na okno; minimalizované sa vráti na aktuálnu plochu
+    function latte.win.activate(address)
+        for _, w in ipairs(hl.get_windows() or {}) do
+            if w.address == address then
+                local ws = w.workspace
+                if ws and tostring(ws.name or ""):find("^special:minimized") then latte.win.restore(address) end
+                hl.dispatch(hl.dsp.focus({ window = "address:" .. address }))
+                return
+            end
+        end
+    end
+    function latte.win.minimize_addr(address)
+        hl.dispatch(hl.dsp.window.move({ workspace = "special:minimized", follow = false, window = "address:" .. address }))
+    end
+
     if not file_exists(B.plugin) then return false end
     local ok = pcall(hl.plugin.load, B.plugin)
     if not ok or not (hl.plugin and hl.plugin.hyprbars) then return false end

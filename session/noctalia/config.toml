@@ -81,7 +81,7 @@ enabled = true
 
 [[bar.main.capsule_group]]
 id      = "system"
-members = ["latte-cup", "workspaces"]
+members = ["latte-cup", "latte-okna"]
 enabled = true
 
 [[bar.main.capsule_group]]
@@ -128,6 +128,10 @@ type = "latteos/devices:dev"
 [widget.control-center]
 custom_image = "/usr/share/latteos/noctalia/icons/latte-cup.png"
 
+# ovál okien (plugin latteos/okna): ikony otvorených okien, náhľad, pravý klik = ponuka okna
+[widget.latte-okna]
+type = "latteos/okna:oval"
+
 [widget.workspaces]
 style        = "regular"
 show_labels  = false
@@ -165,7 +169,7 @@ path = "/usr/share/backgrounds/latteos/latteos-wallpaper2.jpg"
 
 # pluginy LatteOS (/usr/share/latteos/noctalia/plugins/<plugin>/plugin.toml)
 [plugins]
-enabled     = ["latteos/system", "latteos/textbar", "latteos/devices", "latteos/time", "latteos/apps", "latteos/cat", "latteos/overview", "latteos/kapsa", "latteos/ai", "latteos/snap", "latteos/games"]
+enabled     = ["latteos/system", "latteos/textbar", "latteos/devices", "latteos/time", "latteos/apps", "latteos/cat", "latteos/overview", "latteos/kapsa", "latteos/ai", "latteos/snap", "latteos/games", "latteos/okna"]
 auto_update = "none"
 
 [[plugins.source]]

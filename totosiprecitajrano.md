@@ -70,6 +70,17 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 17:10: ovál okien vedľa šálky ✅ (bod 3)
+- Ovál zrkadlí **otvorené okná ikonami aplikácií** (aplikácie LatteOS majú svoje glyfy). Aktívne okno je
+  zvýraznené, minimalizované sú tlmené na konci. Na začiatku je ikona **režimu okien** (páska / dlaždice /
+  plávajúce), klikom sa prepína.
+- **Podržanie myši** nad ikonou ukáže **živý náhľad okna** nad kurzorom. Vo VM sa obnovuje 4× za sekundu,
+  aby šetril CPU. Klik na ikonu alebo na náhľad prepne na okno a minimalizované vráti.
+- **Pravý klik** otvorí ponuku okna ako vo Windows: prepnúť, minimalizovať/obnoviť, zväčšiť,
+  plávať/ukotviť, presunúť na plochu 1–4, NET aplikácie, zavrieť.
+- Oprava: aplikácie LatteOS pri zavretí z titulku (✕, Super+Q) nechávali bežať proces. Teraz skončia,
+  Inštalátor počas inštalácie počká, kým dnf dobehne, a výsledok oznámi.
+
 ### 24. 9. 2026, 17:00: Kapsa podľa tvojho náčrtu ✅ (bod 6)
 - **Široký kontajner vedľa hľadania:** vľavo **jamka (výrez)**, vpravo **8 slotov** schránky. Plný slot je v
   akcentovej farbe, prázdny sivý. Podržanie myši ukáže obsah, klik ho vytiahne navrch. Počet slotov určuje

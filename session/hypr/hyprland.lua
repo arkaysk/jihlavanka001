@@ -209,6 +209,8 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("latte-app netznak")
     -- výrez Kapsy: prijme súbor pretiahnutý na lištu
     hl.exec_cmd("latte-app kapsavyrez")
+    -- živý náhľad okna nad oválom okien
+    hl.exec_cmd("latte-app nahlad")
     -- Barista (sprievodca prvým spustením) raz po prvom prihlásení
     do
         local f = io.open(cfgdir .. "/barista-done", "r")
