@@ -3,14 +3,33 @@
 -- (druhý výber), sudo sa nikdy nespúšťa potichu — heslo zadáva používateľ v termináli.
 local CONFIRM = "  #potvrdit"
 
+-- príkazy nebezpečné samy osebe (kontroluje sa prvé slovo každej časti za ; && || | $( `)
+local dangerWords = {
+  sudo = true, pkexec = true, su = true, doas = true,                                  -- práva správcu
+  rm = true, rmdir = true, shred = true, truncate = true, srm = true, unlink = true,     -- mazanie
+  dd = true, wipefs = true, fdisk = true, sfdisk = true, parted = true, blkdiscard = true, -- disky
+  kill = true, killall = true, pkill = true, poweroff = true, reboot = true, shutdown = true, halt = true,
+}
+-- vzory kdekoľvek v príkaze
 local dangerous = {
-  "^%s*sudo%s", "rm%s+%-[%a]*[rf]", "%f[%w]dd%s", "mkfs", "wipefs", "shred", "fdisk", "parted",
-  "chmod%s+%-R", "chown%s+%-R", ">%s*/dev/sd", ">%s*/dev/nvme", "dnf%s+remove",
-  "systemctl%s+stop", "systemctl%s+disable", "systemctl%s+mask",
+  "mkfs", "%-delete", "chmod%s+%-[%a]*R", "chown%s+%-[%a]*R",
+  ">%s*/dev/[sn]", ">%s*/etc/", ">%s*/boot/", ">%s*/usr/",
+  "%f[%w]mv%s.-%s/[%a]*%s*$",                                                         -- presun do koreňa
+  "dnf%s+remove", "dnf%s+erase", "dnf%s+autoremove", "rpm%s+%-e", "flatpak%s+uninstall", "flatpak%s+remove",
+  "systemctl%s+stop", "systemctl%s+disable", "systemctl%s+mask", "systemctl%s+poweroff", "systemctl%s+reboot",
+  "git%s+reset%s+%-%-hard", "git%s+clean%s", "git%s+push%s.-%-%-force", "git%s+push%s.-%-f%f[%W]",
+  "|%s*s?h%f[%W]", "|%s*bash", "|%s*zsh",                                              -- skript z internetu do shellu
   ":%(%)%s*{",
 }
 
 local function isDangerous(cmd)
+  for seg in string.gmatch(cmd .. ";", "(.-)[;&|`(\n]") do
+    local w = string.match(seg, "^[%s$]*([%w%._/%-]+)")
+    if w then
+      w = string.match(w, "([^/]+)$")                                                  -- /usr/bin/rm → rm
+      if dangerWords[w] or string.find(w, "^mkfs") then return true end
+    end
+  end
   for _, p in ipairs(dangerous) do
     if string.find(cmd, p) then return true end
   end

@@ -70,6 +70,15 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 21:25: Text Bar /cmd lepšie rozozná nebezpečné príkazy ✅
+- Predtým sa chytalo iba `rm -r/-f`, `sudo` na začiatku a pár ďalších príkazov. Teraz sa kontroluje prvé slovo
+  **každej časti** príkazu, teda aj za `;`, `&&`, `|` a `$(`. Takto sa chytí napr. `ls; rm x` alebo `/usr/bin/rm`.
+- Pribudli: obyčajné `rm`, `shred`, `truncate`, `find -delete`, `kill`/`killall`/`pkill`, reštart a vypnutie,
+  `pkexec`/`su`, `rpm -e`, `flatpak uninstall`, `git reset --hard`/`clean`/`push --force`, `curl … | sh`,
+  prepis `> /etc/…`, `/boot`, `/usr` a presun do koreňa.
+- Falošné poplachy sa neukazujú: `grep rm súbor`, `man kill` aj `echo removal` prejdú bez varovania.
+  Otestované 25 nebezpečnými a 19 bezpečnými príkazmi a naživo v Text Bare.
+
 ### 24. 9. 2026, 21:20: Heidelberg otvára PDF ✅
 - PDF sa otvorí na úpravu (text, tučné písmo, zlomy strán). Riadky zalomené uprostred vety sa spoja do odsekov.
   Používa sa `pdftohtml` z balíka poppler-utils; na VM som ho doinštaloval, je aj v install-session.
