@@ -265,7 +265,7 @@ ShellRoot {
             P { text: "Pár skratiek na začiatok:" }
             Repeater {
                 model: [["Super + Medzerník", "Text Bar: hľadaj, spúšťaj, pýtaj sa"], ["Super + Tab", "Prehľad pásky"], ["Super + Z", "Rozloženie okna"],
-                        ["Super + I", "AI rozhovor"], ["Super + E", "Súbory"], ["Ctrl + Shift + Esc", "Monitor"]]
+                        ["Super + I", "AI rozhovor"], ["Super + G", "Herňa"], ["Super + E", "Súbory"], ["Ctrl + Shift + Esc", "Monitor"]]
                 Row {
                     required property var modelData
                     spacing: 14

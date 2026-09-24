@@ -34,6 +34,14 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 11:40: Herňa, Používatelia ✅
+- **Super+G = Herňa:** knižnica hier zo **Steamu** (aj Flatpak verzie) a **Heroicu** (Epic, GOG, Amazon)
+  s obalmi a filtrom. Klik spustí hru v **hernom režime** a po zatvorení hry sa efekty vrátia.
+  Zatiaľ je prázdna (Steam nie je nainštalovaný), tlačidlo vedie do App Managera. Overené s
+  napodobeninou Steam knižnice.
+- **Nastavenia › Účet › Používatelia:** účty s obrázkom a rolou (správca/bežný). Pridať a odstrániť
+  účet sa dá v termináli so sudo, aby bolo vidieť, čo sa deje.
+
 ### 24. 9. 2026, 09:15: Barista, Jazyk a región, Zálohovanie ✅
 - **Barista**, sprievodca prvým spustením. Kroky: Vitaj → Vzhľad (všetkých 14 tém + svetlá/tmavá/podľa
   slnka) → Okná → Lišta a maskot → AI → Aplikácie (inštalujú sa z Flathubu na pozadí) → skratky.

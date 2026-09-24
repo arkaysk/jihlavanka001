@@ -1334,7 +1334,7 @@ ShellRoot {
             spacing: 4
             Repeater {
                 model: [["Super + Medzerník", "Text Bar / spúšťač"], ["Super + Tab", "Prehľad pásky (píš pre filter)"], ["Super + Shift + Tab", "Rýchly prepínač okien"],
-                        ["Super + Z", "Rozloženie okna (polovice, štvrtiny…)"], ["Super + I", "AI rozhovor"], ["Super + E", "Súbory"],
+                        ["Super + Z", "Rozloženie okna (polovice, štvrtiny…)"], ["Super + I", "AI rozhovor"], ["Super + G", "Herňa (hry)"], ["Super + E", "Súbory"],
                         ["Super + A", "Riadiace centrum"], ["Super + W", "Režim okien: páska → dlaždice → plávajúce"], ["Super + D", "Zobraziť plochu (a späť)"],
                         ["Super + Enter", "Terminál"], ["Super + Q", "Zavrieť okno"], ["Super + F", "Celá obrazovka"], ["Super + V", "Plávajúce okno"],
                         ["Super + šípky", "Fokus (v páske stĺpce)"], ["Super + Ctrl + šípky", "Presun okna"], ["Super + Shift + ←/→", "Okno na iný monitor"],
