@@ -7,7 +7,8 @@
 //   Text       (md, txt) — zdroj vľavo, náhľad vpravo, formátovanie značkami Markdownu.
 // Spoločné: Kontrola textu (hunspell: preklepy s návrhmi, zdvojené slová, medzery), Export DOCX/ODT/EPUB/HTML/PDF,
 // Tlač (PDF podľa nastavenia strany → lp, inak prehliadač PDF), Ctrl+S, Ctrl+N, Ctrl+F7 kontrola.
-// PDF robí weasyprint (doinštaluje sa pri prvom použití). Spúšťa sa: latte-app heidelberg [súbor]
+// PDF robí weasyprint (doinštaluje sa pri prvom použití). PDF sa otvára na úpravu cez pdftohtml (poppler-utils)
+// a ukladá sa vedľa ako „názov (upravené).html“ — originál ostáva. Spúšťa sa: latte-app heidelberg [súbor]
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -32,7 +33,10 @@ ShellRoot {
     property bool newRich: true                // nový dokument = Dokument (HTML); Ctrl+Shift+N = poznámka Markdown
     readonly property string ext: path === "" ? (newRich ? "html" : "md") : ((path.match(/\.([^./]+)$/) || [, "md"])[1].toLowerCase())
     readonly property bool isDoc: ["docx", "odt", "rtf", "epub", "doc"].indexOf(ext) >= 0   // cez pandoc
-    readonly property bool rich: isDoc || ext === "html" || ext === "htm"
+    readonly property bool isPdf: ext === "pdf"                                               // cez pdftohtml (poppler)
+    readonly property bool rich: isDoc || isPdf || ext === "html" || ext === "htm"
+    property bool hasPoppler: true
+    property bool suppressLoad: false
     readonly property string kind: rich ? "html" : (ext === "md" || ext === "markdown" ? "md" : "txt")
     property bool hasPandoc: true
     property bool hasPdf: false
@@ -56,6 +60,28 @@ ShellRoot {
     }
     function savePrefs() { prefs.setText(JSON.stringify({ pageSize: pageSize, landscape: landscape, marginMm: marginMm, zoom: zoom })); }
 
+    Process { id: popplerCheck; running: true; command: ["sh", "-c", "command -v pdftohtml"]; onExited: (code) => app.hasPoppler = code === 0 }
+    // PDF → HTML na úpravu: text, tučné, zlomy strán; zlomy riadkov uprostred viet sa spoja do odsekov
+    Process {
+        id: pdfLoad
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let b = this.text.replace(/^[\s\S]*<body[^>]*>/i, "").replace(/<\/body>[\s\S]*$/i, "");
+                b = b.replace(/&#160;/g, " ").replace(/<a name=\d+><\/a>/g, "")
+                     .replace(/([^.!?:>])<br\/>\n(?=[a-zà-ž0-9(„"])/g, "$1 ");
+                editor.text = "<p>" + b.replace(/<br\/>\n/g, "</p><p>") + "</p>";
+                app.savedText = "";
+                app.status = "PDF na úpravu · uloží sa vedľa ako .html";
+                app.remember(app.path);
+            }
+        }
+        onExited: (code) => { if (code !== 0) app.status = "PDF sa nepodarilo otvoriť (možno je iba obrázkový/skenovaný)"; }
+    }
+    function loadPdf() {
+        if (!hasPoppler) { status = "Na PDF treba poppler-utils — tlačidlo Doinštalovať hore"; editor.text = ""; savedText = ""; return; }
+        pdfLoad.command = ["pdftohtml", "-stdout", "-noframes", "-i", "-q", path];
+        pdfLoad.running = true;
+    }
     Process { id: pandocCheck; running: true; command: ["sh", "-c", "command -v pandoc"]; onExited: (code) => app.hasPandoc = code === 0 }
     Process { id: toolCheck; running: true; command: ["sh", "-c", "command -v weasyprint >/dev/null && echo pdf; command -v lp >/dev/null && echo lp"]
               stdout: StdioCollector { onStreamFinished: { app.hasPdf = this.text.includes("pdf"); app.hasLp = this.text.includes("lp"); } } }
@@ -121,11 +147,11 @@ ShellRoot {
     }
     FileView {
         id: doc
-        path: app.isDoc ? "" : app.path
+        path: app.isDoc || app.isPdf ? "" : app.path
         printErrors: false
         blockLoading: true
         onLoaded: { editor.text = text(); app.savedText = editor.text; app.status = "Otvorené"; app.remember(app.path); }
-        onLoadFailed: { if (app.path !== "") { editor.text = ""; app.savedText = ""; app.status = "Nový súbor"; } }
+        onLoadFailed: { if (app.suppressLoad) { app.suppressLoad = false; return; } if (app.path !== "") { editor.text = ""; app.savedText = ""; app.status = "Nový súbor"; } }
     }
     FileView {
         id: recentView
@@ -149,12 +175,17 @@ ShellRoot {
         if (dirty && !confirmDiscard) { confirmDiscard = true; pendingOpen = p; status = "Neuložené zmeny! Klikni znova pre zahodenie, alebo Ctrl+S."; return; }
         confirmDiscard = false;
         path = p; backedUp = false; issues = [];
-        if (isDoc) loadDoc(); else doc.reload();
+        if (isPdf) loadPdf(); else if (isDoc) loadDoc(); else doc.reload();
     }
     property bool confirmDiscard: false
     property string pendingOpen: ""
     function save() {
         if (path === "") path = docsDir + "/Dokument " + Qt.formatDateTime(new Date(), "yyyy-MM-dd HH-mm") + (newRich ? ".html" : ".md");
+        if (isPdf) {                 // PDF sa neprepisuje: upravená verzia ide vedľa ako dokument Heidelbergu
+            suppressLoad = true;
+            path = path.replace(/\.pdf$/i, " (upravené).html");
+            status = "Uložené ako " + path.split("/").pop() + " · PDF: Export PDF";
+        }
         if (isDoc) {
             if (!hasPandoc) { status = "Uloženie do " + ext.toUpperCase() + " potrebuje pandoc"; return; }
             tmpSrc.setText(editor.text);
@@ -530,12 +561,18 @@ ShellRoot {
                     MouseArea { anchors.fill: parent; onClicked: { inst.command = ["latte-app", "instalator", "--nazov=Podpora_dokumentov_(pandoc)", "install", "pandoc-cli"]; inst.running = true; } }
                 }
                 Rectangle {
+                    visible: !app.hasPoppler && app.isPdf
+                    width: pt4.implicitWidth + 18; height: 32; radius: 8; color: theme.primary
+                    Text { id: pt4; anchors.centerIn: parent; text: "Doinštalovať otváranie PDF"; color: theme.fgOnPrimary; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold } }
+                    MouseArea { anchors.fill: parent; onClicked: { inst.command = ["latte-app", "instalator", "--nazov=Otváranie_PDF_(poppler)", "install", "poppler-utils"]; inst.running = true; } }
+                }
+                Rectangle {
                     visible: !app.hasPdf
                     width: pt3.implicitWidth + 18; height: 32; radius: 8; color: theme.field; border { color: theme.primary; width: 1 }
                     Text { id: pt3; anchors.centerIn: parent; text: "Doinštalovať PDF a tlač"; color: theme.fg; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold } }
                     MouseArea { anchors.fill: parent; onClicked: { inst.command = ["latte-app", "instalator", "--nazov=PDF_a_tlač_(weasyprint)", "install", "weasyprint"]; inst.running = true; } }
                 }
-                Process { id: inst; onExited: { pandocCheck.running = true; toolCheck.running = true; } }
+                Process { id: inst; onExited: { pandocCheck.running = true; toolCheck.running = true; popplerCheck.running = true; } }
             }
 
             Row {
@@ -760,6 +797,7 @@ ShellRoot {
         }
     }
     Component.onCompleted: {
+        if (isPdf) { Qt.callLater(loadPdf); return; }
         if (isDoc) { pandocWait.start(); return; }
         if (path === "") {
             editor.text = "<h1>Vitaj v Heidelbergu</h1><p>Toto je <b>editor dokumentov LatteOS</b>. Píš na strane ako na papieri: "

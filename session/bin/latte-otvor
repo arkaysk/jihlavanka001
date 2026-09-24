@@ -17,7 +17,7 @@ DIRS = [HOME + "/.local/share/applications", HOME + "/.local/share/flatpak/expor
 
 # odporúčania LatteOS podľa typu (predpona mime → aplikácie v poradí; Flatpak id = z katalógu App Managera)
 RECOMMEND = [
-    ("application/pdf", ["org.gnome.Papers", "org.mozilla.firefox"]),
+    ("application/pdf", ["org.gnome.Papers", "latteos-heidelberg", "org.mozilla.firefox"]),
     ("application/vnd.openxmlformats-officedocument.wordprocessingml", ["latteos-heidelberg", "org.libreoffice.LibreOffice"]),
     ("application/vnd.oasis.opendocument.text", ["latteos-heidelberg", "org.libreoffice.LibreOffice"]),
     ("application/msword", ["org.libreoffice.LibreOffice", "latteos-heidelberg"]),

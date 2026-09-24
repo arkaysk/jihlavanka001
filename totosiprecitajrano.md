@@ -70,6 +70,17 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 21:20: Heidelberg otvára PDF ✅
+- PDF sa otvorí na úpravu (text, tučné písmo, zlomy strán). Riadky zalomené uprostred vety sa spoja do odsekov.
+  Používa sa `pdftohtml` z balíka poppler-utils; na VM som ho doinštaloval, je aj v install-session.
+  Ak chýba, Heidelberg ponúkne tlačidlo „Doinštalovať otváranie PDF“.
+- Originál sa nikdy neprepíše. Ctrl+S uloží úpravy vedľa ako „názov (upravené).html“.
+  Nové PDF vytvoríš tlačidlom PDF (Export).
+- Heidelberg je v „Otvoriť pomocou“ pre PDF, hneď za prehliadačom Papers.
+- Obmedzenie: naskenované PDF (iba obrázky) nemajú text, takže sa v nich upravovať nedá.
+  Na také PDF by bolo treba OCR (tesseract), ktoré zatiaľ nie je.
+- Otestované na príručke bzip2 (18 609 slov): otvorenie aj uloženie fungujú, testovacie súbory som zmazal.
+
 ### 24. 9. 2026, 21:15: pravý klik aj tam, kde chýbal (prechod všetkými aplikáciami) ✅
 - **Plocha:** pravý klik na prázdne miesto: Nový priečinok, Nový textový súbor, Otvoriť Plochu v Súboroch,
   Terminál tu, Zmeniť tapetu, Živá tapeta, Obrazovky, Skryť ikony. Súbor sa dá pustiť kdekoľvek na plochu.
