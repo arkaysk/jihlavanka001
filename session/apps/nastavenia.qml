@@ -9,6 +9,7 @@ import "common"
 ShellRoot {
     id: app
     LatteTheme { id: theme }
+    readonly property var latteTheme: theme      // pre vnorené prvky s vlastnou vlastnosťou „theme“ (IconButton)
 
     readonly property string home: Quickshell.env("HOME") || "/"
     readonly property string user: Quickshell.env("USER") || ""
@@ -32,6 +33,8 @@ ShellRoot {
     property string modePref: "tema"
     property var bar: ({})            // prepisy [bar.main] z ~/.local/state/noctalia/settings.toml
     property var location: ({})       // prepisy [location]
+    property var notif: ({})          // prepisy [notification]
+    property bool dnd: false
     property var greeterConf: ({ background: "/usr/share/backgrounds/latteos/latteos-wallpaper1.jpg", color: "#1B1410", dim: "0.55", panel: "log", panel_title: "", panel_text: "" })
     property string crashLog: ""
     property var ai: ({})             // latte-ai status
@@ -83,7 +86,7 @@ ShellRoot {
             { key: "pozadie", label: "Pozadie", glyph: "photo", status: "ready" },
             { key: "okna", label: "Okná", glyph: "layout-columns", status: "ready" },
             { key: "lista", label: "Lišta a systémové menu", glyph: "layout-bottombar", status: "ready" },
-            { key: "oznamenia", label: "Oznámenia", glyph: "bell", status: "planned" },
+            { key: "oznamenia", label: "Oznámenia", glyph: "bell", status: "ready" },
             { key: "efekty", label: "Animácie a efekty", glyph: "sparkles", status: "partial" },
             { key: "pristupnost", label: "Prístupnosť", glyph: "accessible", status: "planned" } ] },
         { key: "system", title: "Systém", glyph: "shield", summary: (mode.mode || "?").toUpperCase() + " · pády " + crashCount, owner: "LatteOS",
@@ -110,6 +113,7 @@ ShellRoot {
         if (push !== false) { history = history.slice(0, historyIndex + 1).concat([key]); historyIndex = history.length - 1; }
         if (key === "ai") { aiStatus.running = true; aiList.running = true; }
         if (key === "o") aboutProc.running = true;
+        if (key === "oznamenia") dndProc.running = true;
         if (key === "ulozisko" || key === "domov") storageProc.running = true;
     }
     Component.onCompleted: { go(section); aiStatus.running = true; }
@@ -162,7 +166,7 @@ ShellRoot {
                 const h = l.match(/^\s*\[([^\]]+)\]\s*$/); if (h) { sec = h[1]; continue; }
                 const r = l.match(/^\s*(\w+)\s*=\s*"?([^"]*)"?\s*$/); if (r) { (t[sec] = t[sec] || {})[r[1]] = r[2]; }
             }
-            app.bar = t["bar.main"] || {}; app.location = t["location"] || {};
+            app.bar = t["bar.main"] || {}; app.location = t["location"] || {}; app.notif = t["notification"] || {};
         }
     }
     FileView {
@@ -219,6 +223,7 @@ ShellRoot {
         id: aiAsk; command: ["latte-ai", "ask", "Predstav sa jednou krátkou vetou po slovensky."]
         onDone: (out) => app.aiAnswer = out.trim() || "(bez odpovede — pozri stav vpravo)"
     }
+    Cmd { id: dndProc; command: ["noctalia", "msg", "notification-dnd-status"]; onDone: (out) => app.dnd = out.trim() === "on" }
     Cmd {
         id: aboutProc
         command: ["sh", "-c", ". /etc/os-release; echo \"Systém|$PRETTY_NAME\"; echo \"Jadro|$(uname -r)\"; echo \"Hyprland|$(rpm -q --qf '%{VERSION}-%{RELEASE}' hyprland 2>/dev/null)\"; echo \"Noctalia|$(noctalia --version 2>/dev/null | head -1)\"; echo \"Quickshell|$(qs --version 2>/dev/null | head -1)\"; echo \"Procesor|$(sed -n 's/^model name[^:]*: //p' /proc/cpuinfo | head -1)\"; echo \"Pamäť|$(free -h | awk '/^Mem/{print $2}')\""]
@@ -347,6 +352,7 @@ ShellRoot {
             start: "Režim NORMAL (Hyprland) alebo SAFE (labwc bez GPU). SAFE naskočí sám po dvoch pádoch za sebou.",
             cas: "Poloha určuje východ a západ slnka pre automatický svetlý/tmavý režim a nočné svetlo. Ďalšie časové pásma ukáže panel Čas.",
             o: "Verzie častí systému, z ktorých sa LatteOS skladá.",
+            oznamenia: "Kde a ako sa ukazujú oznámenia. História a Nerušiť sú aj v paneli Čas na lište.",
             klavesnica: "Rozloženia klávesnice sk a us, prepínanie Alt+Shift. Skratky LatteOS:"
         })[k] || (plans[k] ? "Pripravujeme. Čo tu bude:" : "");
     }
@@ -366,7 +372,6 @@ ShellRoot {
         mojucet: ["meno, obrázok", "prihlásenie mobilom"],
         pouzivatelia: ["pridať a odstrániť účet", "rodičovská kontrola"],
         uzamknutie: ["automatické zamknutie", "obrazovka zámku (Noctalia)"],
-        oznamenia: ["nerušiť a plán", "oznámenia z mobilu (KDE Connect)", "pravidlá podľa aplikácie"],
         pristupnost: ["veľké písmo a kontrast", "čítačka obrazovky", "bez animácií"],
         jazyk: ["jazyk systému", "formáty dátumu a čísel"]
     })
@@ -381,6 +386,7 @@ ShellRoot {
         if (k === "prihlasovanie") return "Greeter: " + greeter + " · panel " + greeterConf.panel;
         if (k === "lista") return "Hrúbka " + (bar.thickness || 56) + " · okraje " + (bar.margin_ends || 12) + " · spodok " + (bar.margin_edge || 10);
         if (k === "cas") return "Poloha " + (location.latitude || "48.74") + ", " + (location.longitude || "19.15") + (clockZones.length ? "\nPásma: " + clockZones.join(", ") : "");
+        if (k === "oznamenia") return (dnd ? "Nerušiť: zapnuté" : "Nerušiť: vypnuté") + "\nPoloha: " + ({ top_right: "vpravo hore", top_center: "hore v strede", top_left: "vľavo hore", bottom_right: "vpravo dole", bottom_left: "vľavo dole" })[notif.position || "top_right"];
         if (k === "klavesnica") return "Rozloženia sk, us (Alt+Shift)\nEditor skratiek: plán";
         if (plans[k]) return "Zatiaľ len plán";
         return "—";
@@ -393,6 +399,7 @@ ShellRoot {
             lista: "~/.local/state/noctalia/settings.toml [bar.main]\n~/.config/latteos/bar-anim, bar-scene, mascot", cas: "~/.local/state/noctalia/settings.toml [location]\n~/.config/latteos/clock.conf",
             prihlasovanie: "/var/lib/latteos/greeter/greeter.conf", diagnostika: "/var/lib/latteos/greeter/last-crash.log\n/var/lib/latteos/crash-count",
             subory: "~/.config/latteos/subory.json\n~/.config/latteos/tags.json",
+            oznamenia: "~/.local/state/noctalia/settings.toml [notification]",
             klavesnica: "/usr/share/latteos/hypr/hyprland.lua\n~/.config/latteos/hyprland.lua"
         })[k] || "—";
     }
@@ -455,9 +462,9 @@ ShellRoot {
         Text { width: 230; anchors.verticalCenter: parent.verticalCenter; text: sp.label; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 } }
         Rectangle {
             width: 150; height: 36; radius: 10; color: theme.field
-            IconButton { anchors { left: parent.left; verticalCenter: parent.verticalCenter } theme: theme; glyph: "minus"; enabledState: sp.value > sp.min; onClicked: sp.stepped(Math.max(sp.min, sp.value - sp.step)) }
+            IconButton { anchors { left: parent.left; verticalCenter: parent.verticalCenter } theme: app.latteTheme; glyph: "minus"; enabledState: sp.value > sp.min; onClicked: sp.stepped(Math.max(sp.min, sp.value - sp.step)) }
             Text { anchors.centerIn: parent; text: (sp.step < 1 ? sp.value.toFixed(2) : Math.round(sp.value)) + sp.unit; color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.Bold } }
-            IconButton { anchors { right: parent.right; verticalCenter: parent.verticalCenter } theme: theme; glyph: "plus"; enabledState: sp.value < sp.max; onClicked: sp.stepped(Math.min(sp.max, sp.value + sp.step)) }
+            IconButton { anchors { right: parent.right; verticalCenter: parent.verticalCenter } theme: app.latteTheme; glyph: "plus"; enabledState: sp.value < sp.max; onClicked: sp.stepped(Math.min(sp.max, sp.value + sp.step)) }
         }
     }
     // textové pole; Enter alebo strata fokusu = uložiť
@@ -510,7 +517,7 @@ ShellRoot {
         if (managed[k]) return pManaged;
         return ({ domov: pDomov, ai: pAi, subory: pSubory, ulozisko: pUlozisko, vykon: pVykon, diagnostika: pDiag,
                   prihlasovanie: pGreeter, motiv: pMotiv, pozadie: pPozadie, okna: pOkna, lista: pLista, efekty: pEfekty,
-                  start: pStart, cas: pCas, o: pO, klavesnica: pKlavesy })[k] || pPlan;
+                  start: pStart, cas: pCas, o: pO, klavesnica: pKlavesy, oznamenia: pOznamenia })[k] || pPlan;
     }
 
     // ── stránky ──────────────────────────────────────────────────────────────────
@@ -940,6 +947,45 @@ ShellRoot {
                     Text { text: modelData.split("|")[1] || "—"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.DemiBold } }
                 }
             }
+        }
+    }
+    Component {
+        id: pOznamenia
+        Column {
+            spacing: 14
+            Row {
+                spacing: 10
+                Rectangle {
+                    width: 46; height: 26; radius: 13; anchors.verticalCenter: parent.verticalCenter
+                    color: app.dnd ? theme.primary : theme.field; border { color: theme.line; width: 1 }
+                    Rectangle { width: 20; height: 20; radius: 10; y: 3; x: app.dnd ? 23 : 3; color: app.dnd ? theme.fgOnPrimary : theme.fgDim }
+                    MouseArea { anchors.fill: parent; onClicked: { app.dnd = !app.dnd; app.run(["noctalia", "msg", "notification-dnd-set", app.dnd ? "on" : "off"], app.dnd ? "Nerušiť zapnuté" : "Nerušiť vypnuté"); } }
+                }
+                Text { anchors.verticalCenter: parent.verticalCenter; text: "Nerušiť (oznámenia sa ukladajú do histórie, neukazujú sa)"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 } }
+            }
+            Heading { text: "KDE SA UKAZUJÚ" }
+            Segments {
+                options: [["top_right", "Vpravo hore"], ["top_center", "Hore v strede"], ["top_left", "Vľavo hore"], ["bottom_right", "Vpravo dole"], ["bottom_left", "Vľavo dole"]]
+                value: app.notif.position || "top_right"
+                onPicked: (v) => app.shellSet("notification.position", v, "Oznámenia: " + v)
+            }
+            Stepper { label: "Najviac naraz (0 = bez limitu)"; value: parseInt(app.notif.max_visible) || 0; step: 1; min: 0; max: 10; unit: ""
+                      onStepped: (v) => app.shellSet("notification.max_visible", v, "Najviac naraz: " + v) }
+            Heading { text: "OBSAH" }
+            Segments {
+                options: [["true", "Ukázať názov aplikácie"], ["false", "Bez názvu"]]
+                value: app.notif.show_app_name === "false" ? "false" : "true"
+                onPicked: (v) => app.shellSet("notification.show_app_name", v === "true", "Názov aplikácie: " + (v === "true" ? "áno" : "nie"))
+            }
+            Segments {
+                options: [["true", "Tlačidlá akcií"], ["false", "Bez tlačidiel"]]
+                value: app.notif.show_actions === "false" ? "false" : "true"
+                onPicked: (v) => app.shellSet("notification.show_actions", v === "true", "Akcie v oznámení: " + (v === "true" ? "áno" : "nie"))
+            }
+            Heading { text: "Z MOBILU" }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Oznámenia z telefónu cez KDE Connect (Android, iPhone obmedzene): panel Čas na lište › Oznámenia. Pravidlá podľa aplikácie pripravujeme." }
+            Button { label: "Otestovať oznámenie"; glyph: "bell"; onClicked: app.run(["notify-send", "-a", "LatteOS", "Skúšobné oznámenie", "Takto vyzerá oznámenie LatteOS ☕"]) }
         }
     }
     Component {
