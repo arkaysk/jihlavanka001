@@ -39,6 +39,8 @@ Rectangle {
             historyIndex = history.length - 1;
         }
     }
+    // znovu načíta priečinok (napr. keď vznikol až po otvorení — Kôš pri prvom spustení)
+    function refresh() { const p = path; path = "/"; path = p; }
     function up() { if (path !== "/") go(path.substring(0, path.lastIndexOf("/")) || "/"); }
     function back() { if (historyIndex > 0) { historyIndex--; go(history[historyIndex], false); } }
     function forward() { if (historyIndex < history.length - 1) { historyIndex++; go(history[historyIndex], false); } }

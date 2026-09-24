@@ -28,7 +28,12 @@ ShellRoot {
     Process {
         id: trashProc; running: true
         command: ["sh", "-c", "mkdir -p \"$HOME/.local/share/Trash/files\" \"$HOME/.local/share/Trash/info\"; ls -A \"$HOME/.local/share/Trash/files\" | wc -l"]
-        stdout: StdioCollector { onStreamFinished: app.trashCount = parseInt(this.text) || 0 }
+        stdout: StdioCollector {
+            onStreamFinished: {
+                app.trashCount = parseInt(this.text) || 0;
+                for (const p of [paneA, paneB]) if (p && app.inTrash(p.path)) p.refresh();
+            }
+        }
     }
     // kopírovanie s priebehom (rsync --info=progress2); presun v rámci disku je okamžitý (mv)
     property int copyPct: -1
@@ -319,7 +324,7 @@ ShellRoot {
                 id: header
                 theme: theme
                 anchors { left: side.right; right: parent.right; top: parent.top }
-                title: app.activePane ? app.activePane.path : ""
+                title: app.activePane ? (app.activePane.path === app.trashDir ? "Kôš" : app.activePane.path) : ""
                 canBack: app.activePane && app.activePane.historyIndex > 0
                 canForward: app.activePane && app.activePane.historyIndex < app.activePane.history.length - 1
                 searchPlaceholder: "Hľadať v priečinku"
@@ -392,7 +397,7 @@ ShellRoot {
                         }
                         Text {
                             width: parent.width; wrapMode: Text.WrapAnywhere; maximumLineCount: 3; elide: Text.ElideRight
-                            text: parent.e ? parent.e.name : (app.activePane ? app.activePane.path.split("/").pop() || "/" : "")
+                            text: parent.e ? parent.e.name : (app.activePane ? (app.activePane.path === app.trashDir ? "Kôš" : (app.activePane.path.split("/").pop() || "/")) : "")
                             color: theme.fg; font { family: theme.fontDisplay; pixelSize: 18; weight: Font.DemiBold }
                         }
                         Text {
