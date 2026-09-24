@@ -36,6 +36,8 @@ ShellRoot {
     property var notif: ({})          // prepisy [notification]
     property var access: ({})         // prepisy [accessibility]
     property string fullName: ""
+    property var locales: []          // nainštalované (locale -a)
+    property var localeConf: ({})     // ~/.config/latteos/locale
     property var avatarChoices: []
     property int avatarRev: 0          // obnovenie náhľadu po zmene
     property var idle: ({})           // [idle.behavior.*] → { lock: {enabled, timeout}, … }
@@ -101,7 +103,7 @@ ShellRoot {
           pages: [
             { key: "start", label: "Štart a režim", glyph: "shield", status: "ready" },
             { key: "cas", label: "Dátum, čas a poloha", glyph: "clock", status: "ready" },
-            { key: "jazyk", label: "Jazyk a región", glyph: "language", status: "planned" },
+            { key: "jazyk", label: "Jazyk a región", glyph: "language", status: "ready" },
             { key: "klavesnica", label: "Klávesnica a skratky", glyph: "keyboard", status: "partial" },
             { key: "o", label: "O LatteOS", glyph: "info-circle", status: "ready" } ] }
     ]
@@ -123,6 +125,7 @@ ShellRoot {
         if (key === "o") aboutProc.running = true;
         if (key === "oznamenia") dndProc.running = true;
         if (key === "mojucet") accountProc.running = true;
+        if (key === "jazyk") localeProc.running = true;
         if (key === "ulozisko" || key === "domov") storageProc.running = true;
     }
     Component.onCompleted: { go(section); aiStatus.running = true; }
@@ -262,6 +265,21 @@ ShellRoot {
         avatarTick.restart();
     }
     Timer { id: avatarTick; interval: 500; onTriggered: app.avatarRev++ }
+    Cmd { id: localeProc; command: ["sh", "-c", "locale -a"]; onDone: (out) => app.locales = out.split("\n").map(l => l.toLowerCase()) }
+    FileView {
+        id: localeFile
+        path: app.cfgHome + "/latteos/locale"; printErrors: false; watchChanges: true; onFileChanged: reload()
+        onLoaded: { const c = {}; for (const l of text().split("\n")) { const r = l.match(/^(\w+)=(.*)$/); if (r) c[r[1]] = r[2]; } app.localeConf = c; }
+        onLoadFailed: app.localeConf = ({})
+    }
+    function hasLocale(code) { return locales.indexOf(code.toLowerCase().replace("utf-8", "utf8")) >= 0; }
+    function setLocale(key, code) {
+        const c = Object.assign({}, localeConf); if (code) c[key] = code; else delete c[key]; localeConf = c;
+        let out = "# LatteOS — jazyk a formáty (Nastavenia › Systém › Jazyk a región); platí po novom prihlásení\n";
+        for (const k of Object.keys(c)) out += k + "=" + c[k] + "\n";
+        localeFile.setText(out);
+        status = "Uložené — platí po odhlásení a prihlásení";
+    }
     Cmd { id: dndProc; command: ["noctalia", "msg", "notification-dnd-status"]; onDone: (out) => app.dnd = out.trim() === "on" }
     Cmd {
         id: aboutProc
@@ -391,6 +409,7 @@ ShellRoot {
             start: "Režim NORMAL (Hyprland) alebo SAFE (labwc bez GPU). SAFE naskočí sám po dvoch pádoch za sebou.",
             cas: "Poloha určuje východ a západ slnka pre automatický svetlý/tmavý režim a nočné svetlo. Ďalšie časové pásma ukáže panel Čas.",
             o: "Verzie častí systému, z ktorých sa LatteOS skladá.",
+            jazyk: "Jazyk aplikácií a formáty dátumu, času, čísel a mien. Aplikácie LatteOS sú po slovensky; shell Noctalia zatiaľ nemá slovenský preklad (anglicky).",
             mojucet: "Meno, heslo a obrázok, ktorý ukáže obrazovka prihlásenia.",
             uzamknutie: "Čo sa stane, keď počítač chvíľu nepoužívaš. Pred akciou obrazovka 2 s pomaly stmavne — pohyb myšou to zruší.",
             pristupnost: "Väčšie rozhranie, vyšší kontrast, žiadny pohyb, väčší kurzor.",
@@ -412,7 +431,6 @@ ShellRoot {
         bluetooth: ["párovanie", "ovládače a periférie"],
         napajanie: ["profil výkonu", "uspávanie a vypnutie obrazovky", "batéria"],
         pouzivatelia: ["pridať a odstrániť účet", "rodičovská kontrola"],
-        jazyk: ["jazyk systému", "formáty dátumu a čísel"]
     })
     function stateText(k) {
         const m = app.mode;
@@ -425,6 +443,7 @@ ShellRoot {
         if (k === "prihlasovanie") return "Greeter: " + greeter + " · panel " + greeterConf.panel;
         if (k === "lista") return "Hrúbka " + (bar.thickness || 56) + " · okraje " + (bar.margin_ends || 12) + " · spodok " + (bar.margin_edge || 10);
         if (k === "cas") return "Poloha " + (location.latitude || "48.74") + ", " + (location.longitude || "19.15") + (clockZones.length ? "\nPásma: " + clockZones.join(", ") : "");
+        if (k === "jazyk") return "Jazyk: " + (localeConf.LANG || "systémový (sk_SK.UTF-8)") + (localeConf.LC_TIME ? "\nFormáty: " + localeConf.LC_TIME : "");
         if (k === "mojucet") return (fullName || user) + " (" + user + ")";
         if (k === "uzamknutie") return "Zamknúť: " + (idleMin(idle.lock) ? idleMin(idle.lock) + " min" : "nikdy") + "\nObrazovka: " + (idleMin(idle.screen) ? idleMin(idle.screen) + " min" : "nikdy") + "\nUspať: " + (idleMin(idle.suspend) ? idleMin(idle.suspend) + " min" : "nikdy");
         if (k === "pristupnost") return "Mierka rozhrania " + Math.round((parseFloat(access.ui_scale) || 1) * 100) + " %" + (access.high_contrast === "true" ? " · vysoký kontrast" : "") + (noAnim ? " · bez animácií" : "") + "\nKurzor " + cursorSize + " px";
@@ -444,6 +463,7 @@ ShellRoot {
             oznamenia: "~/.local/state/noctalia/settings.toml [notification]",
             uzamknutie: "~/.local/state/noctalia/settings.toml [idle.behavior.*]",
             mojucet: "/var/lib/latteos/greeter/avatars/<meno>.png\n~/.face",
+            jazyk: "~/.config/latteos/locale (načíta latte-session)\n/etc/locale.conf (systém)",
             pristupnost: "~/.local/state/noctalia/settings.toml [accessibility]\n~/.config/latteos/no-animations, cursor-size",
             klavesnica: "/usr/share/latteos/hypr/hyprland.lua\n~/.config/latteos/hyprland.lua"
         })[k] || "—";
@@ -563,7 +583,7 @@ ShellRoot {
         return ({ domov: pDomov, ai: pAi, subory: pSubory, ulozisko: pUlozisko, vykon: pVykon, diagnostika: pDiag,
                   prihlasovanie: pGreeter, motiv: pMotiv, pozadie: pPozadie, okna: pOkna, lista: pLista, efekty: pEfekty,
                   start: pStart, cas: pCas, o: pO, klavesnica: pKlavesy, oznamenia: pOznamenia, pristupnost: pPristupnost,
-                  uzamknutie: pUzamknutie, mojucet: pUcet })[k] || pPlan;
+                  uzamknutie: pUzamknutie, mojucet: pUcet, jazyk: pJazyk })[k] || pPlan;
     }
 
     // ── stránky ──────────────────────────────────────────────────────────────────
@@ -993,6 +1013,47 @@ ShellRoot {
                     Text { text: modelData.split("|")[1] || "—"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.DemiBold } }
                 }
             }
+        }
+    }
+    Component {
+        id: pJazyk
+        Column {
+            spacing: 14
+            readonly property var langs: [["sk_SK.UTF-8", "Slovenčina", "sk"], ["cs_CZ.UTF-8", "Čeština", "cs"], ["en_US.UTF-8", "English (US)", "en"],
+                                          ["en_GB.UTF-8", "English (UK)", "en"], ["de_DE.UTF-8", "Deutsch", "de"], ["hu_HU.UTF-8", "Magyar", "hu"], ["pl_PL.UTF-8", "Polski", "pl"]]
+            Heading { text: "JAZYK" }
+            Flow {
+                width: parent.width; spacing: 10
+                Repeater {
+                    model: parent.parent.langs
+                    Card {
+                        required property var modelData
+                        readonly property bool installed: app.hasLocale(modelData[0])
+                        width: 190; height: 62; title: modelData[1]; sub: installed ? modelData[0] : "treba doinštalovať (klikni)"
+                        selected: (app.localeConf.LANG || "sk_SK.UTF-8") === modelData[0]
+                        onClicked: {
+                            if (!installed) { app.run(["foot", "-e", "sh", "-c", "sudo dnf install glibc-langpack-" + modelData[2] + "; read -p 'Enter zavrie okno…' x"], "Inštalácia jazyka v termináli"); return; }
+                            app.setLocale("LANG", modelData[0] === "sk_SK.UTF-8" ? "" : modelData[0]);
+                        }
+                    }
+                }
+            }
+            Heading { text: "FORMÁTY (dátum, čas, čísla, meny)" }
+            Flow {
+                width: parent.width; spacing: 10
+                Repeater {
+                    model: [["", "Podľa jazyka"], ["sk_SK.UTF-8", "Slovensko · 24. 9. 2026 · 1 234,50 €"], ["cs_CZ.UTF-8", "Česko · 24. 09. 2026 · 1 234,50 Kč"],
+                            ["en_GB.UTF-8", "UK · 24/09/2026 · £1,234.50"], ["en_US.UTF-8", "USA · 9/24/2026 · $1,234.50"]]
+                    Card {
+                        required property var modelData
+                        width: 290; height: 56; title: modelData[1]; sub: modelData[0] && !app.hasLocale(modelData[0]) ? "treba doinštalovať jazyk" : ""
+                        selected: (app.localeConf.LC_TIME || "") === modelData[0]
+                        onClicked: { for (const k of ["LC_TIME", "LC_NUMERIC", "LC_MONETARY", "LC_PAPER", "LC_MEASUREMENT"]) app.setLocale(k, modelData[0]); }
+                    }
+                }
+            }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Zmena platí po odhlásení a prihlásení. Jazyk celého systému (aj obrazovky prihlásenia) mení správca: localectl set-locale." }
         }
     }
     Component {
