@@ -70,6 +70,23 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 21:15: pravý klik aj tam, kde chýbal (prechod všetkými aplikáciami) ✅
+- **Plocha:** pravý klik na prázdne miesto: Nový priečinok, Nový textový súbor, Otvoriť Plochu v Súboroch,
+  Terminál tu, Zmeniť tapetu, Živá tapeta, Obrazovky, Skryť ikony. Súbor sa dá pustiť kdekoľvek na plochu.
+- **Heidelberg:**
+  - v texte Vystrihnúť, Kopírovať, Vložiť, Vybrať všetko, Tučné, Kurzíva, Vymazať formát; pri slove
+    **návrhy pravopisu** (klik = náhrada), „Pridať do slovníka“, Hľadať na webe;
+  - na dokumente v bočnom paneli Otvoriť, Priečinok, Kopírovať cestu, Odstrániť z nedávnych, Do koša.
+- **AI rozhovor:** na správe Kopírovať, Uložiť do Heidelbergu, Poslať znova, Vymazať rozhovor.
+- **Správca zariadení:** podľa zariadenia disk (Otvoriť v Súboroch, Bezpečne odobrať USB), sieť
+  (Odpojiť/Pripojiť), profil výkonu (Úsporný/Vyvážený/Výkonný), grafika a počítač (Hardvér v Monitore),
+  klávesnica. Pri každom Kopírovať informácie.
+- **Monitor › Po štarte:** Zapnúť/Vypnúť, Otvoriť súbor v Heidelbergu, Ukázať v Súboroch, Kopírovať príkaz,
+  Hľadať na webe.
+- **Nastavenia:** na stránke Otvoriť, Skratka na ploche, Kopírovať príkaz; na tapete Nastaviť, Aj na
+  prihlasovaciu obrazovku, Ukázať v Súboroch, Kopírovať cestu.
+- Oprava: pri pustení súboru na plochu sa cesta Plochy vkladala do príkazu shellu, teraz ide ako argument.
+
 ### 24. 9. 2026, 21:00: Čas v aplikáciách vo vzhľade serpantinum ✅
 - Podľa tvojho rozhodnutia (AGPL nevadí, OS nebude platený) som prostredie Digitálnej pohody prevzal zo
   serpantinum a upravil na LatteOS. Je v samostatnom súbore `session/apps/data/PohodaView.qml` pod

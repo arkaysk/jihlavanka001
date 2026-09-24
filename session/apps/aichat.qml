@@ -45,6 +45,20 @@ ShellRoot {
             app.save(app.msgs.concat([{ role: "assistant", content: code === 0 && a !== "" ? a : "⚠ AI neodpovedalo: " + (err.text.trim() || a || "?").slice(0, 300) }]));
         }
     }
+    Process { id: runner }
+    function run(cmd) { runner.command = cmd; runner.startDetached(); }
+    // pravý klik na správu: kopírovať, uložiť do Heidelbergu, poslať znova
+    function msgMenu(m, x, y) {
+        const txt = String(m.content);
+        const items = [
+            { glyph: "copy", label: "Kopírovať správu", action: () => app.run(["wl-copy", "--", txt]) },
+            { glyph: "file-text", label: "Uložiť do Heidelbergu", action: () => app.run(["sh", "-c", 'd="$HOME/Dokumenty"; mkdir -p "$d"; f="$d/AI $(date +%Y-%m-%d\\ %H-%M).md"; printf "%s\\n" "$1" > "$f"; latte-app heidelberg "$f"', "sh", txt]) }
+        ];
+        if (m.role === "user") items.push({ glyph: "refresh", label: "Poslať znova", enabled: !app.busy, action: () => app.send(txt) });
+        items.push({ separator: true });
+        items.push({ glyph: "trash", label: "Vymazať rozhovor", danger: true, action: () => app.save([]) });
+        ctx.open(x, y, items, m.role === "user" ? "Tvoja správa" : "Odpoveď AI");
+    }
     function send(t) {
         t = t.trim();
         if (t === "" || busy) return;
@@ -88,6 +102,10 @@ ShellRoot {
                     width: Math.min(list.width * 0.85, txt.implicitWidth + 28); height: txt.implicitHeight + who.height + 26
                     radius: 14; color: mine ? theme.primary : theme.surfaceVariant
                     Text { id: who; x: 14; y: 10; text: mine ? "Ty" : "AI"; color: mine ? theme.fgOnPrimary : theme.primary; font { family: theme.fontUi; pixelSize: 11; weight: Font.Bold } }
+                    MouseArea {    // pravý klik na bublinu (ľavé tlačidlo ostáva výberu textu)
+                        anchors.fill: parent; acceptedButtons: Qt.RightButton; z: 2
+                        onClicked: (m) => { const q = mapToItem(null, m.x, m.y); app.msgMenu(modelData, q.x, q.y); }
+                    }
                     TextEdit {
                         id: txt; x: 14; anchors { top: who.bottom; topMargin: 4 }
                         width: Math.min(list.width * 0.85 - 28, implicitWidth); readOnly: true; selectByMouse: true
@@ -118,5 +136,6 @@ ShellRoot {
             IconButton { theme: theme; glyph: "arrow-up"; anchors { right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
                          onClicked: { app.send(input.text); input.text = ""; } }
         }
+        ContextMenu { id: ctx; theme: theme; anchors.fill: parent }
     }
 }

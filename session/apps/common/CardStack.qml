@@ -16,6 +16,7 @@ Rectangle {
     property bool homeActive: current === "domov"
     signal activated(string area, string page)
     signal homeRequested()
+    signal contextRequested(string area, string page, string label, real x, real y)   // pravý klik na stránku
 
     readonly property int spineH: 50
     readonly property int overlap: 8
@@ -148,7 +149,9 @@ Rectangle {
                                     text: stack.statusMark(row.modelData.status); color: row.modelData.status === "planned" ? stack.theme.fgDim : stack.theme.primary
                                     font { family: stack.theme.fontUi; pixelSize: 11 }
                                 }
-                                MouseArea { id: rm; anchors.fill: parent; hoverEnabled: true; onClicked: stack.activated(card.modelData.key, row.modelData.key) }
+                                MouseArea { id: rm; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                            onClicked: (m) => { if (m.button === Qt.RightButton) { const q = mapToItem(null, m.x, m.y); stack.contextRequested(card.modelData.key, row.modelData.key, row.modelData.label, q.x, q.y); }
+                                                                else stack.activated(card.modelData.key, row.modelData.key); } }
                             }
                         }
                     }

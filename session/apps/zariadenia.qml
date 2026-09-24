@@ -46,6 +46,39 @@ ShellRoot {
         const it = g ? g.items.find(i => i.name === sel.item.name) : null;
         if (it) sel = { group: sel.group, item: it };
     }
+    // pravý klik na zariadenie: akcie podľa skupiny + kopírovať informácie
+    function deviceMenu(g, it, x, y) {
+        const det = it.details || {};
+        const info = it.name + "\n" + it.sub + Object.keys(det).map(k => "\n" + k + ": " + det[k]).join("");
+        const items = [{ glyph: "info-circle", label: "Podrobnosti", action: () => app.pick(g, it) }];
+        if (g.key === "disky" || g.key === "usb") {
+            const dev = det["zariadenie"] || "";
+            if (dev) {
+                items.push({ glyph: "folder", label: "Otvoriť v Súboroch", action: () => app.run(["sh", "-c", 'm=$(lsblk -nro MOUNTPOINT "$1" | grep -m1 .); [ -n "$m" ] && exec latte-app subory "$m"; notify-send -a LatteOS "Disk nie je pripojený" "$1"', "sh", dev]) });
+                if (g.key === "usb" || /usb/i.test(det["pripojenie"] || ""))
+                    items.push({ glyph: "usb", label: "Bezpečne odobrať", action: () => app.run(["sh", "-c", 'for p in $(lsblk -nro PATH "$1" | tail -n +2) "$1"; do udisksctl unmount -b "$p" 2>/dev/null; done; udisksctl power-off -b "$1" && notify-send -a LatteOS "Môžeš odpojiť" "$2"', "sh", dev, it.name], "Odoberám " + it.name) });
+            }
+        }
+        if (g.key === "siet") {
+            const ifc = (it.name.match(/·\s*(\S+)$/) || [])[1] || "";
+            if (ifc) {
+                const on = (det["stav"] || "") === "connected";
+                items.push({ glyph: on ? "world-off" : "world", label: on ? "Odpojiť" : "Pripojiť", action: () => app.run(["nmcli", "device", on ? "disconnect" : "connect", ifc], (on ? "Odpájam " : "Pripájam ") + ifc) });
+            }
+            items.push({ glyph: "settings", label: "Nastavenia siete", action: () => app.run(["latte-app", "nastavenia", "siet"]) });
+        }
+        if (g.key === "napajanie" && it.name === "Profil výkonu") {
+            items.push({ separator: true });
+            for (const pr of [["power-saver", "Úsporný"], ["balanced", "Vyvážený"], ["performance", "Výkonný"]])
+                items.push({ glyph: "bolt", label: "Profil: " + pr[1], hint: it.sub === pr[1] ? "✓" : "", action: () => app.run(["powerprofilesctl", "set", pr[0]], "Profil výkonu: " + pr[1]) });
+        }
+        if (g.key === "grafika" || g.key === "pocitac") items.push({ glyph: "cpu", label: "Hardvér v Monitore", action: () => app.run(["latte-app", "monitor", "hardver"]) });
+        if (g.key === "obrazovky") items.push({ glyph: "device-desktop", label: "Rozlíšenie a mierka", action: () => app.pick(g, it) });
+        if (g.key === "vstup") items.push({ glyph: "keyboard", label: "Klávesnica a skratky", action: () => app.run(["latte-app", "nastavenia", "klavesnica"]) });
+        items.push({ separator: true });
+        items.push({ glyph: "clipboard", label: "Kopírovať informácie", action: () => app.run(["wl-copy", "--", info], "Skopírované: " + it.name) });
+        ctx.open(x, y, items, it.name);
+    }
     function pick(g, it) {
         sel = { group: g.key, item: it };
         if (g.key === "obrazovky" && it.mode) { pickMode = it.mode; pickScale = it.scale; }
@@ -159,7 +192,9 @@ ShellRoot {
                                                 font { family: theme.fontUi; pixelSize: 12 }
                                             }
                                         }
-                                        MouseArea { id: tm; anchors.fill: parent; hoverEnabled: true; onClicked: app.pick(grp.modelData, tile.modelData); onDoubleClicked: app.pick(grp.modelData, tile.modelData) }
+                                        MouseArea { id: tm; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                                    onClicked: (m) => { app.pick(grp.modelData, tile.modelData); if (m.button === Qt.RightButton) { const q = mapToItem(null, m.x, m.y); app.deviceMenu(grp.modelData, tile.modelData, q.x, q.y); } }
+                                                    onDoubleClicked: app.pick(grp.modelData, tile.modelData) }
                                     }
                                 }
                             }
@@ -333,6 +368,7 @@ ShellRoot {
                     }
                 }
             }
+            ContextMenu { id: ctx; theme: theme }
         }
     }
 }

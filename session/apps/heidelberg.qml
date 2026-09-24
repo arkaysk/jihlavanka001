@@ -227,6 +227,64 @@ ShellRoot {
         const t = editor.getText(s, e).replace(/&/g, "&amp;").replace(/</g, "&lt;");
         editor.remove(s, e); editor.insert(s, t); editor.select(s, e);
     }
+    // kontextová ponuka textu (ako vo Worde): úpravy, formát, návrhy pre slovo pod kurzorom
+    property string menuWord: ""
+    Process {
+        id: wordCheck
+        property real mx: 0; property real my: 0
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const m = this.text.match(/^& \S+ \d+ \d+: (.*)$/m);
+                const ok = /^\*/m.test(this.text);
+                const items = [];
+                if (m) for (const sgg of m[1].split(", ").slice(0, 6))
+                    items.push({ glyph: "check", label: sgg, action: () => app.replaceWord(sgg) });
+                else items.push({ glyph: "check", label: ok ? "„" + app.menuWord + "“ je správne" : "Bez návrhov", enabled: false, action: () => {} });
+                items.push({ separator: true });
+                items.push({ glyph: "books", label: "Pridať „" + app.menuWord + "“ do slovníka", action: () => app.addWord(app.menuWord) });
+                ctx.replace(items, "Pravopis · " + app.menuWord);
+            }
+        }
+    }
+    function replaceWord(w) {
+        const s0 = editor.selectionStart, e0 = editor.selectionEnd;
+        if (s0 === e0) return;
+        editor.remove(s0, e0); editor.insert(s0, w); editor.select(s0, s0 + w.length);
+    }
+    function editMenu(x, y) {
+        const hasSel = editor.selectionStart !== editor.selectionEnd;
+        menuWord = hasSel ? editor.selectedText.trim() : "";
+        const items = [
+            { glyph: "copy", label: "Vystrihnúť", hint: "Ctrl+X", enabled: hasSel, action: () => editor.cut() },
+            { glyph: "copy", label: "Kopírovať", hint: "Ctrl+C", enabled: hasSel, action: () => editor.copy() },
+            { glyph: "clipboard", label: "Vložiť", hint: "Ctrl+V", enabled: editor.canPaste, action: () => editor.paste() },
+            { glyph: "check", label: "Vybrať všetko", hint: "Ctrl+A", action: () => editor.selectAll() },
+            { separator: true },
+            { glyph: "pencil", label: "Tučné", hint: "Ctrl+B", enabled: hasSel, action: () => app.fmt("b") },
+            { glyph: "pencil", label: "Kurzíva", hint: "Ctrl+I", enabled: hasSel, action: () => app.fmt("i") }
+        ];
+        if (rich) items.push({ glyph: "x", label: "Vymazať formát", enabled: hasSel, action: () => app.clearFormat() });
+        if (hasSel && /^[A-Za-z\u00C0-\u024F]+$/.test(menuWord)) {
+            items.push({ separator: true });
+            items.push({ glyph: "list-check", label: "Pravopis: návrhy pre „" + menuWord + "“", keepOpen: true, action: () => {
+                wordCheck.command = ["sh", "-c", 'printf "^%s\\n" "$1" | hunspell -d "$2" -p "$3" -a', "sh", app.menuWord, app.lang, app.dictFile]; wordCheck.running = true; } });
+            items.push({ glyph: "search", label: "Hľadať „" + menuWord + "“ na webe", action: () => Qt.openUrlExternally("https://duckduckgo.com/?q=" + encodeURIComponent(menuWord)) });
+        }
+        ctx.open(x, y, items, "");
+    }
+    // pravý klik na dokument v bočnom paneli
+    function docMenu(it, x, y) {
+        if (!it.key.startsWith("doc:")) return;
+        const p = it.key.slice(4);
+        ctx.open(x, y, [
+            { glyph: "external-link", label: "Otvoriť", action: () => app.open(p) },
+            { glyph: "folder", label: "Otvoriť priečinok v Súboroch", action: () => app.run(["latte-app", "subory", p.substring(0, p.lastIndexOf("/"))]) },
+            { glyph: "clipboard", label: "Kopírovať cestu", action: () => app.run(["wl-copy", "--", p]) },
+            { separator: true },
+            { glyph: "history", label: "Odstrániť z nedávnych", enabled: app.recent.indexOf(p) >= 0, action: () => { app.recent = app.recent.filter(x => x !== p); recentView.setText(JSON.stringify(app.recent)); } },
+            { glyph: "trash", label: "Presunúť do koša", danger: true, action: () => { app.run(["latte-kos", "vyhod", p]); app.recent = app.recent.filter(x => x !== p); recentView.setText(JSON.stringify(app.recent)); docsProc.running = true; } }
+        ], it.label);
+    }
     function fmt(what) {
         if (rich) {
             const m = { b: ["<b>", "</b>"], i: ["<i>", "</i>"], u: ["<u>", "</u>"], s: ["<s>", "</s>"], c: ["<code>", "</code>"], a: ["<a href=\"https://\">", "</a>"] };
@@ -366,6 +424,7 @@ ShellRoot {
                     { title: "Dokumenty", items: app.docs.map(p => ({ key: "doc:" + p, glyph: "file-text", label: p.split("/").pop() })) }
                 ]
                 onActivated: (it) => { if (it.key === "new") app.newDoc(true); else if (it.key === "note") app.newDoc(false); else app.open(it.key.slice(4)); }
+                onContextRequested: (it, x, y) => app.docMenu(it, x, y)
             }
 
             HeaderBar {
@@ -531,6 +590,16 @@ ShellRoot {
                                 if (top < flickDoc.contentY) flickDoc.contentY = top;
                                 else if (bot > flickDoc.contentY + flickDoc.height) flickDoc.contentY = bot - flickDoc.height;
                             }
+                            // pravý klik v texte: úpravy, formát, návrhy pravopisu (ľavé tlačidlo ostáva editoru)
+                            MouseArea {
+                                anchors.fill: parent; acceptedButtons: Qt.RightButton; cursorShape: Qt.IBeamCursor
+                                onClicked: (m) => {
+                                    const pos = editor.positionAt(m.x, m.y);
+                                    if (editor.selectionStart === editor.selectionEnd || pos < editor.selectionStart || pos > editor.selectionEnd) { editor.cursorPosition = pos; app.selectWordIfEmpty(); }
+                                    const q = mapToItem(null, m.x, m.y);
+                                    app.editMenu(q.x, q.y);
+                                }
+                            }
                         }
                         Text { visible: app.plain === "" && !app.rich; text: "Píš… (Markdown: # nadpis, **tučné**, *kurzíva*, - zoznam)"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 14 } }
                         Text { visible: app.plain === "" && app.rich; x: editor.x; y: editor.y; text: "Píš… Formátuj tlačidlami hore, Ctrl+P tlačí."; color: "#888"; font { family: "Manrope"; pixelSize: 15 } }
@@ -666,6 +735,8 @@ ShellRoot {
                     }
                 }
             }
+
+            ContextMenu { id: ctx; theme: theme; z: 2000 }
 
             Rectangle {
                 id: statusBar

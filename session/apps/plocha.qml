@@ -56,6 +56,19 @@ ShellRoot {
         }
     }
 
+    function desktopMenu(x, y) {
+        menuAt = Qt.point(x, y);
+        menuItems = [
+            { label: "Nový priečinok", act: () => pl.sh('n="Nový priečinok"; i=2; while [ -e "$1/$n" ]; do n="Nový priečinok $i"; i=$((i+1)); done; mkdir -- "$1/$n"', [pl.desk]) },
+            { label: "Nový textový súbor", act: () => pl.sh('n="Nový textový súbor.txt"; i=2; while [ -e "$1/$n" ]; do n="Nový textový súbor $i.txt"; i=$((i+1)); done; : > "$1/$n"', [pl.desk]) },
+            { label: "Otvoriť Plochu v Súboroch", act: () => pl.sh('latte-app subory "$1" >/dev/null 2>&1 &', [pl.desk]) },
+            { label: "Terminál tu", act: () => pl.sh('cd "$1" && setsid foot >/dev/null 2>&1 &', [pl.desk]) },
+            { label: "Zmeniť tapetu…", act: () => pl.sh('latte-app nastavenia pozadie >/dev/null 2>&1 &') },
+            { label: "Živá tapeta a efekty…", act: () => pl.sh('latte-app nastavenia efekty >/dev/null 2>&1 &') },
+            { label: "Obrazovky…", act: () => pl.sh('latte-app zariadenia >/dev/null 2>&1 &') },
+            { label: "Skryť ikony na ploche", danger: true, act: () => pl.sh('mkdir -p "$1" && printf off > "$1/desktop-icons"', [pl.cfg]) }
+        ];
+    }
     function menuFor(path, isDir, x, y) {
         sel = path; menuAt = Qt.point(x, y);
         if (path === trashDir) {
@@ -97,16 +110,15 @@ ShellRoot {
         WlrLayershell.namespace: "latte-plocha"
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
         color: "transparent"
-        mask: Region {
-            item: grid
-            Region { item: menu.visible ? menu : null }
+        // vstup na celej ploche (widgety plochy Noctalie sú vypnuté): pravý klik na prázdne miesto = ponuka plochy,
+        // ľavý zruší výber; pustenie súboru kdekoľvek = kopírovať na Plochu (Kôš má vlastný cieľ navrchu)
+        MouseArea {
+            anchors.fill: parent; acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onClicked: (m) => { pl.sel = ""; if (m.button === Qt.RightButton) pl.desktopMenu(m.x, m.y); else pl.menuItems = []; }
         }
-
-        // pustenie súboru z inej aplikácie medzi ikony = kopírovať na Plochu (vstup má vrstva iba nad ikonami;
-        // Kôš má vlastný cieľ navrchu)
         DropArea {
-            anchors.fill: grid; keys: ["text/uri-list"]
-            onDropped: (d) => { if (d.hasUrls) { pl.sh('for u in "$@"; do cp -rn -- "$u" "' + pl.desk + '/"; done', d.urls.map(u => decodeURIComponent(String(u).replace(/^file:\/\//, "")))); d.accept(Qt.CopyAction); } }
+            anchors.fill: parent; keys: ["text/uri-list"]
+            onDropped: (d) => { if (d.hasUrls) { pl.sh('d="$1"; shift; for u in "$@"; do cp -rn -- "$u" "$d/"; done', [pl.desk].concat(d.urls.map(u => decodeURIComponent(String(u).replace(/^file:\/\//, ""))))); d.accept(Qt.CopyAction); } }
         }
 
         Flow {

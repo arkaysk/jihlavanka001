@@ -398,7 +398,15 @@ ShellRoot {
             current: app.section
             onActivated: (area, page) => app.go(page)
             onHomeRequested: app.go("domov")
+            onContextRequested: (area, page, label, x, y) => ctx.open(x, y, [
+                { glyph: "external-link", label: "Otvoriť", action: () => app.go(page) },
+                { glyph: "device-desktop", label: "Skratka na ploche", action: () => app.run(["sh", "-c",
+                    'd=$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Plocha"); f="$d/latteos-nastavenia-$1.desktop"; mkdir -p "$d"; '
+                    + 'printf "[Desktop Entry]\\nType=Application\\nName=Nastavenia · %s\\nIcon=preferences-system\\nExec=latte-app nastavenia %s\\n" "$2" "$1" > "$f"; chmod +x "$f"', "sh", page, label], "Skratka na ploche: " + label) },
+                { glyph: "clipboard", label: "Kopírovať príkaz", hint: "latte-app nastavenia " + page, action: () => app.run(["wl-copy", "--", "latte-app nastavenia " + page], "Skopírované") }
+            ], label)
         }
+        ContextMenu { id: ctx; theme: theme; z: 3000 }
 
         HeaderBar {
             id: header
@@ -1023,7 +1031,20 @@ ShellRoot {
                     required property string modelData
                     width: 200; height: 112; radius: 12; clip: true; color: theme.field
                     Image { anchors.fill: parent; source: "file://" + parent.modelData; fillMode: Image.PreserveAspectCrop; asynchronous: true; sourceSize { width: 400; height: 224 } }
-                    MouseArea { anchors.fill: parent; onClicked: app.run(["noctalia", "msg", "wallpaper-set", parent.modelData], "Tapeta zmenená") }
+                    MouseArea {
+                        anchors.fill: parent; acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        onClicked: (m) => {
+                            const w = parent.modelData;
+                            if (m.button !== Qt.RightButton) { app.run(["noctalia", "msg", "wallpaper-set", w], "Tapeta zmenená"); return; }
+                            const q = mapToItem(null, m.x, m.y);
+                            ctx.open(q.x, q.y, [
+                                { glyph: "photo", label: "Nastaviť ako tapetu", action: () => app.run(["noctalia", "msg", "wallpaper-set", w], "Tapeta zmenená") },
+                                { glyph: "login", label: "Aj na prihlasovaciu obrazovku", action: () => app.setGreeter("background", w) },
+                                { glyph: "folder", label: "Ukázať v Súboroch", action: () => app.run(["latte-app", "subory", w.substring(0, w.lastIndexOf("/"))]) },
+                                { glyph: "clipboard", label: "Kopírovať cestu", action: () => app.run(["wl-copy", "--", w], "Cesta skopírovaná") }
+                            ], w.split("/").pop());
+                        }
+                    }
                 }
             }
           }

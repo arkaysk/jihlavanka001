@@ -533,8 +533,22 @@ ShellRoot {
                             Rectangle {
                                 id: ar
                                 required property var modelData
-                                width: grp.width; height: 48; radius: 10; color: theme.field
+                                width: grp.width; height: 48; radius: 10; color: arMa.containsMouse ? theme.hover : theme.field
                                 opacity: modelData.enabled ? 1 : 0.6
+                                MouseArea {    // pravý klik: zapnúť/vypnúť, zdrojový súbor, príkaz
+                                    id: arMa; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.RightButton
+                                    onClicked: (m) => {
+                                        const e = ar.modelData, q = mapToItem(null, m.x, m.y), items = [];
+                                        if (e.canToggle) items.push({ glyph: e.enabled ? "player-pause" : "player-play", label: e.enabled ? "Vypnúť pri štarte" : "Zapnúť pri štarte", action: () => app.toggleAutorun(e) });
+                                        if ((e.origin || "").startsWith("/")) {
+                                            items.push({ glyph: "file-text", label: "Otvoriť súbor v Heidelbergu", action: () => app.run(["latte-app", "heidelberg", e.origin]) });
+                                            items.push({ glyph: "folder", label: "Ukázať v Súboroch", action: () => app.run(["latte-app", "subory", e.origin.substring(0, e.origin.lastIndexOf("/"))]) });
+                                        }
+                                        if (e.command) items.push({ glyph: "clipboard", label: "Kopírovať príkaz", action: () => app.run(["wl-copy", "--", e.command], "Príkaz skopírovaný") });
+                                        items.push({ glyph: "search", label: "Hľadať na webe", action: () => Qt.openUrlExternally("https://duckduckgo.com/?q=" + encodeURIComponent(e.name + " linux")) });
+                                        ctx.open(q.x, q.y, items, e.name);
+                                    }
+                                }
                                 Column {
                                     x: 14; width: parent.width - 150; anchors.verticalCenter: parent.verticalCenter
                                     Text { width: parent.width; elide: Text.ElideRight; text: (ar.modelData.missing ? "⚠ " : "") + ar.modelData.name + (ar.modelData.note ? "  (" + ar.modelData.note + ")" : "") + (ar.modelData.missing ? "  · súbor chýba" : "")
