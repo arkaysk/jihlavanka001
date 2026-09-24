@@ -25,7 +25,7 @@ end
 
 function render()
   local kind = C.kind()
-  if kind == "ziadny" then kind = "macka" end
+  if kind == "ziadny" then kind = "homebrew" end
   local mode = C.mode()
   local mf, mt = C.mood(st)
   local modeRow = {}
@@ -46,7 +46,7 @@ function render()
       ui.image({ path = C.dir .. k .. "-sedi.png", width = 44, height = 36, fit = "contain" }),
       ui.label({ text = C.names[k], fontSize = 9, maxWidth = 60, maxLines = 1 }),
     }))
-    if #row == 6 then table.insert(grid, ui.row({ gap = 6 }, row)); row = {} end
+    if #row == 5 then table.insert(grid, ui.row({ gap = 6 }, row)); row = {} end
   end
   if #row > 0 then table.insert(grid, ui.row({ gap = 6 }, row)) end
 

@@ -60,6 +60,11 @@ done
 tmpm="$(mktemp -d)"; python3 "$S/noctalia/plugins/cat/make-mascots.py" "$tmpm" | sed 's/^/   /'
 sudo install -d /usr/share/latteos/noctalia/plugins/cat/mascots
 sudo install -m644 "$tmpm"/*.png /usr/share/latteos/noctalia/plugins/cat/mascots/
+# balíčky maskotov (plné snímky + pet.json) pre výbehy — apps/maskot.qml
+for d in "$S"/noctalia/plugins/cat/balicky/*/; do
+    n="$(basename "$d")"; sudo install -d "/usr/share/latteos/maskoti/$n"
+    sudo install -m644 "$d"* "/usr/share/latteos/maskoti/$n/"
+done
 rm -rf "$tmpm"
 sudo install -d /usr/share/fonts/latteos /usr/share/backgrounds/latteos
 sudo install -m644 "$S"/fonts/*.ttf "$S"/fonts/OFL-*.txt /usr/share/fonts/latteos/

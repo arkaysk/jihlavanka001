@@ -100,6 +100,44 @@ Poradie: 1. Monitor (hotové nižšie) → 2. Digitálna pohoda podľa Pulse →
     alebo animácie Hyprlandu;
   - pri stupni Softvér ostanú vypnuté (pravidlo „každý prvok má variant bez shaderov“).
 
+### 25. 9. 2026, 1:30: Maskoti podľa tvojich predlôh a správanie podľa povahy ✅
+- **Podoba:** sprity som **vyrezal priamo z tvojich dvoch obrázkov kolekcie** (`resources/art/maskoti/`, nástroj `vyrez.py`:
+  nájde postavy v riadkoch „Kľud“ a „V pohybe“ a odstráni tmavé pozadie). Každá postava je balíček PNG snímok + `pet.json`.
+  Hlavní maskoti podľa tebou:
+  - Homebrew, Kávový drak, Ktulu, oranžový Robot turista a Kapybara s gumovou kačičkou;
+  - Maid z druhého obrázka (všeobecná, nie Asuka);
+  - Latte mačka, Mokka a Tieň (všeobecný „enderman“). Tieto tri na obrázkoch nie sú, dokreslil som ich
+    a vyzerajú slabšie, najmä mačky z boku. **Ak pošleš list s nimi v rovnakom štýle, vyrežem ich za minútu.**
+  - Navyše Líška, Mýval, Svetluška a Dráčik.
+- **Správanie podľa povahy** (výbehy, `maskot.qml`):
+  - **Homebrew:** plazí sa po lište, pod oknom sa natiahne hore, prilepí sa k titulku a pritiahne sa, na okne sa
+    rozleje a kvapká (kvapky padajú na lištu).
+  - **Drak:** vzlietne, sadne si na titulok okna a stráži svoju šálku, občas chrlí oheň. Svetluška lieta aj v noci.
+  - **Mačky** (Latte, Mokka, Ktulu, Líška): chodia, plížia sa, **skáču** na okná po oblúku a **uhýbajú kurzoru** skokom.
+    Keď sa 3 min nič nedeje, **priblížia sa z monitora**: zväčšia sa uprostred dole a pozerajú na teba, Latte a Mokka
+    aj žmurkajú. Klik alebo návrat ich pošle domov.
+  - **Maid:** beží po lište a **zametá ju** tam a späť (prach), **sedí na nej a hojdá sa**, keď je kurzor blízko,
+    lietajú **srdiečka** ♥ a ukáže snímku so srdiečkom.
+  - **Kapybara:** najpokojnejšia, sadne si do **bazénika** vedľa ostrova. Občas jej **vypadne gumová kačička**, ktorá
+    sa odrazí po lište; kapybara sa pre ňu lenivo vyberie, vezme ju a vráti sa do bazénika.
+  - **Robot turista** (a Mýval): chodí k rohom okien, „ovoniava“ (?), robot vyletí hore na mini boost, občas
+    si okno odfotí (blesk).
+  - **Tieň:** teleportuje sa (fialové čiastočky); občas **vezme blok**, teleportuje sa s ním inam a potom ho vráti na miesto.
+  - Pri nečinnosti si ostatní zdriemnu pri kurzore (zZ). Klik ich pohladká (srdiečka), pravý klik ich pošle domov.
+    Pri hre alebo okne na celú obrazovku sa schovajú.
+- Otestované naživo s oknom foot:
+  - Homebrew sa plazil, natiahol a sedel na titulku;
+  - Tieň sa teleportoval na titulok;
+  - kapybare vypadla kačička, odrazila sa a kapybara si pre ňu došla;
+  - Latte sa hrala s kurzorom (uhýbanie).
+
+  Tvoju postavu (Ktulu) som potom vrátil.
+- Lišta používa rovnaké postavy zmenšené na 44 × 36. **Panel s výberom postáv uvidíš po ďalšom prihlásení.**
+- **Total Commander:** rozumiem, cieľom je plná funkčnosť originálu. V ROADMAP je rozpísaný celý zoznam: karty, hotlist,
+  zobrazenia, výber maskou, Lister, dialógy F5/F6 s radom úloh, hromadné premenovanie, porovnanie a synchronizácia,
+  archívy ako priečinky, hľadanie Alt+F7, atribúty, kontrolné súčty, rozdelenie, riadok príkazu, vlastné tlačidlá
+  a ďalšie. Robím to ako ďalšiu veľkú fázu, po častiach.
+
 ### 25. 9. 2026: Maskoti — 12 postáv, potreby ako tamagoči, výbehy z ostrova ✅ (panel po ďalšom prihlásení)
 - **Nové postavy** (vlastná pixel-art, ručne kreslené predlohy):
   - Homebrew (kávový sliz pod prevrátenou šálkou, s lyžičkou);

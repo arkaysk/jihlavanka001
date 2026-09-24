@@ -1,0 +1,32 @@
+{
+ "name": "Kávový drak",
+ "about": "vzlietne, sadne si na okno a stráži svoju šálku",
+ "profile": "drak",
+ "flyer": true,
+ "facing": "left",
+ "idle": [
+  "sedi",
+  "sedi-2"
+ ],
+ "sleep": "spi",
+ "move": [
+  "leti",
+  "leti-2"
+ ],
+ "rightFacing": [
+  "ohen",
+  "ohen-2"
+ ],
+ "frames": [
+  "hero",
+  "leti",
+  "leti-2",
+  "na-salke",
+  "ohen",
+  "ohen-2",
+  "sedi",
+  "sedi-2",
+  "spi",
+  "stoji"
+ ]
+}

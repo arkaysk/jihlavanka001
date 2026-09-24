@@ -374,8 +374,27 @@ flowchart TD
 - [x] Digitálna pohoda (pohoda.qml, Monitor › Čas v aplikáciách, limity, čas a RAM v App Manageri)
 - [ ] Plynulé animácie všetkých panelov a vyskakovacích okien pri stupni s GPU (vzor: video „Hyprland as fluid as it gets“) — otestovať na reálnom HW
 - [x] Kolekcia maskotov (12 postáv) s režimami OFF / SLOT / WORLD / CHAOS, výbehy po lište a oknách (maskot.qml), potreby ako tamagoči, panel
-- [ ] Balíčky maskotov (PNG snímky + pet.json) pre podrobné sprity; komunitné balíčky iba ako dáta
+- [x] Balíčky maskotov (PNG snímky + pet.json): 10 vyrezaných z koncepčných listov používateľa, Latte/Mokka/Tieň dokreslené; profily správania podľa povahy
+- [ ] Vlastné a komunitné balíčky v ~/.local/share/latteos/maskoti (iba dáta) + galéria
 - [ ] Softvérové sklo pre panely a popupy LatteOS (rozmazaný výrez tapety ako v starej vetve), GPU blur ostáva pre okná
-- [ ] Súbory ako Total Commander: F-lišta, karty, výber maskou, hromadné premenovanie, porovnanie/synchronizácia, archívy ako priečinky, hľadanie v obsahu, hotlist, Lister, kontrolné súčty
+- [ ] **Súbory = plná funkčnosť Total Commandera** (zadanie 25. 9.: „nejde o to, čo používam, ale o plnú funkčnosť originálu“):
+  - [ ] Panely: dva panely, **karty** v každom (Ctrl+T, Ctrl+W, Ctrl+Tab, uzamknutá karta), lišta diskov, história Späť/Dopredu,
+        **hotlist** priečinkov (Ctrl+D), rovnaký priečinok v druhom paneli (Alt+Enter/Ctrl+↑), výmena panelov (Ctrl+U)
+  - [ ] Zobrazenia: stručné, úplné (stĺpce, triedenie kliknutím), miniatúry, strom (Ctrl+F8), vlastné stĺpce, **Rýchly náhľad** (Ctrl+Q), plochý pohľad (Ctrl+B)
+  - [ ] Výber: Num+ / Num− s maskou, Num* obrátiť, Alt+Num+ podľa prípony, uložiť a obnoviť výber, **rýchle hľadanie** písaním a rýchly filter
+  - [ ] F-klávesy: F2 obnoviť, **F3 Lister** (text, hex, binárny, obrázok, médium, kódovania), F4 editor, Shift+F4 nový súbor,
+        **F5 kopírovať / F6 presunúť** s dialógom (maska, cieľ, prepísanie: všetko/nič/staršie/premenovať, overenie, rad úloh na pozadí,
+        pauza, rýchlosť), F7 priečinok (aj vnorené a/b/c), F8/Del do koša, Shift+Del natrvalo
+  - [ ] **Hromadné premenovanie** (Ctrl+M): masky [N] [E] [C] [Y][M][D], počítadlo, hľadať/nahradiť, regulárne výrazy, veľkosť písmen, náhľad, späť
+  - [ ] **Porovnanie priečinkov** (Shift+F2, označí rozdiely), **Synchronizácia priečinkov** (asymetrická, podľa obsahu, náhľad akcií),
+        **porovnanie súborov podľa obsahu** (diff textu, binárne)
+  - [ ] **Archívy ako priečinky** (zip, 7z, rar, tar.*), zbaliť (Alt+F5), rozbaliť (Alt+F9), test archívu, viac zväzkov, heslo
+  - [ ] **Hľadanie** (Alt+F7): maska mena, text v obsahu (aj regex, kódovanie), veľkosť, dátum, atribúty, v archívoch, výsledok do panelu
+  - [ ] Veľkosť priečinkov (medzerník, Alt+Shift+Enter), vlastnosti a **zmena atribútov/práv a dátumov**, symbolické a pevné odkazy
+  - [ ] **Kontrolné súčty** (MD5/SHA1/SHA256 vytvoriť a overiť), **rozdeliť / spojiť** súbory, kódovanie UUE/Base64
+  - [ ] **Riadok príkazu** s históriou (v aktuálnom priečinku), terminál tu, lišta **vlastných tlačidiel**, vlastné menu a klávesové skratky
+  - [ ] Sieť: FTP/SFTP (✓ základ), SMB zdieľanie, WebDAV, cloud (✓ rclone); ťahanie myšou medzi panelmi a do iných aplikácií
+  - [ ] Kopírovať mená/cesty do schránky, zoznam súborov do textu, tlač zoznamu
+  - [ ] Rozšírenia ako pluginy TC (packer, súborový systém, lister, stĺpce) cez vlastné rozhranie LatteOS
 - [ ] Živá tapeta podľa aura (mpv, pauza pri zakrytí a hre, farby z videa); výber tapiet a prechody podľa skwd-wall
 - [ ] Shaderové efekty (prechody skwd-wall) na popupy a panely LatteOS a cez plugin Hyprlandu na okná — iba stupeň Plný (H)

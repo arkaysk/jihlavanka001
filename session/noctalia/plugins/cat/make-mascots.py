@@ -1,258 +1,18 @@
 #!/usr/bin/python3
-"""Maskoti LatteOS pre lištu — vlastná pixel-art (nie prevzatý bongocat), PNG bez závislostí.
+"""Maskoti LatteOS — balíčky postáv (balicky/<id>/<snímka>.png + pet.json) a snímky pre lištu.
 
-  python3 make-mascots.py <výstupný priečinok>
+  python3 make-mascots.py <výstup>                 snímky lišty 44 × 36 z balíčkov: <id>-<snímka>.png (inštalácia)
+  python3 make-mascots.py balicky <balicky>        dokreslené balíčky (Latte mačka, Mokka, Tieň) — vlastná pixel-art
+  python3 make-mascots.py lista <balicky> <výstup> to isté ako prvý príkaz, s iným priečinkom balíčkov
 
-Z ASCII predlôh nižšie vyrobí <maskot>-<snímka>.png (mierka 2). Snímky:
-  sedi   obe labky na stole          lapka-l / lapka-p   ťukanie ľavou / pravou (hudba hrá)
-  zmurk  zažmúrenie                  spi                 spánok (noc)            hlad    pohladkanie (klik)
-  odchod-1..3  maskot odchádza z ostrova (posun doľava)   prazdny  iba stôl (maskot je na prechádzke)
-  chapadla-1/2 (iba Ktulu) z hrany stola = lišty vyrastú chápadlá a vlnia sa
-  chodza-1/2, chodza-1-r/2-r  chôdza mimo ostrova (režim WORLD/CHAOS, maskot.qml), doľava / doprava
-Kolekcia (25. 9.): Homebrew (kávový sliz pod šálkou), Kávový drak, Líška, Mýval, Mini robot, Svetluška,
-Kapybara, Void drak — voľné predlohy 22 × 16 nad stolom (PETS), rovnaké snímky ako mačky.
+Balíčky z koncepčných listov používateľa (Homebrew, Kávový drak, Ktulu, Robot turista, Maid, Kapybara, Líška,
+Mýval, Svetluška, Dráčik) vyrezáva resources/art/maskoti/vyrez.py. Snímky lišty: sedi, zmurk, spi, hlad, smutny,
+lapka-l/p (hudba), odchod-1..3, prazdny, chapadla-1/2 (Ktulu). Plné snímky pre výbehy (maskot.qml) sú v balíčku.
 """
-import os, struct, sys, zlib
+import json, os, struct, sys, zlib
 
 SCALE = 2
-# paleta: . priehľadné, K obrys, W telo, C akcent (uši, pruhy), P nos/líčka, E oči, D stôl, d hrana stola, Z písmeno z
-PALETTES = {
-    "macka": {"K": "2A1E16", "W": "F3EBDD", "C": "E4B283", "P": "E07A5F", "E": "2A1E16", "D": "8A5A3C", "d": "6B4430", "Z": "E4B283"},
-    "mokka": {"K": "0E0B09", "W": "3A2D24", "C": "E4B283", "P": "E07A5F", "E": "F2C94C", "D": "8A5A3C", "d": "6B4430", "Z": "E4B283"},
-    "zrnko": {"K": "2A160C", "W": "7A4A2A", "C": "B07A50", "P": "E07A5F", "E": "F3EBDD", "D": "8A5A3C", "d": "6B4430", "Z": "E4B283"},
-    # Ktulu: Cthulhu mačka — morská zeleň, žiariace oči, chápadlá pod bradou (T) a z hrany stola
-    "ktulu": {"K": "10201A", "W": "4F8A6E", "C": "2F6450", "P": "8FD3B0", "E": "F2E14C", "D": "8A5A3C", "d": "6B4430", "Z": "8FD3B0", "T": "3E7A5E"},
-}
-
-PALETTES.update({
-    "homebrew": {"K": "1E120A", "W": "6B3E1F", "C": "D9A066", "P": "E07A5F", "E": "F2C94C", "M": "F3EBDD", "S": "E9DDBE", "D": "8A5A3C", "d": "6B4430", "Z": "E4B283"},
-    "drak":     {"K": "1E120A", "W": "8A5A34", "C": "5A3A22", "P": "E07A5F", "E": "F2C94C", "M": "F3EBDD", "D": "8A5A3C", "d": "6B4430", "Z": "E4B283"},
-    "liska":    {"K": "2A140A", "W": "E8742E", "C": "F7EBDD", "P": "2A140A", "E": "2A140A", "D": "8A5A3C", "d": "6B4430", "Z": "E4B283"},
-    "myval":    {"K": "1A1A1C", "W": "8C8C94", "C": "3A3A40", "P": "E6E1D8", "E": "F3EBDD", "D": "8A5A3C", "d": "6B4430", "Z": "E4B283"},
-    "robot":    {"K": "1B1E26", "W": "F09A2A", "C": "1F4E7A", "P": "E0E0E0", "E": "8FE3FF", "D": "8A5A3C", "d": "6B4430", "Z": "8FE3FF"},
-    "svetluska": {"K": "1A1608", "W": "FFE46B", "C": "6A5A20", "P": "CFE3F2", "E": "F3EBDD", "D": "8A5A3C", "d": "6B4430", "Z": "FFE46B"},
-    "kapybara": {"K": "2A1A10", "W": "A0703E", "C": "6B4A2A", "P": "F2C94C", "E": "1A1008", "D": "8A5A3C", "d": "6B4430", "Z": "E4B283"},
-    "void":     {"K": "12081C", "W": "7B3FB8", "C": "3A1A5C", "P": "E07AE0", "E": "FF5CF0", "D": "8A5A3C", "d": "6B4430", "Z": "E07AE0"},
-})
-NAMES = {"macka": "Latte mačka", "mokka": "Mokka", "zrnko": "Zrnko", "ktulu": "Ktulu", "homebrew": "Homebrew", "drak": "Kávový drak",
-         "liska": "Líška", "myval": "Mýval", "robot": "Mini robot", "svetluska": "Svetluška", "kapybara": "Kapybara", "void": "Void drak"}
-PETS = {
-    "homebrew": ["", "", "........MMMMMM", "......MMMMMMMMMM..MM", ".....MMMMMMMMMMMM.M.M", "....MMKKKKKKKKKKMMM.M",
-                 "....MMKWWWWWWWWKMM.MM", "....MKWWCWWWWCWWKM", "....MKWEEWWWWEEWKM...S", "....MKWEEWWWWEEWKM..S",
-                 "....KWWWWWWWWWWWWK.S", "...KWWWWWKKKKWWWWWKS", "..KWWWWWWWWWWWWWWWWK", ".KWWCWWWWWWWWWWWCWWWK",
-                 "KWWWWWWWKWWWWKWWWWWWWK", ".KK..KKK..KKKK..KK..KK"],
-    "drak":     ["....K..........K", "...KCK........KCK", "..KCCK..KKKK..KCCK", ".KCCCK.KWWWWK.KCCCK", ".KCCK.KWWWWWWK.KCCK",
-                 "..KK.KWEWWWWEWK.KK", ".....KWEWWWWEWK", ".....KWWWPPWWWK", "......KWWWWWWK", "...MMMMMMMMMMMMMMM",
-                 "...MKKKKKKKKKKKKKM.MM", "...MMMMMMMMMMMMMMMM..M", "....MMMMMMMMMMMMMM..M", ".....MMMMMMMMMMMM.MM",
-                 "......MMMMMMMMMM", "....KKKKKKKKKKKKKK"],
-    "liska":    ["...K..........K", "..KWK........KWK", "..KWWK......KWWK", "..KWWWKKKKKKWWWK", ".KWWWWWWWWWWWWWWK",
-                 ".KWWEWWWWWWWWEWWK", ".KWCEWWWWWWWWECWK", "..KCCCWWKKWWCCCK", "...KCCCCCCCCCCK", "....KWWWWWWWWK...KKK",
-                 "...KWWCCCCCCWWK.KWWWK", "...KWWCCCCCCWWKKWWWWK", "...KWWCCCCCCWWWWWCCK", "...KWWWWWWWWWWWCCK",
-                 "...KWK.KWWK.KWKKK", "...KK..KKK..KK"],
-    "myval":    ["...KK........KK", "..KWWK......KWWK", "..KWWWKKKKKKWWWK", ".KWWWWWWWWWWWWWWK", ".KCCCCWWWWWWCCCCK",
-                 ".KCCECCWWWWCCECCK", ".KCCCCPWWWWPCCCCK", "..KPPPPPKKPPPPPK", "...KPPPPPPPPPPK", "....KWWWWWWWWK",
-                 "...KWWWPPPPWWWK.KCCK", "...KWWPPPPPPWWKKWWWK", "...KWWPPPPPPWWKCCCK", "...KWWWWWWWWWWWWWK",
-                 "...KWK.KWWK.KWK", "...KK..KKK..KK"],
-    "robot":    [".........K", ".........P", "......KKKKKKKK", ".....KWWWWWWWWK", "....KWCCCCCCCCWK", "....KWCEECCEECWK",
-                 "....KWCEECCEECWK", "....KWCCCCCCCCWK", "....KWWWWWWWWWWK", ".....KKKKKKKKKK", "...KKWWWWWWWWWWKK",
-                 "..KWKWWPWWWWPWWKWK", "..KWKWWWWWWWWWWKWK", "...K.KWWWWWWWWK.K", ".....KWK....KWK", ".....KKK....KKK"],
-    "svetluska": ["", ".....KK......KK", "....KPPK....KPPK", "...KPPPPK..KPPPPK", "...KPPPPPKKPPPPPK", "....KPPPKCCKPPPK",
-                  ".....KKKCCCCKKK", "......KCECCECK", "......KCECCECK", ".......KCCCCK", "......KWWWWWWK", ".....KWWWWWWWWK",
-                  ".....KWWWWWWWWK", "......KWWWWWWK", ".......KKKKKK", ""],
-    "kapybara": ["........KK", ".......KPPK", ".......KPPPK", "...KK...KKK..KK", "..KWWKKKKKKKKWWK", "..KWWWWWWWWWWWWWK",
-                 ".KWWWWWWWWWWWWWWWK", ".KWWEWWWWWWWWEWWWWK", ".KWWWWWWWWWWWWWWWCCK", ".KWWWWWWWWWWWWWWCKKCK",
-                 ".KWWWWWWWWWWWWWWWCCCK", "..KWWWWWWWWWWWWWWWWK", "..KWWWWWWWWWWWWWWWWK", "..KWWWWWWWWWWWWWWWWK",
-                 "..KWWK.KWWK..KWWK.KWK", "..KKK..KKK...KKK..KK"],
-    "void":     ["..K...............K", ".KCK.............KCK", ".KCCK...KKKKK...KCCK", "..KCCK.KWWWWWK.KCCK", "..KCCCKWWWWWWWKCCCK",
-                 "...KCKWEWWWWWEWKCK", "....KWWEWWWWWEWWK", "....KWWWWPPWWWWWK", ".....KWWWWWWWWWK", "......KWWWWWWWK",
-                 ".....KWWCCCCCWWK", "....KWWCCCCCCCWWK.KK", "....KWWCCCCCCCWWKKWK", "....KWWWWWWWWWWWWWK",
-                 "....KWWK.KWK.KWWK", "....KKK..KKK..KKK"],
-}
-
-
-def pet_frame(kind, eyes="open", z=False, bounce=0, shift=0, empty=False, desk=True, step=0):
-    """Snímka voľnej predlohy: 16 riadkov postavy nad stolom (2 riadky); bez stola pre chôdzu."""
-    g = [["." for _ in range(W)] for _ in range(H)]
-    rows = [(r + "." * W)[:W] for r in (PETS[kind] + [""] * 16)[:16]]
-    off = 2 if not desk else 0                     # bez stola postava stojí na spodku plátna
-    for y, row in enumerate(rows):
-        yy = y + off - bounce
-        if 0 <= yy < H:
-            for x, ch in enumerate(row):
-                if ch != ".":
-                    g[yy][x] = ch
-    eyes_at = [(x, y) for y in range(H) for x in range(W) if g[y][x] == "E"]
-    if eyes != "open" and eyes_at:
-        for x, y in eyes_at:
-            g[y][x] = g[y][x - 1] if x > 0 and g[y][x - 1] not in ("E", ".") else "W"
-        low = max(y for _, y in eyes_at)
-        for x in sorted({x for x, _ in eyes_at}):
-            g[low][x] = "K"
-        if eyes == "happy":                        # ^ ^
-            top_ = min(y for _, y in eyes_at)
-            for x in sorted({x for x, _ in eyes_at}):
-                g[top_][x] = "K"; g[low][x] = g[low][x - 1] if x > 0 else "W"
-    if step and not desk:                          # chôdza: striedanie nôh (spodný riadok posunúť)
-        last = g[H - 1][:]
-        g[H - 1] = (["."] + last[:-1]) if step == 1 else (last[1:] + ["."])
-    if z:
-        for (x, y) in [(18, 0), (19, 0), (20, 0), (21, 0), (20, 1), (19, 2), (18, 3), (19, 3), (20, 3), (21, 3)]:
-            g[y][x] = "Z"
-    if desk:
-        for i, row in enumerate(DESK):
-            g[H - 2 + i] = list(row)
-    if shift or empty:
-        body = [row[:] for row in g[:H - 2]]
-        for y in range(H - 2):
-            for x in range(W):
-                sx = x + shift
-                g[y][x] = "." if empty or sx >= W else body[y][sx]
-    return g
-
-
-PET_FRAMES = {
-    "sedi": dict(), "lapka-l": dict(bounce=1), "lapka-p": dict(), "zmurk": dict(eyes="closed"),
-    "spi": dict(eyes="closed", z=True), "hlad": dict(eyes="happy", bounce=1), "smutny": dict(eyes="closed", bounce=-1),
-    "odchod-1": dict(shift=6), "odchod-2": dict(shift=12), "odchod-3": dict(shift=18), "prazdny": dict(empty=True),
-    "chodza-1": dict(desk=False, step=1), "chodza-2": dict(desk=False, step=2, bounce=1),
-    "stoji": dict(desk=False), "spi-von": dict(desk=False, eyes="closed", z=True), "hlad-von": dict(desk=False, eyes="happy", bounce=1),
-}
-
-
-def mirror(g):
-    return [row[::-1] for row in g]
-
-
-def walk_cat(g):
-    """Mačky (hlava + labky za stolom) mimo ostrova: stôl nahradia nôžky."""
-    g = [row[:] for row in g]
-    g[H - 2] = list("....KWWK......KWWK....")
-    g[H - 1] = list("....KKKK......KKKK....")
-    return g
-
-
-HEADS = {
-    # 22 × 10; hlava mačky (uši, oči E, nos P, ústa K)
-    "macka": [
-        "....K..........K......",
-        "...KCK........KCK.....",
-        "...KCWK......KWCK.....",
-        "...KWWWKKKKKKWWWK.....",
-        "..KWWWEWWWWWWEWWWK....",
-        "..KWWWEWWWWWWEWWWK....",
-        "..KWWPWWWPPWWWPWWK....",
-        "..KWWWWWKWWKWWWWWK....",
-        "..KWWWWWWWWWWWWWWK....",
-        "...KKKKKKKKKKKKKK.....",
-    ],
-    # kávové zrnko s ryhou uprostred a malými rožkami
-    "zrnko": [
-        "......K........K......",
-        ".....KCK......KCK.....",
-        "......KKKKKKKKKK......",
-        "....KKWWWWCWWWWWKK....",
-        "...KWWWWWWCWWWWWWWK...",
-        "...KWWEEWWCWWEEWWWK...",
-        "...KWWEEWWCWWEEWWWK...",
-        "...KWWWWWCWWWWWWWWK...",
-        "....KKWWWCKKWWWWKK....",
-        "......KKKKKKKKKK......",
-    ],
-}
-HEADS["mokka"] = HEADS["macka"]
-HEADS["ktulu"] = [
-    "....K..........K......",
-    "...KCK........KCK.....",
-    "...KCWK......KWCK.....",
-    "...KWWWKKKKKKWWWK.....",
-    "..KWWWEWWWWWWEWWWK....",
-    "..KWWWEWWWWWWEWWWK....",
-    "..KWWWWWWPPWWWWWWK....",
-    "..KWWTWWTWWTWWTWWK....",
-    "..KWWTWWTWWTWWTWWK....",
-    "...KKTKKTKKTKKTKKK....",
-]
-DESK = ["dddddddddddddddddddddd", "DDDDDDDDDDDDDDDDDDDDDD"]
-PAW = ["KKKK", "KWWK", "KPPK"]      # labka s ružovými vankúšikmi (viditeľná aj na tmavej mačke)
-W, H = 22, 18          # plátno: hlava (10), trup za stolom, labky, stôl (2)
-
-
-def frame(kind, left_up, right_up, eyes="open", z=False, shift=0, empty=False, rise=0):
-    g = [["." for _ in range(W)] for _ in range(H)]
-    head = HEADS[kind]
-    top = 1
-    # trup za stolom (medzi bradou a stolom), labky ležia navrch
-    for y in range(top + len(head) - 1, H - 2):
-        for x in range(4, 17):
-            g[y][x] = "K" if x in (4, 16) else "W"
-    eyes_at = []
-    for y, row in enumerate(head):
-        for x, ch in enumerate(row):
-            if ch != ".":
-                if ch == "E":
-                    eyes_at.append((x, y))
-                    if eyes == "closed":
-                        ch = "W"
-                g[top + y][x] = ch
-    if eyes == "closed":                          # zatvorené oči: vodorovná čiarka pod okom
-        low = max(y for _, y in eyes_at)
-        for x in sorted({x for x, _ in eyes_at}):
-            for dx in (-1, 0, 1):
-                if g[top + low][x + dx] == "W":
-                    g[top + low][x + dx] = "K"
-    if kind == "ktulu":                            # chápadlá pod bradou visia až na stôl (vlnka)
-        for i, x0 in enumerate((5, 8, 11, 14)):
-            for y in range(top + len(head), H - 2):
-                x = x0 + (1 if (y + i) % 3 == 0 else 0)
-                g[y][x] = "T"
-                if y == H - 3:
-                    g[y][x + 1] = "T"               # koniec chápadla sa stáča po stole
-    for i, row in enumerate(DESK):
-        g[H - 2 + i] = list(row)
-
-    def paw(x0, up):
-        y0 = (top + len(head) - 1) if up else (H - 5)     # hore: tesne pod bradou, dole: na stole
-        for dy, row in enumerate(PAW):
-            for dx, ch in enumerate(row):
-                g[y0 + dy][x0 + dx] = ch
-    paw(3, left_up)
-    paw(14, right_up)
-    if z:
-        for (x, y) in [(18, 0), (19, 0), (20, 0), (21, 0), (20, 1), (19, 2), (18, 3), (19, 3), (20, 3), (21, 3)]:   # „z“ nad uchom
-            g[y][x] = "Z"
-    if rise:                                      # chápadlá vyrastajú z hrany stola (lišty) po stranách
-        for side, x0 in ((0, 0), (1, 20)):
-            for k in range(8):
-                y = H - 3 - k
-                wig = (1 if ((k + rise + side) % 4) < 2 else 0)
-                x = x0 + (wig if side == 0 else -wig)
-                g[y][x] = "T"; g[y][x + 1] = "T" if k < 6 else g[y][x + 1]
-            g[H - 3 - 8][x0 + (1 if side == 0 else 0)] = "P"   # prísavka na špičke
-    if shift or empty:                            # maskot odchádza: posun postavy doľava, stôl ostáva
-        body = [row[:] for row in g[:H - 2]]
-        for y in range(H - 2):
-            for x in range(W):
-                sx = x + shift
-                g[y][x] = "." if empty or sx >= W else body[y][sx]
-    return g
-
-
-FRAMES = {
-    "sedi":    dict(left_up=False, right_up=False),
-    "lapka-l": dict(left_up=True, right_up=False),
-    "lapka-p": dict(left_up=False, right_up=True),
-    "zmurk":   dict(left_up=False, right_up=False, eyes="closed"),
-    "spi":     dict(left_up=False, right_up=False, eyes="closed", z=True),
-    "hlad":    dict(left_up=True, right_up=True, eyes="closed"),
-    "odchod-1": dict(left_up=True, right_up=False, shift=6),
-    "odchod-2": dict(left_up=False, right_up=True, shift=12),
-    "odchod-3": dict(left_up=True, right_up=False, shift=18),
-    "prazdny":  dict(left_up=False, right_up=False, empty=True),
-}
-KTULU_ONLY = {
-    "chapadla-1": dict(left_up=False, right_up=False, rise=1),
-    "chapadla-2": dict(left_up=False, right_up=False, rise=3),
-}
+# predloha (riadky znakov) → mriežka; DESK/H/W používali pôvodné ASCII mačky, balíčky majú vlastnú veľkosť
 
 
 def shade(hexc, f):
@@ -322,28 +82,160 @@ def png(path, grid, pal):
 
 
 def main(out):
+    packs = os.path.join(os.path.dirname(os.path.abspath(__file__)), "balicky")
+    print("maskoti na lištu:", ", ".join(bar_frames(packs, out)), "→", out)
+
+
+
+# ═══ balíčky (25. 9.): Latte mačka, Mokka a Tieň (všeobecný „enderman“) dokreslené podrobnejšie ════════
+# ostatné balíčky sa vyrezávajú z koncepčných listov (resources/art/maskoti/vyrez.py) a sú uložené v balicky/
+# paleta: K obrys, B telo, L svetlé (brucho, papuľka), P ružová (uši, vankúšiky), E oči, W odlesk oka, N nos, Z „z“
+CAT_PAL = {
+    "latte": {"K": "3A2618", "B": "E9D2B0", "L": "FFF6E6", "P": "E8A0A0", "E": "5A3A22", "W": "FFFFFF", "N": "D07070", "Z": "E4B283", "S": "C9A983"},
+    "mokka": {"K": "0B0806", "B": "2E241E", "L": "4A3A30", "P": "C07070", "E": "F2C94C", "W": "FFF6C0", "N": "8A5050", "Z": "E4B283", "S": "1E1712"},
+}
+CAT = {
+    "sedi": [
+        "............................", ".....KK..............KK.....", "....KLBK............KBLK....", "....KLPBK..........KBPLK....",
+        "....KBPBBKKKKKKKKKKBBPBK....", "...KBBBBBBBBBBBBBBBBBBBBK...", "...KBBBBBBBBBBBBBBBBBBBBK...", "..KBBBKKKBBBBBBBBBBKKKBBBK..",
+        "..KBBKEEWKBBBBBBBBKEEWKBBK..", "..KBBKEEEKBBBBBBBBKEEEKBBK..", "..KBBBKKKBBBBNNBBBBKKKBBBK..", "..KLBPPBBBBBBKKBBBBBBPPBLK..",
+        "...KLBBBBBBKBBBBKBBBBBBLK...", "....KKLLLBBBKKKKBBBLLLKK....", "......KLLBBBBBBBBBBLLK......", ".....KBBBBBBBBBBBBBBBBK.....",
+        "....KBBBBLLLLLLLLLLBBBBK....", "....KBBBLLLLLLLLLLLLBBBK..KK", "....KBBBLLLLLLLLLLLLBBBK.KBK", "....KBBBBLLLLLLLLLLBBBBKKBK.",
+        "....KBBKBBBBBBBBBBBBKBBKBK..", "....KBKPPKBBBBBBBBKPPKBKK...", "....KKKKKKKKKKKKKKKKKKKK....", "............................"],
+    "chodza-1": [
+        "............................", "............................", "...KK...KK..................", "..KBBK.KBBK.................",
+        "..KBPBKBPBK.................", "..KBBBBBBBBK................", ".KBBKEBBBKEBK...............", ".KBBBBBBBBBBK.........KK....",
+        ".KNBBBPPBBBBK........KBK....", "..KBBKKBBBBBKKKKKKKKKBK.....", "...KKLLBBBBBBBBBBBBBBBK.....", "....KLLLBBBBBBBBBBBBBBK.....",
+        "....KLLLLLLBBBBBBBBBBBK.....", "....KBLLLLLLLLLBBBBBBK......", "....KBKKBBKKKKKKBBKKBK......", "....KBK.KBK....KBK.KBK......",
+        "....KK...KK....KK...KK......"],
+    "chodza-2": [
+        "............................", "............................", "...KK...KK..................", "..KBBK.KBBK.................",
+        "..KBPBKBPBK.................", "..KBBBBBBBBK................", ".KBBKEBBBKEBK...............", ".KBBBBBBBBBBK..........KK...",
+        ".KNBBBPPBBBBK.........KBK...", "..KBBKKBBBBBKKKKKKKKKBK.....", "...KKLLBBBBBBBBBBBBBBBK.....", "....KLLLBBBBBBBBBBBBBBK.....",
+        "....KLLLLLLBBBBBBBBBBBK.....", "....KBLLLLLLLLLBBBBBBK......", "...KBKKKBBKKKKKKKBBKKBK.....", "..KBK...KBK....KBK...KBK....",
+        "..KK.....KK...KK.....KK....."],
+    "plazi": [
+        "............................", "............................", "............................", "............................",
+        "............................", "...KK...KK..................", "..KBBK.KBBK.................", "..KBPBKBPBKKKKKKKKKKKKKK....",
+        ".KBBKEBBBKEBBBBBBBBBBBBBKK..", ".KNBBBPPBBBBBBBBBBBBBBBBBBK.", "..KBLLLLLLLBBBBBBBBBBBBBBBBK", "..KKLLLLLLLLLLLLLBBBBBBKKKK.",
+        "..KBKKKBBKKKKKKKKKBBKKBK....", ".KBK...KBK......KBK..KBK....", ".KK.....KK......KK....KK....", "............................",
+        "............................"],
+    "skok": [
+        "....................KK......", "...KK...KK..........KBK.....", "..KBBK.KBBK........KBK......", "..KBPBKBPBK.......KBK.......",
+        "..KBBBBBBBBK....KKBK........", ".KBBKEBBBKEBK..KBBK.........", ".KBBBBBBBBBBKKKBBBK.........", ".KNBBBPPBBBBBBBBBBK.........",
+        "..KBBKKBBBBBBBBBBK..........", "...KKLLLBBBBBBBBK...........", "..KBKLLLLLLBBBBK............", ".KBK.KLLLLLLBBKBK...........",
+        "KBK...KKKKKKK.KBK...........", "KK.............KBK..........", "................KK..........", "............................",
+        "............................"],
+    "spi": [
+        "............................", ".........................ZZ.", ".....................ZZ...Z.", ".....................Z...ZZ.",
+        "...KK..KK............ZZ.....", "..KBPKKPBK..................", "..KBBBBBBBKKKKKKKKKK........", ".KBBBBBBBBBBBBBBBBBBKK......",
+        ".KBKKBBKKBBBBBBBBBBBBBK.....", ".KBBBBBBBBBBBBBBBBBBBBBK....", "..KBBPBBBBBLLLLLLBBBBBBK....", "..KLBBBBBLLLLLLLLLBBBBBK....",
+        "...KLLLLLLLLLLLLLLBBBBKK....", "....KKBBBBBBBBBBBBBBBBBBK...", ".....KKKKKKKKKKKKKKKKKKK...."],
+}
+CAT["zmurk"] = [r.replace("KEEWK", "KKKKK").replace("KEEEK", "KBBBK") for r in CAT["sedi"]]
+TIEN_PAL = {"K": "050308", "B": "1C1622", "L": "2E2638", "P": "E05CFF", "W": "FFD0FF", "C": "6A4E3A", "G": "4E8A3A", "Z": "C07AE0"}
+TIEN = {
+    "stoji": ["....KKKKKK....", "...KBBBBBBK...", "...KBLBBLBK...", "...KBBBBBBK...", "...KPWBBPWK...", "...KBBBBBBK...", "...KBBBBBBK...",
+              "....KKKKKK....", ".....KBBK.....", "..KKKBBBBKKK..", ".KBBBBLLBBBBK.", ".KBKBBLLBBKBK.", ".KBKBBBBBBKBK.", ".KBKBBBBBBKBK.",
+              ".KBKBBBBBBKBK.", ".KBKBBBBBBKBK.", ".KBKKBBBBKKBK.", ".KBK.KBBK.KBK.", ".KBK.KBBK.KBK.", ".KBK.KBBK.KBK.", ".KK..KBBK..KK.",
+              ".....KBBK.....", "....KBKKBK....", "....KBKKBK....", "....KBKKBK....", "....KBKKBK....", "....KBKKBK....", "....KBKKBK....",
+              "....KBKKBK....", "...KBK..KBK...", "...KKK..KKK..."],
+}
+TIEN["chodza-1"] = TIEN["stoji"][:22] + ["....KBKKBK....", "...KBK.KBK....", "...KBK..KBK...", "..KBK...KBK...", "..KBK....KBK..",
+                                          "..KBK....KBK..", ".KBK......KBK.", ".KBK......KBK.", "KBK........KBK", "KKK........KKK"]
+TIEN["chodza-2"] = TIEN["stoji"][:22] + ["....KBKKBK....", "....KBKKBK....", "....KBKKBK....", "....KBKKBK....", "....KBKKBK....",
+                                          "....KBKKBK....", "...KBK.KBK....", "...KBK..KBK...", "..KBK....KBK..", "..KKK....KKK.."]
+# drží blok (tráva/hlina) nad hlavou — „akoby niečo vzal“
+TIEN["drzi"] = ["..KKKKKKKKKK..", "..KGGGGGGGGK..", "..KCCCCCCCCK..", "..KCCCCCCCCK..", "..KKKKKKKKKK..", ".KBK......KBK.", ".KBKKKKKKKKBK.",
+                ".KBKBBBBBBKBK.", ".KBKBLBBLBKBK.", ".KBKPWBBPWKBK.", ".KBKBBBBBBKBK.", "..KKKKKKKKKK..", ".....KBBK.....", "...KKBBBBKK...",
+                "...KBBLLBBK...", "...KBBBBBBK...", "...KBBBBBBK...", "...KBBBBBBK...", "....KBBBBK....", ".....KBBK.....", ".....KBBK.....",
+                ".....KBBK.....", "....KBKKBK....", "....KBKKBK....", "....KBKKBK....", "....KBKKBK....", "....KBKKBK....", "....KBKKBK....",
+                "....KBKKBK....", "...KBK..KBK...", "...KKK..KKK..."]
+
+
+def draw_packs(out):
+    """Nakreslené balíčky: <out>/<id>/<snímka>.png + pet.json (rovnaký formát ako vyrezané)."""
+    def grid(rows):
+        w = max(len(r) for r in rows)
+        return [list(r.ljust(w, ".")) for r in rows]
+    packs = []
+    for pid, pal in CAT_PAL.items():
+        d = os.path.join(out, pid); os.makedirs(d, exist_ok=True)
+        for name, rows in CAT.items():
+            png(os.path.join(d, name + ".png"), grid(rows), pal)
+        png(os.path.join(d, "hero.png"), grid(CAT["sedi"]), pal)
+        meta = {"name": "Latte mačka" if pid == "latte" else "Mokka", "profile": "macka", "flyer": False, "facing": "left", "scale": 1.2,
+                "about": "skáče, plíži sa, uhýba kurzoru; keď sa dlho nič nedeje, priblíži sa a pozerá na teba",
+                "idle": ["sedi", "sedi", "zmurk"], "sleep": "spi", "move": ["chodza-1", "chodza-2"], "frames": sorted(CAT) + ["hero"]}
+        json.dump(meta, open(os.path.join(d, "pet.json"), "w"), ensure_ascii=False, indent=1)
+        packs.append(pid)
+    d = os.path.join(out, "tien"); os.makedirs(d, exist_ok=True)
+    for name, rows in TIEN.items():
+        png(os.path.join(d, name + ".png"), grid(rows), TIEN_PAL)
+    png(os.path.join(d, "hero.png"), grid(TIEN["stoji"]), TIEN_PAL)
+    json.dump({"name": "Tieň", "profile": "teleport", "flyer": False, "facing": "none", "scale": 1.4,
+               "about": "teleportuje sa; občas akoby niečo vzal, ale vždy to vráti",
+               "idle": ["stoji"], "sleep": "stoji", "move": ["chodza-1", "chodza-2"], "frames": sorted(TIEN) + ["hero"]},
+              open(os.path.join(d, "pet.json"), "w"), ensure_ascii=False, indent=1)
+    packs.append("tien")
+    return packs
+
+
+
+def kacka(packs):
+    """Kapybara: gumová kačička zvlášť (žltá z hlavy na snímke s-kackou) — odráža sa po lište vo výbehu."""
+    from PIL import Image
+    src = os.path.join(packs, "kapybara", "s-kackou.png")
+    if not os.path.exists(src):
+        return
+    im = Image.open(src).convert("RGBA"); w, h = im.size; px = im.load()
+    ys = [(x, y) for y in range(int(h * 0.45)) for x in range(w)
+          if px[x, y][3] > 0 and px[x, y][0] > 180 and px[x, y][1] > 140 and px[x, y][2] < 120]
+    if ys:
+        im.crop((min(x for x, _ in ys) - 2, max(0, min(y for _, y in ys) - 2), max(x for x, _ in ys) + 3, max(y for _, y in ys) + 3)) \
+          .save(os.path.join(packs, "kapybara", "kacka.png"))
+
+
+def bar_frames(packs, out):
+    """Snímky pre lištu (44 × 36, postava stojí dole) z balíčkov: <out>/<id>-<snímka>.png — widget mascot.luau."""
+    from PIL import Image
     os.makedirs(out, exist_ok=True)
-    n = 0
-    for kind, pal in PALETTES.items():
-        if kind in PETS:
-            frames = {name: pet_frame(kind, **kw) for name, kw in PET_FRAMES.items()}
-        else:
-            frames = {name: frame(kind, **kw) for name, kw in list(FRAMES.items()) + (list(KTULU_ONLY.items()) if kind == "ktulu" else [])}
-            frames["smutny"] = frame(kind, left_up=False, right_up=False, eyes="closed")
-            base = frame(kind, left_up=False, right_up=False)
-            frames["stoji"] = walk_cat(base)
-            frames["chodza-1"] = walk_cat(frame(kind, left_up=True, right_up=False))
-            frames["chodza-2"] = walk_cat(frame(kind, left_up=False, right_up=True))
-            frames["spi-von"] = walk_cat(frame(kind, left_up=False, right_up=False, eyes="closed", z=True))
-            frames["hlad-von"] = walk_cat(frame(kind, left_up=True, right_up=True, eyes="closed"))
-        for name in ("chodza-1", "chodza-2", "stoji"):
-            frames[name + "-r"] = mirror(frames[name])
-        for name, g in frames.items():
-            png(os.path.join(out, "%s-%s.png" % (kind, name)), g, pal); n += 1
-    with open(os.path.join(out, "mena.txt"), "w", encoding="utf-8") as f:
-        f.write("\n".join("%s=%s" % kv for kv in NAMES.items()) + "\n")
-    print("maskoti:", ", ".join(PALETTES), "·", n, "snímok →", out)
+    W2, H2 = 44, 36
+    done = []
+    for pid in sorted(os.listdir(packs)):
+        pj = os.path.join(packs, pid, "pet.json")
+        if not os.path.exists(pj):
+            continue
+        meta = json.load(open(pj))
+        load = lambda n: Image.open(os.path.join(packs, pid, n + ".png")).convert("RGBA")
+
+        def fit(im, dx=0, dy=0):
+            im = im.copy(); im.thumbnail((W2, H2), Image.LANCZOS)
+            c = Image.new("RGBA", (W2, H2), (0, 0, 0, 0))
+            c.paste(im, ((W2 - im.width) // 2 + dx, H2 - im.height + dy), im)
+            return c
+        idle = [load(n) for n in meta["idle"]]
+        sleep = load(meta.get("sleep") or meta["idle"][0])
+        happy = load("srdce") if "srdce" in meta["frames"] else idle[-1]
+        blink = load("zmurk") if "zmurk" in meta["frames"] else idle[1 % len(idle)]
+        frames = {"sedi": fit(idle[0]), "zmurk": fit(blink), "spi": fit(sleep), "hlad": fit(happy, dy=-2), "smutny": fit(sleep),
+                  "lapka-l": fit(idle[0], dy=-2), "lapka-p": fit(idle[0]),
+                  "odchod-1": fit(idle[0], dx=12), "odchod-2": fit(idle[0], dx=24), "odchod-3": fit(idle[0], dx=36),
+                  "prazdny": Image.new("RGBA", (W2, H2), (0, 0, 0, 0))}
+        if "chapadla" in meta["frames"]:
+            frames["chapadla-1"] = fit(load("chapadla")); frames["chapadla-2"] = fit(load("chapadla"), dy=-1)
+        for n, im in frames.items():
+            im.save(os.path.join(out, "%s-%s.png" % (pid, n)))
+        done.append(pid)
+    return done
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "mascots")
+    a = sys.argv[1:]
+    if a[:1] == ["balicky"] and len(a) > 1:
+        print("nakreslené balíčky:", ", ".join(draw_packs(a[1])))
+        kacka(a[1])
+    elif a[:1] == ["lista"] and len(a) > 2:
+        print("snímky lišty:", ", ".join(bar_frames(a[1], a[2])))
+    else:
+        main(a[0] if a else "mascots")

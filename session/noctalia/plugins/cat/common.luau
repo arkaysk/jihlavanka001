@@ -2,7 +2,7 @@
 -- Maskot LatteOS — spoločné pre widget (lišta), panel (pravý klik) a maskot.qml (útek z ostrova).
 -- Potreby ako tamagoči: káva, nálada, energia (0–100); stav ~/.local/state/latteos/maskot.json
 --   { kava, nalada, energia, narodeny, posledne, dni, den, spanokDo }
--- Postava: ~/.config/latteos/mascot (macka … void | ziadny); režim: ~/.config/latteos/mascot-mode
+-- Postava: ~/.config/latteos/mascot (homebrew … cdrak | ziadny; staré macka/zrnko/void sa prevedú); režim: ~/.config/latteos/mascot-mode
 --   off (bez maskota) · slot (iba v ostrove) · world (občas vybehne po lište a oknách) · chaos (voľne po ploche)
 -- Útek riadi maskot.qml cez $XDG_RUNTIME_DIR/latteos/maskot-von: vychadza | von | prichadza | domov (žiadosť) | prázdne.
 local M = {}
@@ -13,21 +13,26 @@ M.stateDir = (noctalia.getenv("XDG_STATE_HOME") or (home .. "/.local/state")) ..
 M.stateFile = M.stateDir .. "/maskot.json"
 M.runFile = (noctalia.getenv("XDG_RUNTIME_DIR") or "/tmp") .. "/latteos/maskot-von"
 M.dir = "/usr/share/latteos/noctalia/plugins/cat/mascots/"
-M.order = { "macka", "mokka", "zrnko", "ktulu", "homebrew", "drak", "liska", "myval", "robot", "svetluska", "kapybara", "void" }
-M.names = { macka = "Latte mačka", mokka = "Mokka", zrnko = "Zrnko", ktulu = "Ktulu", homebrew = "Homebrew", drak = "Kávový drak",
-            liska = "Líška", myval = "Mýval", robot = "Mini robot", svetluska = "Svetluška", kapybara = "Kapybara", void = "Void drak" }
-M.about = { macka = "sedí pri šálke", mokka = "čierna, v noci ju nevidno", zrnko = "kávové zrnko s rožkami", ktulu = "Ph'nglui… mňau",
-            homebrew = "kávový sliz pod šálkou, tečie po lište", drak = "drak v šálke, lieta a sadá na okná", liska = "behá, hrá sa s kurzorom",
-            myval = "zbiera drobnosti, lezie po oknách", robot = "nabíja sa, lieta na mini boost", svetluska = "v noci svieti",
-            kapybara = "pokojná, všetko jej je jedno", void = "drak z prázdnoty, drží sa okien" }
-M.flyers = { drak = true, svetluska = true, void = true, robot = true }
+M.packs = "/usr/share/latteos/maskoti/"          -- plné snímky pre výbehy (maskot.qml)
+-- hlavní maskoti (zadanie 25. 9.) a ďalší
+M.order = { "homebrew", "drak", "ktulu", "robot", "maid", "kapybara", "latte", "mokka", "tien", "liska", "myval", "svetluska", "cdrak" }
+M.names = { homebrew = "Homebrew", drak = "Kávový drak", ktulu = "Ktulu", robot = "Robot turista", maid = "Maid", kapybara = "Kapybara",
+            latte = "Latte mačka", mokka = "Mokka", tien = "Tieň", liska = "Líška", myval = "Mýval", svetluska = "Svetluška", cdrak = "Dráčik" }
+M.about = { homebrew = "kávový sliz: naťahuje sa, prilepí a pritiahne", drak = "vzlietne, sadne si na okno a stráži svoju šálku",
+            ktulu = "Ph'nglui… mňau — chápadielka a krídelká", robot = "zvedavý turista, všetko musí ovoňať",
+            maid = "zametá lištu, sedí na nej a hojdá nohami ♥", kapybara = "najpokojnejšia: bazénik a gumová kačička",
+            latte = "skáče, plíži sa, uhýba kurzoru", mokka = "čierna mačka, v noci ju nevidno", tien = "teleportuje sa, občas niečo vezme a vráti",
+            liska = "behá po ploche a hrá sa s kurzorom", myval = "zbiera drobnosti a ukrýva sa", svetluska = "v noci svieti", cdrak = "skáče, lieta, chrlí oheň" }
+M.legacy = { macka = "latte", zrnko = "latte", void = "cdrak" }
+M.flyers = { drak = true, svetluska = true, cdrak = true }
 M.modes = { "off", "slot", "world", "chaos" }
 M.modeNames = { off = "Vypnutý", slot = "Ostrov", world = "Výbehy", chaos = "Chaos" }
 
 function M.trim(s) return (string.gsub(s or "", "^%s*(.-)%s*$", "%1")) end
 function M.kind()
   local k = M.trim(noctalia.readFile(M.cfg .. "/mascot") or "")
-  return M.names[k] and k or (k == "ziadny" and "ziadny" or "macka")
+  k = M.legacy[k] or k
+  return M.names[k] and k or (k == "ziadny" and "ziadny" or "homebrew")
 end
 function M.setKind(k) noctalia.mkdirAll(M.cfg); noctalia.writeFile(M.cfg .. "/mascot", k .. "\n") end
 function M.mode()

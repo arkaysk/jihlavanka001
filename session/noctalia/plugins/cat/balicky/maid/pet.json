@@ -1,0 +1,26 @@
+{
+ "name": "Maid",
+ "about": "zametá lištu, sedí na nej a hojdá nohami ♥",
+ "profile": "maid",
+ "flyer": false,
+ "facing": "none",
+ "idle": [
+  "sedi",
+  "stoji",
+  "zmurk"
+ ],
+ "sleep": "lezi",
+ "move": [
+  "beh",
+  "stoji"
+ ],
+ "frames": [
+  "beh",
+  "hero",
+  "lezi",
+  "sedi",
+  "srdce",
+  "stoji",
+  "zmurk"
+ ]
+}

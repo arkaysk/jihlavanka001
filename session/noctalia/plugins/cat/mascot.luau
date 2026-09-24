@@ -8,7 +8,7 @@
 -- Klik = pohladkať / zavolať späť · pravý klik = panel maskota (postava, potreby, režim).
 local C = require("./common.luau")
 
-local kind = "macka"
+local kind = "homebrew"
 local playing, dnd = false, false
 local tick, petUntil, blink = 0, 0, false
 local lastPoll = -100
