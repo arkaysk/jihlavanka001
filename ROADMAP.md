@@ -269,7 +269,9 @@ flowchart TD
   Úložisko, Výkon, Diagnostika (log pádu), Prihlasovanie (greeter), Motív, Pozadie, Okná, Lišta, Štart, Dátum a čas, O LatteOS.
 - [x] Greeter: posledné dva účty na klik, ľavý panel s prvým logom posledného pádu (vývoj) alebo vlastným textom,
   pozadie a farba z Nastavení (`/var/lib/latteos/greeter/`, SELinux `xdm_var_lib_t`).
-- [ ] Materiály tém (mráz, kov, kameň, jantár, fazety) ako shadery vo forku Noctalie, iba pri stupni Plný.
+- [x] **Živá tapeta** (`latte-app zivatapeta`): pohyblivé textúry podľa materiálu témy (para, bublinky, sneh, iskry, trblietky,
+  prach) na vrstve Bottom, neklikateľná, bez shaderov (~2 % jadra), v hernom režime stojí; Nastavenia › Animácie a efekty.
+- [ ] Materiály tém (mráz, kov, kameň, jantár, fazety) ako shadery na paneloch a oknách vo forku Noctalie, iba pri stupni Plný.
 - [x] Schránka „kapsa“, prehľad pásky, inštalácia aplikácie („Bude to fungovať?“ v App Manageri).
 - [x] **AI panel** (Super+I, plugin latteos/ai): rozhovor s pamäťou (`latte-ai chat`), odpovede v markdowne, beží cez runStream
   bez 5 s limitu runAsync; overené s LM Studio.

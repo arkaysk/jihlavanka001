@@ -65,6 +65,7 @@ ShellRoot {
     property string barAnim: ""        // prázdne = podľa stupňa (VM: pod kurzorom)
     property string barScene: "para"
     property bool wsWallpaper: false
+    property string liveWp: ""
 
     // ── strom Nastavení (kanonický, main_setting_v2.md §58) ──────────────────────
     // status: ready = funguje · partial = časť · planned = zatiaľ len plán
@@ -105,7 +106,7 @@ ShellRoot {
             { key: "okna", label: "Okná", glyph: "layout-columns", status: "ready" },
             { key: "lista", label: "Lišta a systémové menu", glyph: "layout-bottombar", status: "ready" },
             { key: "oznamenia", label: "Oznámenia", glyph: "bell", status: "ready" },
-            { key: "efekty", label: "Animácie a efekty", glyph: "sparkles", status: "partial" },
+            { key: "efekty", label: "Animácie a efekty", glyph: "sparkles", status: "ready" },
             { key: "pristupnost", label: "Prístupnosť", glyph: "accessible", status: "ready" } ] },
         { key: "system", title: "Systém", glyph: "shield", summary: (mode.mode || "?").toUpperCase() + " · pády " + crashCount, owner: "LatteOS",
           pages: [
@@ -223,6 +224,14 @@ ShellRoot {
         app.writePref("no-animations", on ? "1" : "", on ? "Animácie vypnuté" : "Animácie podľa stupňa výkonu");
         shellSet("shell.animation.enabled", on ? false : null);
         run(["sh", "-c", "sleep 0.3; hyprctl reload"]);
+    }
+    FileView { path: app.cfgHome + "/latteos/live-wallpaper"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.liveWp = text().trim() || "tema"; onLoadFailed: app.liveWp = "" }
+    function setLive(v) {
+        liveWp = v;
+        writePref("live-wallpaper", v, v === "" ? "Živá tapeta vypnutá" : "Živá tapeta: " + v);
+        if (v === "") run(["pkill", "-f", "latteos/apps/[z]ivatapeta.qml"]);   // [z]: vzor nenájde sám seba
+        else run(["sh", "-c", "pgrep -f latteos/apps/[z]ivatapeta.qml >/dev/null || setsid latte-app zivatapeta >/dev/null 2>&1 &"]);
     }
     function writePref(name, value, msg) {
         if (value === "") run(["rm", "-f", app.cfgHome + "/latteos/" + name], msg);
@@ -463,7 +472,7 @@ ShellRoot {
             pozadie: "Tapeta plochy. Témy si pri zmene vyberú svoju, tu ju môžeš zmeniť.",
             okna: "Ako sa ukladajú okná. Super+W prepína režimy aj bez otvárania nastavení.",
             lista: "Spodná lišta z ostrovov. Šírku určuje odsadenie od okrajov obrazovky. Vľavo dlaždica aplikácií, vpravo maskot.",
-            efekty: "Efekty kompozitora riadi stupeň výkonu; pohyblivé materiály tém prídu na silnejšom HW.",
+            efekty: "Pohyblivé textúry tém (živá tapeta) a efekty okien.",
             start: "Režim NORMAL (Hyprland) alebo SAFE (labwc bez GPU). SAFE naskočí sám po dvoch pádoch za sebou.",
             cas: "Poloha určuje východ a západ slnka pre automatický svetlý/tmavý režim a nočné svetlo. Ďalšie časové pásma ukáže panel Čas.",
             o: "Verzie častí systému, z ktorých sa LatteOS skladá.",
@@ -495,7 +504,8 @@ ShellRoot {
         if (k === "domov" || k === "start") return (m.mode || "?").toUpperCase() + " · " + (m.renderer || "?") + " · stupeň " + (m.tier || "?") + (m.reason ? "\n" + m.reason : "");
         if (k === "motiv") return "Téma " + theme.themeName + " · režim " + modeName(modePref) + " (teraz " + theme.mode + ")";
         if (k === "okna") return ({ paska: "Nekonečná páska", dlazdice: "Dlaždice", plavajuce: "Plávajúce okná" })[app.windowMode] || app.windowMode;
-        if (k === "vykon" || k === "efekty") return app.tierChoice === "auto" ? "Automaticky (" + (m.tier || "?") + ")" : "Vynútený: " + app.tierChoice;
+        if (k === "efekty") return "Živá tapeta: " + (liveWp === "" ? "vypnutá" : liveWp) + "\nStupeň: " + (app.tierChoice === "auto" ? "automaticky (" + (m.tier || "?") + ")" : app.tierChoice);
+        if (k === "vykon") return app.tierChoice === "auto" ? "Automaticky (" + (m.tier || "?") + ")" : "Vynútený: " + app.tierChoice;
         if (k === "ai") return (ai.ok === "1" ? "● Dostupné" : "× Nedostupné") + "\n" + (ai.target || "") + (ai.model ? "\nmodel " + ai.model : "") + (ai.error ? "\n" + ai.error : "");
         if (k === "diagnostika") return "Pády NORMAL: " + crashCount + " / 2" + (crashLog ? "\n" + crashLog.split("\n")[0] : "\nbez záznamu pádu");
         if (k === "prihlasovanie") return "Greeter: " + greeter + " · panel " + greeterConf.panel;
@@ -516,7 +526,7 @@ ShellRoot {
     function storedIn(k) {
         return ({
             domov: "/run/latteos/mode.toml", motiv: "~/.config/latteos/theme\n~/.config/latteos/theme-mode", pozadie: "~/.local/state/noctalia/settings.toml",
-            okna: "~/.local/state/latteos/window-mode", vykon: "~/.config/latteos/tier", efekty: "~/.config/latteos/tier",
+            okna: "~/.local/state/latteos/window-mode", vykon: "~/.config/latteos/tier", efekty: "~/.config/latteos/live-wallpaper\n~/.config/latteos/tier",
             start: "/etc/latteos/boot.toml\n/var/lib/latteos/", ai: "~/.config/latteos/ai.toml\n~/.config/latteos/ai-keys (0600)",
             lista: "~/.local/state/noctalia/settings.toml [bar.main]\n~/.config/latteos/bar-anim, bar-scene, mascot", cas: "~/.local/state/noctalia/settings.toml [location]\n~/.config/latteos/clock.conf",
             prihlasovanie: "/var/lib/latteos/greeter/greeter.conf", diagnostika: "/var/lib/latteos/greeter/last-crash.log\n/var/lib/latteos/crash-count",
@@ -1037,10 +1047,20 @@ ShellRoot {
     Component {
         id: pEfekty
         Column {
-            spacing: 12
+            spacing: 14
+            Heading { text: "ŽIVÁ TAPETA (pohyblivá textúra nad tapetou, pod oknami)" }
+            Segments {
+                options: [["", "Vypnutá"], ["tema", "Podľa témy"], ["para", "Para"], ["bublinky", "Bublinky"], ["sneh", "Sneh"], ["iskry", "Iskry"], ["trblietky", "Trblietky"], ["prach", "Prach"]]
+                value: app.liveWp
+                onPicked: (v) => app.setLive(v)
+            }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Podľa témy: Latte = para nad šálkou, Jantár = bublinky, Mráz = sneh, kovy = iskry, drahokamy = trblietky, kameň = prach. "
+                         + "V hernom režime stojí. Stojí asi 2 % jedného jadra" + ((app.mode.tier === "softver" || app.mode.tier === "minimalny") ? " — vo VM so softvérovým kreslením ju odporúčame nechať vypnutú." : ".") }
+            Heading { text: "EFEKTY OKIEN" }
             Button { label: "Stupeň výkonu"; glyph: "bolt"; primaryStyle: true; onClicked: app.go("vykon") }
             Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 }
-                   text: "Herný režim (Zariadenia na lište) vypne efekty dočasne. Pohyblivé textúry tém (mráz, kov, jantár) potrebujú GPU — prídu s reálnym HW." }
+                   text: "Sklo, tiene a žiaru okien riadi stupeň výkonu. Herný režim (Zariadenia na lište) ich vypne dočasne. Materiály tém ako shadery (mráz na skle, kovový lesk) prídu s GPU na reálnom HW." }
         }
     }
     Component {

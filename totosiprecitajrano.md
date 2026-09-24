@@ -34,6 +34,20 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 12:10: živá tapeta (pohyblivé textúry) ✅
+- Z tvojho zoznamu „pohyblivé textúry“: **živá tapeta** nad tapetou, pod oknami, bez shaderov (beží aj
+  pri softvérovom kreslení).
+  - Podľa materiálu témy: Latte = **para** stúpajúca od šálky, Jantár = **bublinky**, Mráz = **sneh**,
+    kovy = **iskry** (lesk prebehne cez plochu), drahokamy = **trblietky**, kameň = **prach**.
+    Scénu si vieš aj vybrať.
+  - Nedá sa na ňu kliknúť (kliky idú na plochu) a v hernom režime stojí.
+  - Stojí asi 2 % jedného jadra, preto je vo VM predvolene vypnutá. Zapína sa v Nastaveniach ›
+    Prostredie › Animácie a efekty.
+  - Vyskúšal som sneh na tvojej relácii pár sekúnd a potom ho vypol. Screenshot:
+    `setup/f1/results/f3-ziva-*.png`.
+- Materiály priamo na paneloch a oknách (mráz na skle, kovový lesk) potrebujú shadery a GPU; počkajú na
+  reálny HW.
+
 ### 24. 9. 2026, 12:00: Text Bar hľadá súbory, Heidelberg otvára Word/ODT ✅
 - **Text Bar (Super+Medzerník)** v bežnom hľadaní ukazuje aj **súbory a priečinky** z tvojho domova
   (rýchlo cez index plocate). Klik otvorí súbor, pri priečinku Súbory.
