@@ -1,6 +1,6 @@
 // SideBar — bočná lišta aplikácií LatteOS (návrh V2): od vrchu až dole, rozkladacie sekcie.
 // Slúži ako menu (Nastavenia), zoznam diskov a obľúbených priečinkov (Súbory) aj rýchly prístup.
-// model: [{ title, items: [{ key, glyph, label, sub?, usage? (0–1), dim? }] }]
+// model: [{ title, items: [{ key, glyph, label, sub?, usage? (0–1), dim?, tag? (farba štítka) }] }]
 import QtQuick
 
 Rectangle {
@@ -11,6 +11,7 @@ Rectangle {
     property string heading: ""
     property string headingGlyph: "coffee"
     signal activated(var item)
+    signal contextRequested(var item, real x, real y)   // pravý klik (súradnice okna)
 
     property var collapsed: ({})
     width: 250
@@ -73,8 +74,8 @@ Rectangle {
 
                             Glyph {
                                 x: 12; anchors.verticalCenter: parent.verticalCenter
-                                name: row.modelData.glyph || "folder"; size: 18
-                                color: row.active ? bar.theme.primary : bar.theme.fg
+                                name: row.modelData.tag ? "folder-filled" : (row.modelData.glyph || "folder"); size: 18
+                                color: row.modelData.tag || (row.active ? bar.theme.primary : bar.theme.fg)
                             }
                             Column {
                                 x: 42; width: parent.width - 52; anchors.verticalCenter: parent.verticalCenter; spacing: 2
@@ -97,7 +98,14 @@ Rectangle {
                                     }
                                 }
                             }
-                            MouseArea { id: ma; anchors.fill: parent; hoverEnabled: true; onClicked: bar.activated(row.modelData) }
+                            MouseArea {
+                                id: ma; anchors.fill: parent; hoverEnabled: true
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                onClicked: (m) => {
+                                    if (m.button === Qt.RightButton) { const p = mapToItem(null, m.x, m.y); bar.contextRequested(row.modelData, p.x, p.y); }
+                                    else bar.activated(row.modelData);
+                                }
+                            }
                         }
                     }
                     Item { width: 1; height: 8 }

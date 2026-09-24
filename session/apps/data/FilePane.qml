@@ -20,8 +20,10 @@ Rectangle {
     readonly property bool wide: width > 620        // stĺpec Druh
     readonly property bool mid: width > 520         // stĺpec Upravené
     readonly property real nameW: head.width - (mid ? 150 : 0) - 90 - (wide ? 120 : 0)
+    property var tags: ({})              // cesta → farba štítka (#rrggbb), spravuje subory.qml
     signal focusRequested()
     signal openFile(string path)
+    signal contextRequested(var entry, real x, real y)   // entry = null → pravý klik na prázdne miesto
 
     color: "transparent"
     border { color: active ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.45) : "transparent"; width: 1 }
@@ -113,6 +115,12 @@ Rectangle {
     }
     Rectangle { x: 8; y: head.y + head.height; width: parent.width - 16; height: 1; color: pane.theme.line }
 
+    // pravý klik na prázdne miesto pod položkami (riadky ho zachytia samy)
+    MouseArea {
+        anchors.fill: list; acceptedButtons: Qt.RightButton
+        onClicked: (m) => { pane.focusRequested(); const p = mapToItem(null, m.x, m.y); pane.contextRequested(null, p.x, p.y); }
+    }
+
     ListView {
         id: list
         anchors { top: head.bottom; topMargin: 4; left: parent.left; right: parent.right; bottom: parent.bottom; margins: 8 }
@@ -141,11 +149,22 @@ Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 Item {
                     width: pane.nameW; height: 32
-                    Glyph { x: 8; anchors.verticalCenter: parent.verticalCenter; name: rowItem.k[1]; size: 17; color: rowItem.fileIsDir ? pane.theme.primary : pane.theme.fgDim }
+                    readonly property string tag: pane.tags[rowItem.filePath] || ""
+                    Glyph {
+                        x: 8; anchors.verticalCenter: parent.verticalCenter
+                        name: rowItem.fileIsDir && parent.tag !== "" ? "folder-filled" : rowItem.k[1]; size: 17
+                        color: parent.tag !== "" ? parent.tag : (rowItem.fileIsDir ? pane.theme.primary : pane.theme.fgDim)
+                    }
                     Text {
-                        x: 34; width: parent.width - 40; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight
+                        id: nameText
+                        x: 34; width: Math.min(implicitWidth, parent.width - 40 - (parent.tag !== "" ? 18 : 0)); anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight
                         text: rowItem.fileName; color: pane.theme.fg
                         font { family: pane.theme.fontUi; pixelSize: 13; weight: rowItem.fileIsDir ? Font.DemiBold : Font.Normal }
+                    }
+                    Rectangle {   // farebný štítok za názvom (farba nie je jediný nosič: aj plná ikona priečinka)
+                        visible: parent.tag !== ""
+                        anchors { left: nameText.right; leftMargin: 8; verticalCenter: parent.verticalCenter }
+                        width: 9; height: 9; radius: 5; color: parent.tag || "transparent"
                     }
                 }
                 Text {
@@ -166,7 +185,11 @@ Rectangle {
             }
             MouseArea {
                 id: rma; anchors.fill: parent; hoverEnabled: true
-                onClicked: { list.currentIndex = rowItem.index; pane.focusRequested(); }
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onClicked: (m) => {
+                    list.currentIndex = rowItem.index; pane.focusRequested();
+                    if (m.button === Qt.RightButton) { const p = mapToItem(null, m.x, m.y); pane.contextRequested(pane.entryAt(rowItem.index), p.x, p.y); }
+                }
                 onDoubleClicked: { list.currentIndex = rowItem.index; pane.openCurrent(); }
             }
         }

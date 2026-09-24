@@ -64,6 +64,35 @@ hconf="$share/hypr/hyprland.lua"
 # bez -c (vygeneruje cudziu konfiguráciu) a zakryje pád. LATTE_HYPRLAND=false simuluje pád (test).
 # Pád PO 60 s (relácia už bola zdravá): Hyprland sa spustí znova, najviac 3× za 10 minút; potom SAFE.
 # Dôvod: sporadické pády llvmpipe vo VM (setup/f1/RESULTS.md) nemajú vracať používateľa k prihláseniu.
+# záznam pádu pre obrazovku prihlásenia (vývojárska verzia ukazuje prvý log z posledného pádu):
+# /var/lib/latteos/greeter/last-crash.log — skupina latte smie zapisovať, greeter (xdm_t) čítať
+crash_report() {   # $1 rc, $2 trvanie v s, $3 čas štartu (epoch)
+    local dir=/var/lib/latteos/greeter out hlog report
+    [ -d "$dir" ] && [ -w "$dir" ] || return 0
+    out="$dir/last-crash.log"
+    hlog="$(ls -t "$XDG_RUNTIME_DIR"/hypr/*/hyprland.log 2>/dev/null | head -1)"
+    report="$(ls -t "$HOME"/.cache/hyprland/hyprlandCrashReport*.txt 2>/dev/null | head -1)"
+    {
+        echo "Pád relácie NORMAL · $(date '+%-d. %-m. %Y %H:%M') · $USER"
+        echo "Hyprland rc=$1 po $2 s · grafika ${LATTE_RENDERER:-?} · stupeň ${LATTE_TIER:-?}"
+        echo
+        if [ -n "$report" ] && [ "$(stat -c %Y "$report")" -ge "$3" ]; then
+            echo "── crash report ($(basename "$report"))"
+            grep -m1 -i "signal\|reason" "$report"
+            sed -n '/Backtrace/,/^$/p' "$report" | head -14
+            echo
+        fi
+        echo "── jadro (grafika)"
+        journalctl -k -b --since "@$3" --no-pager -o cat 2>/dev/null | grep -i -m6 "segfault\|vmwgfx\|drm\|oom" || echo "(bez hlásení)"
+        if [ -n "$hlog" ]; then
+            echo
+            echo "── koniec hyprland.log"
+            grep -v "^DEBUG" "$hlog" | tail -12
+        fi
+    } > "$out.tmp" 2>/dev/null && mv -f "$out.tmp" "$out"
+    chmod 0664 "$out" 2>/dev/null
+}
+
 restarts=()
 while true; do
     t0=$(date +%s)
@@ -76,6 +105,7 @@ while true; do
         latte-boot ok >/dev/null     # riadne odhlásenie nie je pád
         exit 0
     fi
+    crash_report "$rc" "$dt" "$t0"
     if [ $dt -lt 60 ]; then
         run_safe "Hyprland spadol po ${dt} s (rc=$rc)"
     fi

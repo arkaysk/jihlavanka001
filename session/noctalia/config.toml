@@ -20,6 +20,13 @@ telemetry_enabled   = false
 offline_mode        = false
 lang                = "sk"
 
+# poloha pre automatický svetlý/tmavý režim (latte-theme mode auto), nočné svetlo a počasie.
+# Predvolene stred Slovenska bez zisťovania z IP; zmena: Nastavenia › Systém › Dátum a čas.
+[location]
+auto_locate = false
+latitude    = 48.74
+longitude   = 19.15
+
 [shell.animation]
 enabled = true
 speed   = 1.0

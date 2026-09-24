@@ -22,6 +22,105 @@ ShellRoot {
     readonly property var otherPane: activeIndex === 0 ? paneB : paneA
     readonly property var sel: activePane ? activePane.current : null
 
+    // ── farebné štítky a vlastné obľúbené (~/.config/latteos/tags.json) ─────────────
+    // Štítok nemení priečinok, je to iba pohľad Súborov (IDEAS: „farba v kontextovom menu“).
+    property var tags: ({})           // cesta → #rrggbb
+    property var favorites: []        // ďalšie obľúbené priečinky (pravý klik › Pridať do Obľúbených)
+    readonly property var tagColors: [
+        { key: "", color: "", label: "bez" },
+        { key: "#E5484D", color: "#E5484D", label: "červená" }, { key: "#F07F32", color: "#F07F32", label: "oranžová" },
+        { key: "#E8C33B", color: "#E8C33B", label: "žltá" },    { key: "#46A758", color: "#46A758", label: "zelená" },
+        { key: "#3E7BFA", color: "#3E7BFA", label: "modrá" },   { key: "#8E4EC6", color: "#8E4EC6", label: "fialová" },
+        { key: "#8B8D98", color: "#8B8D98", label: "sivá" }
+    ]
+    FileView {
+        id: tagsView
+        path: (Quickshell.env("XDG_CONFIG_HOME") || (app.home + "/.config")) + "/latteos/tags.json"
+        printErrors: false
+        onLoaded: { try { const j = JSON.parse(text()); app.tags = j.tags || {}; app.favorites = j.favorites || []; } catch (e) {} }
+    }
+    function saveTags() { tagsView.setText(JSON.stringify({ tags: app.tags, favorites: app.favorites }, null, 1) + "\n"); }
+    function setTag(path, color) {
+        const t = Object.assign({}, app.tags);
+        if (color) t[path] = color; else delete t[path];
+        app.tags = t; saveTags();
+        app.status = color ? "Štítok: " + path.split("/").pop() : "Štítok odstránený";
+    }
+    function toggleFavorite(path) {
+        app.favorites = app.favorites.indexOf(path) >= 0 ? app.favorites.filter(f => f !== path) : app.favorites.concat([path]);
+        saveTags();
+    }
+    function rename(e, name) {
+        name = (name || "").trim();
+        if (name === "" || name === e.name) return;
+        if (name.includes("/")) { app.status = "Názov nesmie obsahovať /"; return; }
+        const dst = e.path.substring(0, e.path.lastIndexOf("/") + 1) + name;
+        run(["mv", "-n", "--", e.path, dst], "Premenované na " + name);
+        if (app.tags[e.path]) { const c = app.tags[e.path]; setTag(e.path, ""); setTag(dst, c); }
+        if (app.favorites.indexOf(e.path) >= 0) { app.favorites = app.favorites.map(f => f === e.path ? dst : f); saveTags(); }
+    }
+    function newFolder(pane) {
+        run(["sh", "-c", "n='Nový priečinok'; i=2; while [ -e \"$1/$n\" ]; do n=\"Nový priečinok $i\"; i=$((i+1)); done; mkdir -- \"$1/$n\"", "sh", pane.path], "Nový priečinok");
+    }
+
+    // kontextové menu položky v zozname (e = null → prázdne miesto v priečinku)
+    function showMenu(e, x, y, pane) {
+        const other = pane === paneA ? paneB : paneA;
+        let items;
+        if (!e) {
+            items = [
+                { glyph: "folder-plus", label: "Nový priečinok", action: () => app.newFolder(pane) },
+                { glyph: "terminal-2", label: "Terminál tu", action: () => app.run(["foot", "--working-directory=" + pane.path]) },
+                { glyph: pane.showHidden ? "eye-off" : "eye", label: pane.showHidden ? "Skryť skryté súbory" : "Ukázať skryté súbory", hint: "Ctrl+H", action: () => pane.showHidden = !pane.showHidden },
+                { separator: true },
+                { glyph: "clipboard", label: "Kopírovať cestu priečinka", action: () => app.run(["wl-copy", "--", pane.path], "Cesta skopírovaná") },
+                { glyph: "star", label: app.favorites.indexOf(pane.path) >= 0 ? "Odobrať z Obľúbených" : "Pridať do Obľúbených", action: () => app.toggleFavorite(pane.path) }
+            ];
+            ctx.open(x, y, items, pane.path);
+            return;
+        }
+        items = [
+            { glyph: "external-link", label: e.isDir ? "Otvoriť" : "Otvoriť v aplikácii", hint: "Enter", action: () => { if (e.isDir) pane.go(e.path); else app.openPath(e.path); } }
+        ];
+        if (e.isDir) items.push({ glyph: "columns-2", label: "Otvoriť v druhom paneli", action: () => { app.dual = true; other.go(e.path); } });
+        items.push({ separator: true });
+        items.push({ colors: app.tagColors, current: app.tags[e.path] || "", label: "Farba", action: (c) => app.setTag(e.path, c) });
+        items.push({ separator: true });
+        items.push({ glyph: "pencil", label: "Premenovať…", keepOpen: true, action: () => ctx.replace([{ input: e.name, action: (t) => app.rename(e, t) }], "Nový názov · Enter uloží, Esc zruší") });
+        items.push({ glyph: "clipboard", label: "Kopírovať cestu", action: () => app.run(["wl-copy", "--", e.path], "Cesta skopírovaná") });
+        if (app.dual) {
+            items.push({ glyph: "copy", label: "Kopírovať do druhého", hint: "F5", action: () => app.copyToOther(false) });
+            items.push({ glyph: "arrows-exchange", label: "Presunúť do druhého", hint: "F6", action: () => app.copyToOther(true) });
+        }
+        if (e.isDir) {
+            items.push({ glyph: "star", label: app.favorites.indexOf(e.path) >= 0 ? "Odobrať z Obľúbených" : "Pridať do Obľúbených", action: () => app.toggleFavorite(e.path) });
+            items.push({ glyph: "terminal-2", label: "Terminál tu", action: () => app.run(["foot", "--working-directory=" + e.path]) });
+        }
+        items.push({ separator: true });
+        items.push({ glyph: "trash", label: "Do koša", hint: "Del", danger: true, action: () => app.run(["gio", "trash", "--", e.path], "Do koša: " + e.name) });
+        ctx.open(x, y, items, e.name);
+    }
+    // kontextové menu položky bočnej lišty (disky, obľúbené)
+    function showSideMenu(it, x, y) {
+        const items = [
+            { glyph: "external-link", label: "Otvoriť", action: () => app.activePane.go(it.path) },
+            { glyph: "columns-2", label: "Otvoriť v druhom paneli", action: () => { app.dual = true; app.otherPane.go(it.path); } },
+            { glyph: "clipboard", label: "Kopírovať cestu", action: () => app.run(["wl-copy", "--", it.path], "Cesta skopírovaná") }
+        ];
+        if (!it.key.startsWith("disk:")) {
+            items.push({ separator: true });
+            items.push({ colors: app.tagColors, current: app.tags[it.path] || "", label: "Farba", action: (c) => app.setTag(it.path, c) });
+        }
+        if (it.custom) { items.push({ separator: true }); items.push({ glyph: "star", label: "Odobrať z Obľúbených", action: () => app.toggleFavorite(it.path) }); }
+        ctx.open(x, y, items, it.label);
+    }
+
+    // test bez myši (setup/f1/headless.sh): LATTE_APP_TEST=menu otvorí kontextové menu prvej položky
+    Timer {
+        running: Quickshell.env("LATTE_APP_TEST") === "menu"; interval: 2500
+        onTriggered: { if (paneA.count > 0) { paneA.moveSelection(1); app.showMenu(paneA.current, 420, 180, paneA); } }
+    }
+
     // ── pamäť stavu: dva panely a ich cesty (~/.config/latteos/subory.json) ─────────
     readonly property string stateFile: (Quickshell.env("XDG_CONFIG_HOME") || (app.home + "/.config")) + "/latteos/subory.json"
     property bool stateLoaded: false
@@ -104,7 +203,8 @@ ShellRoot {
             { key: "fav:pics", path: app.home + "/Obrázky", glyph: "photo", label: "Obrázky" },
             { key: "fav:music", path: app.home + "/Hudba", glyph: "music", label: "Hudba" },
             { key: "fav:video", path: app.home + "/Videá", glyph: "movie", label: "Videá" }
-        ] },
+        ].concat(app.favorites.map(f => ({ key: "fav+:" + f, path: f, glyph: "folder", label: f.split("/").pop() || f, custom: true })))
+         .map(it => Object.assign({}, it, { tag: app.tags[it.path] || "" })) },
         { title: "Aplikácie", items: [
             { key: "apps:flatpak", path: "/var/lib/flatpak/app", glyph: "package", label: "Flatpak (systém)", sub: "každá appka vo vlastnom priečinku" },
             { key: "apps:flatpak-user", path: app.home + "/.local/share/flatpak/app", glyph: "package", label: "Flatpak (používateľ)" },
@@ -172,6 +272,7 @@ ShellRoot {
                     return "";
                 }
                 onActivated: (it) => { app.activePane.go(it.path); root.forceActiveFocus(); }
+                onContextRequested: (it, x, y) => app.showSideMenu(it, x, y)
             }
 
             HeaderBar {
@@ -204,6 +305,8 @@ ShellRoot {
                 FilePane {
                     id: paneA
                     theme: theme
+                    tags: app.tags
+                    onContextRequested: (e, x, y) => app.showMenu(e, x, y, paneA)
                     width: body.paneW; height: body.height
                     active: app.dual && app.activeIndex === 0
                     Component.onCompleted: go(app.home)
@@ -214,6 +317,8 @@ ShellRoot {
                 FilePane {
                     id: paneB
                     theme: theme
+                    tags: app.tags
+                    onContextRequested: (e, x, y) => app.showMenu(e, x, y, paneB)
                     visible: app.dual
                     width: app.dual ? body.paneW : 0; height: body.height
                     active: app.dual && app.activeIndex === 1
@@ -306,10 +411,12 @@ ShellRoot {
                 }
                 Text {
                     anchors { right: parent.right; rightMargin: 14; verticalCenter: parent.verticalCenter }
-                    text: "F3 dva panely · F5 kopírovať · F6 presunúť · Del kôš · Ctrl+H skryté · téma " + theme.themeName
+                    text: "Pravý klik: menu a farba · F3 dva panely · F5 kopírovať · F6 presunúť · Del kôš · Ctrl+H skryté"
                     color: theme.fgDim; opacity: 0.8; font { family: theme.fontUi; pixelSize: 11 }
                 }
             }
+
+            ContextMenu { id: ctx; theme: theme }
         }
     }
 }

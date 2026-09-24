@@ -22,7 +22,7 @@ sudo usermod -aG latte "$user"
 
 echo "== binárky a skripty → /usr/bin"
 sudo install -Dm755 "$repo/target/release/latte-boot" /usr/bin/latte-boot
-for f in latte-session latte-safe latte-greeter latte-theme latte-app; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
+for f in latte-session latte-safe latte-greeter latte-theme latte-app latte-ai latte-shellset; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
 
 echo "== konfigurácie relácií → /usr/share/latteos"
 sudo install -Dm644 "$S/hypr/hyprland.conf" /usr/share/latteos/hypr/hyprland.conf
@@ -56,6 +56,9 @@ sudo install -m644 "$S"/noctalia/palettes/*.json /usr/share/latteos/noctalia/pal
 echo "== greeter LatteOS (Quickshell QML pod labwc + pixman)"
 sudo install -Dm644 "$S/greeter/shell.qml" /usr/share/latteos/greeter/shell.qml
 for f in rc.xml environment; do sudo install -Dm644 "$S/greeter/labwc/$f" "/usr/share/latteos/greeter/labwc/$f"; done
+# vzhľad greetera (Nastavenia › Účet › Prihlasovanie) a záznam pádu: skupina latte píše, greeter (xdm_t) číta
+sudo install -d -m2775 -o root -g latte /var/lib/latteos/greeter
+[ -f /var/lib/latteos/greeter/greeter.conf ] || sudo install -m664 -o root -g latte "$S/greeter/greeter.conf" /var/lib/latteos/greeter/greeter.conf
 
 echo "== aplikácie LatteOS (Quickshell QML): Súbory"
 sudo install -d /usr/share/latteos/apps/common /usr/share/latteos/apps/data
@@ -72,7 +75,9 @@ sudo install -Dm644 "$S/systemd/latteos.tmpfiles" /usr/lib/tmpfiles.d/latteos.co
 # (bez neho greeter nevidí session.env a vždy ponúkne SAFE; zistené testom 23. 9. 2026)
 if command -v semanage >/dev/null || sudo dnf -y -q install policycoreutils-python-utils; then
     sudo semanage fcontext -l 2>/dev/null | grep -q '^/run/latteos' || sudo semanage fcontext -a -t xdm_var_run_t '/run/latteos(/.*)?'
+    sudo semanage fcontext -l 2>/dev/null | grep -q '^/var/lib/latteos/greeter' || sudo semanage fcontext -a -t xdm_var_lib_t '/var/lib/latteos/greeter(/.*)?'
 fi
+sudo restorecon -R /var/lib/latteos/greeter 2>/dev/null || true
 sudo systemd-tmpfiles --create /usr/lib/tmpfiles.d/latteos.conf
 sudo restorecon -R /run/latteos
 [ -f /etc/latteos/boot.toml ] || sudo install -Dm644 "$S/etc/boot.toml" /etc/latteos/boot.toml

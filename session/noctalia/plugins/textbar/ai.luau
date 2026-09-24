@@ -1,46 +1,65 @@
 --!nonstrict
--- Režim AI (/ai): lokálne AI cez Ollamu (radar: Qwen3-14B-sk na silnom HW, malý model inak).
--- Bez nainštalovaného modelu povie, čo chýba. Odpoveď sa zobrazí ako výsledok (prvé riadky).
-local model = nil
-local checked = false
+-- Režim AI (/ai): cez latte-ai — lokálne (Ollama), domáci server (LM Studio a pod., aj cez SSH)
+-- alebo veľké cloudové AI. Voľba je v Nastaveniach › Softvér › AI (~/.config/latteos/ai.toml).
+-- Odpoveď sa zobrazí ako výsledky po riadkoch; Enter skopíruje celú odpoveď.
+local st = nil        -- { ok, model, target, error }
+local busy = false
 
-local function checkModels(after)
-  noctalia.runAsync({ "ollama", "list" }, function(r)
-    checked = true
-    model = nil
-    if r.exitCode == 0 then
-      for line in string.gmatch(r.stdout or "", "[^\n]+") do
-        local name = string.match(line, "^(%S+)")
-        if name and name ~= "NAME" then model = name; break end
-      end
-    end
+local function parse(out)
+  local s = {}
+  for k, v in string.gmatch(out or "", "(%w+)=([^\n]*)") do s[k] = v end
+  return s
+end
+
+local function check(after)
+  noctalia.runAsync({ "latte-ai", "status" }, function(r)
+    st = parse(r.stdout)
     if after then after() end
   end)
 end
 
+local function settingsItem()
+  return { id = "::settings", title = "Nastaviť AI", subtitle = "Nastavenia › Softvér › AI", glyph = "settings" }
+end
+
 function onQuery(text)
   local q = text or ""
-  if not checked then
-    launcher.setResults(text, { { id = "", title = "Zisťujem lokálne AI…", glyph = "sparkles" } })
-    checkModels(function() onQuery(text) end)
+  if not st then
+    launcher.setResults(text, { { id = "", title = "Zisťujem AI…", glyph = "sparkles" } })
+    check(function() onQuery(text) end)
     return
   end
-  if not model then
-    launcher.setResults(text, { { id = "", title = "Lokálne AI zatiaľ nie je pripravené",
-      subtitle = "Ollama nemá model. Na VM: malý model (ollama pull …), na HW: Qwen3-14B-sk.", glyph = "robot-off" } })
+  if st.ok ~= "1" then
+    launcher.setResults(text, { { id = "", title = "AI nie je dostupné", subtitle = (st.target or "") .. " — " .. (st.error or ""), glyph = "robot-off" }, settingsItem() })
+    st = nil          -- nabudúce skúsiť znova
     return
   end
+  local who = (st.model ~= "" and st.model) or "model vyberie server"
   if q == "" then
-    launcher.setResults(text, { { id = "", title = "Opýtaj sa (" .. model .. ")", subtitle = "odpoveď príde sem", glyph = "sparkles" } })
+    launcher.setResults(text, { { id = "", title = "Opýtaj sa AI", subtitle = who .. " · " .. (st.target or ""), glyph = "sparkles" }, settingsItem() })
     return
   end
-  launcher.setResults(text, { { id = "", title = "Premýšľam… (" .. model .. ")", subtitle = q, glyph = "loader" } })
-  noctalia.runAsync({ "ollama", "run", model, q }, function(r)
-    local answer = string.gsub(r.stdout or "", "%s+", " ")
-    launcher.setResults(text, { { id = r.stdout or "", title = string.sub(answer, 1, 120), subtitle = "Enter skopíruje celú odpoveď", glyph = "sparkles" } })
+  if busy then return end
+  busy = true
+  launcher.setResults(text, { { id = "", title = "Premýšľam…", subtitle = who, glyph = "loader" } })
+  noctalia.runAsync({ "latte-ai", "ask", q }, function(r)
+    busy = false
+    if r.exitCode ~= 0 then
+      launcher.setResults(text, { { id = "", title = "AI neodpovedalo", subtitle = string.sub(r.stderr or "", 1, 160), glyph = "robot-off" }, settingsItem() })
+      return
+    end
+    local all = r.stdout or ""
+    local items = {}
+    for line in string.gmatch(all, "[^\n]+") do
+      if #items >= 8 then break end
+      table.insert(items, { id = all, title = string.sub(line, 1, 140), subtitle = (#items == 0) and ("Enter skopíruje odpoveď · " .. who) or nil, glyph = (#items == 0) and "sparkles" or "point" })
+    end
+    if #items == 0 then items = { { id = "", title = "(prázdna odpoveď)", glyph = "sparkles" } } end
+    launcher.setResults(text, items)
   end)
 end
 
 function onActivate(id)
+  if id == "::settings" then noctalia.runAsync({ "latte-app", "nastavenia", "ai" }); return end
   if id and id ~= "" then noctalia.copyToClipboard(id, "text/plain") end
 end

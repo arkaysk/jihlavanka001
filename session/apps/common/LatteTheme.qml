@@ -12,7 +12,11 @@ Scope {
 
     property string themeId: "latte"
     property string themeName: "Latte"
-    property string mode: "dark"
+    property string themeMode: "dark"      // režim z témy
+    property string modePref: "tema"       // ~/.config/latteos/theme-mode: tema | dark | light | auto
+    property bool daylight: { const h = new Date().getHours(); return h >= 7 && h < 19; }
+    readonly property string mode: modePref === "dark" || modePref === "light" ? modePref
+                                 : (modePref === "auto" ? (daylight ? "light" : "dark") : themeMode)
     property string paletteName: "Latte"
     property var p: ({})
 
@@ -33,6 +37,20 @@ Scope {
     readonly property string fontDisplay: "Fraunces"
     readonly property string fontMono: "JetBrains Mono"
     readonly property int radius: 14
+    // animácie: pri stupni Softvér/Minimálny (VM, slabé PC) žiadne — kreslí CPU
+    readonly property string tier: Quickshell.env("LATTE_TIER") || ""
+    readonly property int animMs: (tier === "softver" || tier === "minimalny" || tier === "safe") ? 0 : 180
+
+    FileView {
+        path: t.cfgHome + "/latteos/theme-mode"
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: t.modePref = (text().trim() || "tema")
+        onLoadFailed: t.modePref = "tema"
+    }
+    // automatický režim: približne podľa dňa (presný východ/západ slnka rieši Noctalia podľa polohy)
+    Timer { interval: 300000; repeat: true; running: t.modePref === "auto"; onTriggered: { const h = new Date().getHours(); t.daylight = h >= 7 && h < 19; } }
 
     FileView {
         path: t.cfgHome + "/latteos/theme"
@@ -50,7 +68,7 @@ Scope {
                 const m = line.match(/^(\w+) = (.*)$/);
                 if (!m) continue;
                 if (m[1] === "name") t.themeName = m[2];
-                else if (m[1] === "mode") t.mode = m[2];
+                else if (m[1] === "mode") t.themeMode = m[2];
                 else if (m[1] === "palette") t.paletteName = m[2];
             }
         }
@@ -59,10 +77,10 @@ Scope {
         path: "/usr/share/latteos/noctalia/palettes/" + t.paletteName + ".json"
         printErrors: false
         onLoaded: {
-            try {
-                const j = JSON.parse(text());
-                t.p = j[t.mode] || j.dark || {};
-            } catch (e) { console.warn("LatteTheme: paleta", t.paletteName, e); }
+            try { t.pj = JSON.parse(text()); } catch (e) { console.warn("LatteTheme: paleta", t.paletteName, e); }
         }
     }
+    property var pj: ({})
+    onModeChanged: p = pj[mode] || pj.dark || {}
+    onPjChanged: p = pj[mode] || pj.dark || {}
 }

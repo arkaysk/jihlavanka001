@@ -5,6 +5,10 @@
 // Vstupy (premenné prostredia z latte-greeter):
 //   LATTE_MODE (normal|safe), LATTE_RENDERER, LATTE_REASON — z /run/latteos (latte-boot select)
 //   LATTE_GREETER_TEST=1 — náhľad bez greetd (tlačidlo Prihlásiť iba ukáže stav)
+// Súbory (skupina latte smie zapisovať z Nastavení, greeter iba číta):
+//   /var/lib/latteos/greeter/greeter.conf    background, color, dim, panel (log|text|none), panel_title, panel_text
+//   /var/lib/latteos/greeter/last-crash.log  prvý log z posledného pádu (píše latte-session)
+//   /var/lib/greetd/latte-recent             posledné dva prihlásené účty (píše greeter)
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -43,21 +47,46 @@ ShellRoot {
     property bool statusError: false
     property bool busy: false
 
+    // ── vzhľad z Nastavení › Účet › Prihlasovanie ──────────────────────────────
+    property var conf: ({ background: "/usr/share/backgrounds/latteos/latteos-wallpaper1.jpg", color: "#1B1410",
+                          dim: "0.55", panel: "log", panel_title: "", panel_text: "" })
+    property string crashLog: ""
+    FileView {
+        path: "/var/lib/latteos/greeter/greeter.conf"
+        printErrors: false
+        onLoaded: {
+            const c = Object.assign({}, root.conf);
+            for (const l of text().split("\n")) { const r = l.match(/^\s*(\w+)\s*=\s*"(.*)"\s*$/); if (r) c[r[1]] = r[2].replace(/\\n/g, "\n"); }
+            root.conf = c;
+        }
+    }
+    FileView {
+        path: "/var/lib/latteos/greeter/last-crash.log"
+        printErrors: false
+        onLoaded: root.crashLog = text().trim()
+    }
+    readonly property bool panelVisible: conf.panel === "text" ? conf.panel_text !== "" : conf.panel === "log"
+
     // ── používatelia: prvý bežný účet z /etc/passwd, alebo naposledy prihlásený ───
     property string lastUser: ""
     property var users: []
+    property var recent: []          // posledné dva prihlásené účty (najnovší prvý)
+    property var fullNames: ({})
 
     FileView {
         path: "/etc/passwd"
         onLoaded: {
-            const list = [];
+            const list = [], names = {};
             for (const line of text().split("\n")) {
                 const f = line.split(":");
                 const uid = parseInt(f[2]);
-                if (f.length > 6 && uid >= 1000 && uid < 60000 && !f[6].endsWith("nologin"))
+                if (f.length > 6 && uid >= 1000 && uid < 60000 && !f[6].endsWith("nologin")) {
                     list.push(f[0]);
+                    names[f[0]] = (f[4] || "").split(",")[0] || f[0];
+                }
             }
             root.users = list;
+            root.fullNames = names;
         }
     }
     FileView {
@@ -66,9 +95,19 @@ ShellRoot {
         printErrors: false
         onLoaded: root.lastUser = text().trim()
     }
+    FileView {
+        path: "/var/lib/greetd/latte-recent"
+        printErrors: false
+        onLoaded: root.recent = text().split("\n").map(x => x.trim()).filter(x => x !== "").slice(0, 2)
+    }
+    readonly property var recentUsers: {
+        const r = recent.filter(u => users.indexOf(u) >= 0);
+        if (r.length === 0 && lastUser !== "" && users.indexOf(lastUser) >= 0) r.push(lastUser);
+        return r.slice(0, 2);
+    }
 
     function defaultUser() {
-        if (lastUser !== "" && users.indexOf(lastUser) >= 0) return lastUser;
+        if (recentUsers.length > 0) return recentUsers[0];
         return users.length > 0 ? users[0] : "";
     }
 
@@ -119,7 +158,7 @@ ShellRoot {
 
     Process {
         id: saveUser
-        command: ["sh", "-c", "printf '%s\\n' \"$1\" > /var/lib/greetd/latte-last-user", "sh", Greetd.user]
+        command: ["sh", "-c", "printf '%s\\n' \"$1\" > /var/lib/greetd/latte-last-user; { printf '%s\\n' \"$1\"; grep -vx \"$1\" /var/lib/greetd/latte-recent 2>/dev/null | head -1; } > /var/lib/greetd/latte-recent.new && mv -f /var/lib/greetd/latte-recent.new /var/lib/greetd/latte-recent", "sh", Greetd.user]
     }
     Process { id: reboot; command: ["systemctl", "reboot"] }
     Process { id: poweroff; command: ["systemctl", "poweroff"] }
@@ -140,16 +179,53 @@ ShellRoot {
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.namespace: "latte-greeter"
-            color: root.cBg
+            color: root.conf.color || root.cBg
 
             Image {
                 anchors.fill: parent
-                source: "file:///usr/share/backgrounds/latteos/latteos-wallpaper1.jpg"
+                visible: root.conf.background !== ""
+                source: root.conf.background !== "" ? "file://" + root.conf.background : ""
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 smooth: false          // pixman/software: lacnejšie škálovanie
             }
-            Rectangle { anchors.fill: parent; color: Qt.rgba(0.07, 0.05, 0.04, 0.55) }
+            Rectangle { anchors.fill: parent; color: Qt.rgba(0.07, 0.05, 0.04, parseFloat(root.conf.dim) || 0) }
+
+            // ľavý panel: vývojárska verzia = prvý log z posledného pádu; inak text používateľa
+            // (neskôr RSS, novinky, počasie — Nastavenia › Účet › Prihlasovanie)
+            Rectangle {
+                id: sidePanel
+                visible: root.panelVisible && win.width >= 1100
+                anchors { left: parent.left; top: parent.top; bottom: parent.bottom; margins: 28; bottomMargin: 72 }
+                width: Math.min(520, win.width * 0.3)
+                radius: 16; color: root.cGlass; border { color: root.cOutline; width: 1 }
+                clip: true
+                readonly property bool isLog: root.conf.panel === "log"
+                Column {
+                    anchors { fill: parent; margins: 20 }
+                    spacing: 10
+                    Text {
+                        text: sidePanel.isLog ? "Posledný pád" : (root.conf.panel_title || "Správa")
+                        color: root.cText; font { family: root.fDisplay; pixelSize: 20; weight: Font.DemiBold }
+                    }
+                    Text {
+                        visible: sidePanel.isLog
+                        text: root.crashLog === "" ? "Žiadny zaznamenaný pád. ☕" : "Vývojárska verzia · /var/lib/latteos/greeter/last-crash.log"
+                        color: root.cDim; font { family: root.fUi; pixelSize: 12 }
+                    }
+                    Rectangle { width: parent.width; height: 1; color: root.cOutline }
+                    Text {
+                        width: parent.width
+                        height: sidePanel.height - 110
+                        wrapMode: sidePanel.isLog ? Text.WrapAnywhere : Text.WordWrap
+                        elide: Text.ElideRight
+                        text: sidePanel.isLog ? root.crashLog : root.conf.panel_text
+                        color: sidePanel.isLog ? root.cDim : root.cText
+                        font { family: sidePanel.isLog ? "monospace" : root.fUi; pixelSize: sidePanel.isLog ? 11 : 14 }
+                        textFormat: Text.PlainText
+                    }
+                }
+            }
 
             // hodiny a dátum
             Column {
@@ -205,6 +281,35 @@ ShellRoot {
                                 text: root.mode === "safe" ? "Režim SAFE" : "Pripravené"
                                 color: root.mode === "safe" ? root.cAccent : root.cDim
                                 font { family: root.fUi; pixelSize: 12; weight: Font.Bold }
+                            }
+                        }
+                    }
+
+                    // posledné dva účty: klik vyberie účet a presunie kurzor do hesla
+                    Row {
+                        visible: root.recentUsers.length > 0
+                        spacing: 8
+                        Repeater {
+                            model: root.recentUsers
+                            Rectangle {
+                                id: chip
+                                required property string modelData
+                                readonly property bool picked: userInput.text === modelData
+                                width: (content.width - 8) / 2; height: 52; radius: 12
+                                color: picked ? Qt.rgba(228 / 255, 178 / 255, 131 / 255, 0.18) : root.cField
+                                border { color: picked ? root.cAccent : "transparent"; width: 1 }
+                                Rectangle {
+                                    id: avatar
+                                    x: 10; anchors.verticalCenter: parent.verticalCenter
+                                    width: 34; height: 34; radius: 17; color: root.cAccent
+                                    Text { anchors.centerIn: parent; text: chip.modelData.charAt(0).toUpperCase(); color: root.cOnAccent; font { family: root.fUi; pixelSize: 16; weight: Font.ExtraBold } }
+                                }
+                                Column {
+                                    anchors { left: avatar.right; leftMargin: 10; right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
+                                    Text { width: parent.width; elide: Text.ElideRight; text: root.fullNames[chip.modelData] || chip.modelData; color: root.cText; font { family: root.fUi; pixelSize: 13; weight: Font.Bold } }
+                                    Text { width: parent.width; elide: Text.ElideRight; text: chip.modelData; color: root.cDim; font { family: root.fUi; pixelSize: 11 } }
+                                }
+                                MouseArea { anchors.fill: parent; onClicked: { userInput.text = chip.modelData; passInput.forceActiveFocus(); } }
                             }
                         }
                     }
