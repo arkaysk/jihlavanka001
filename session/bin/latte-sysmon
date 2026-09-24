@@ -2,7 +2,10 @@
 """latte-sysmon — živý stav systému pre Monitor LatteOS (Process Manager) a iné zobrazovače.
 
   latte-sysmon stream [s]    JSON riadok každú sekundu (alebo každých s): CPU, RAM, disky, sieť, teploty, procesy
-  latte-sysmon autorun       JSON: čo sa spúšťa pri štarte (XDG autostart, systemd user/system, časovače, cron)
+  latte-sysmon autorun       JSON: čo sa spúšťa pri štarte (XDG autostart, systemd user/system, časovače, cron,
+                             štart relácie LatteOS, prihlasovacie skripty, environment.d, moduly jadra) — ako Autoruns
+  latte-sysmon hw            JSON: hardvér ako CPU-Z/HWiNFO (procesor, cache, doska/BIOS, pamäť, grafika, disky,
+                             senzory, batéria, systém)
   latte-sysmon once          jeden snímok (bez procesov)
 
 Telemetria: pri `stream` sa posledný snímok (bez zoznamu procesov) zapisuje aj do
@@ -28,7 +31,7 @@ DESKTOP = {"Hyprland", "noctalia", "labwc", "qs", "quickshell", "greetd", "latte
 def read(path, default=""):
     try:
         with open(path) as f:
-            return f.read()
+            return f.read().rstrip("\n")
     except OSError:
         return default
 
@@ -170,6 +173,29 @@ def cmdline(pid):
     return read("/proc/%d/cmdline" % pid).replace("\0", " ").strip()
 
 
+def cpu_freq():
+    fs = [int(read(f, "0") or 0) for f in glob.glob("/sys/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_cur_freq")]
+    if fs:
+        return round(sum(fs) / len(fs) / 1000)          # MHz
+    for line in read("/proc/cpuinfo").splitlines():
+        if line.startswith("cpu MHz"):
+            return round(float(line.split(":")[1]))
+    return 0
+
+
+def gpu_busy():
+    """Vyťaženie GPU (amdgpu/i915 cez sysfs), VRAM pri amdgpu; None, keď ovládač nič nehlási (VM)."""
+    for card in sorted(glob.glob("/sys/class/drm/card[0-9]")):
+        busy = read(card + "/device/gpu_busy_percent")
+        if busy:
+            out = {"busy": int(busy)}
+            used, tot = read(card + "/device/mem_info_vram_used"), read(card + "/device/mem_info_vram_total")
+            if used and tot:
+                out.update(vramUsed=int(used), vramTotal=int(tot))
+            return out
+    return None
+
+
 def snapshot(state, with_procs=True):
     t = time.monotonic()
     dt = t - state.get("t", t)
@@ -192,6 +218,7 @@ def snapshot(state, with_procs=True):
         "net": {"rx": rate(rx, p[2]), "tx": rate(tx, p[3])},
         "load": load, "uptime": int(float(read("/proc/uptime", "0 0").split()[0])),
         "temps": temps(), "fs": filesystems(),
+        "freq": cpu_freq(), "gpu": gpu_busy(),
     }
     if with_procs:
         if state.get("winT", 0) + 5 < t:          # okná z Hyprlandu raz za 5 s
@@ -202,6 +229,7 @@ def snapshot(state, with_procs=True):
             x["cmd"] = cmdline(x["pid"])[:300]
         snap["procs"] = procs
         snap["procCount"] = len(procs)
+        snap["threads"] = sum(int(read("/proc/%d/stat" % x["pid"], "0 " * 20).rsplit(")", 1)[-1].split()[17] or 0) for x in procs) if procs else 0
         state["ticks"] = ticks
     state.update(t=t, cpus=cpus, io=(rd, wr, rx, tx))
     return snap
@@ -262,11 +290,195 @@ def cron():
     return out
 
 
+def exists_cmd(command):
+    """Autoruns: „súbor chýba“, keď program z príkazu neexistuje."""
+    import shlex, shutil
+    try:
+        argv = [x for x in shlex.split(command) if not (x.startswith("%") or "=" in x and not x.startswith("/"))]
+    except ValueError:
+        return True
+    if not argv:
+        return True
+    if argv[0] in ("sh", "bash") and len(argv) > 2 and argv[1] == "-c":
+        return exists_cmd(argv[2].split(";")[-1].strip())      # posledný príkaz skriptu (napr. „sleep 4; latte-app barista“)
+    if argv[0] == "env" and len(argv) > 1:
+        argv = argv[1:]
+    prog = argv[0]
+    return os.path.exists(prog) if prog.startswith("/") else shutil.which(prog) is not None
+
+
+def session_items():
+    """Štart relácie LatteOS (hyprland.lua hl.exec_cmd v hyprland.start) — iba na čítanie, mení sa v Nastaveniach."""
+    out = []
+    src = read("/usr/share/latteos/hypr/hyprland.lua")
+    blk = src.split('hl.on("hyprland.start"', 1)[-1].split("\nend)", 1)[0] if 'hyprland.start' in src else ""
+    for i, m in enumerate(__import__("re").finditer(r'hl\.exec_cmd\("((?:[^"\\]|\\.)*)"\)', blk)):
+        c = m.group(1)
+        inner = c.split("'")[1].split(";")[-1].strip() if c.startswith("sh -c '") and "'" in c[7:] else c
+        w = inner.split()
+        name = " ".join(w[:2]) if w and w[0] in ("latte-app", "latte-boot", "wl-paste", "systemctl") else (w[0] if w else c)
+        nice = {"noctalia": "Shell Noctalia (lišta, panely)", "latte-app zivatapeta": "Živá tapeta", "latte-app netznak": "NET pre okná",
+                "latte-app kapsavyrez": "Výrez Kapsy (súbory na lište)", "latte-app nahlad": "Živý náhľad okien", "latte-app plocha": "Ikony na ploche a Kôš",
+                "latte-app barista": "Barista (prvé spustenie)", "latte-boot ok": "Kontrola zdravia relácie (SAFE pri páde)"}
+        if name == "wl-paste --type":
+            name = "História schránky (" + ("obrázky" if "image" in c else "text") + ")"
+        name = nice.get(name, name)
+        out.append({"id": "session:%d" % i, "kind": "session", "name": name, "command": c, "origin": "/usr/share/latteos/hypr/hyprland.lua",
+                    "owner": "LatteOS", "enabled": True, "canToggle": False, "note": ""})
+    return out
+
+
+def login_scripts():
+    out = []
+    home = os.path.expanduser("~")
+    for f in (".bash_profile", ".profile", ".bashrc", ".zprofile", ".zshrc"):
+        p = os.path.join(home, f)
+        if os.path.exists(p):
+            n = sum(1 for l in read(p).splitlines() if l.strip() and not l.strip().startswith("#"))
+            out.append({"id": "login:" + f, "kind": "login", "name": f, "command": "%d príkazov" % n, "origin": p,
+                        "owner": "používateľ", "enabled": True, "canToggle": False, "note": ""})
+    for d, owner in ((home + "/.config/environment.d", "používateľ"), ("/etc/environment.d", "systém"), ("/usr/lib/environment.d", "systém")):
+        for p in sorted(glob.glob(d + "/*.conf")):
+            out.append({"id": "env:" + p, "kind": "login", "name": os.path.basename(p), "command": " ".join(l.split("=")[0] for l in read(p).splitlines() if "=" in l and not l.startswith("#"))[:120],
+                        "origin": p, "owner": owner, "enabled": True, "canToggle": False, "note": "premenné prostredia"})
+    return out
+
+
+def kernel_modules():
+    out = []
+    for d in ("/etc/modules-load.d", "/usr/lib/modules-load.d"):
+        for p in sorted(glob.glob(d + "/*.conf")):
+            mods = [l.strip() for l in read(p).splitlines() if l.strip() and not l.startswith("#")]
+            if mods:
+                out.append({"id": "mod:" + p, "kind": "module", "name": os.path.basename(p), "command": ", ".join(mods)[:120], "origin": p,
+                            "owner": "systém", "enabled": True, "canToggle": False, "note": ""})
+    return out
+
+
+def hardware():
+    info = {}
+    # procesor (CPU-Z: Procesor, Cache)
+    ci = {}
+    for line in read("/proc/cpuinfo").splitlines():
+        if ":" in line:
+            k, _, v = line.partition(":")
+            ci.setdefault(k.strip(), v.strip())
+    flags = ci.get("flags", "").split()
+    cores = len({(read(f.replace("core_id", "physical_package_id")), read(f)) for f in glob.glob("/sys/devices/system/cpu/cpu[0-9]*/topology/core_id")}) or int(ci.get("cpu cores", "0") or 0)
+    threads = len(glob.glob("/sys/devices/system/cpu/cpu[0-9]*"))
+    cache = []
+    for idx in sorted(glob.glob("/sys/devices/system/cpu/cpu0/cache/index*")):
+        cache.append({"level": "L" + read(idx + "/level") + ({"Data": "d", "Instruction": "i"}.get(read(idx + "/type"), "")), "size": read(idx + "/size"),
+                      "ways": read(idx + "/ways_of_associativity")})
+    mx = read("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq")
+    mn = read("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq")
+    notable = [f for f in ("sse4_2", "avx", "avx2", "avx512f", "aes", "sha_ni", "fma", "vmx", "svm", "hypervisor") if f in flags]
+    info["cpu"] = {"model": ci.get("model name", "?"), "vendor": ci.get("vendor_id", ""), "family": ci.get("cpu family", ""), "modelId": ci.get("model", ""),
+                   "stepping": ci.get("stepping", ""), "microcode": ci.get("microcode", ""), "cores": cores, "threads": threads,
+                   "maxMHz": int(mx) // 1000 if mx else 0, "minMHz": int(mn) // 1000 if mn else 0, "curMHz": cpu_freq(),
+                   "cache": cache, "flags": notable, "bogomips": ci.get("bogomips", ""),
+                   "governor": read("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")}
+    # doska a BIOS (čitateľné bez správcu)
+    dmi = lambda k: read("/sys/class/dmi/id/" + k)
+    info["board"] = {k: dmi(k) for k in ("sys_vendor", "product_name", "product_version", "board_vendor", "board_name", "board_version",
+                                         "bios_vendor", "bios_version", "bios_date", "chassis_type")}
+    info["board"]["efi"] = os.path.isdir("/sys/firmware/efi")
+    info["board"]["secureBoot"] = None
+    sb = glob.glob("/sys/firmware/efi/efivars/SecureBoot-*")
+    if sb:
+        try:
+            info["board"]["secureBoot"] = open(sb[0], "rb").read()[-1] == 1
+        except OSError:
+            pass
+    # pamäť
+    m = meminfo()
+    info["memory"] = {"total": m.get("total", 0), "swap": int(read("/proc/meminfo").split("SwapTotal:")[1].split()[0]) * 1024 if "SwapTotal:" in read("/proc/meminfo") else 0,
+                      "note": "typ a frekvencia modulov vyžadujú správcu (dmidecode)"}
+    # grafika
+    gpus = []
+    try:
+        r = subprocess.run(["lspci", "-mm", "-nn"], capture_output=True, text=True, timeout=3)
+        for line in r.stdout.splitlines():
+            if "VGA" in line or "3D controller" in line or "Display" in line:
+                f = [x.strip('"') for x in __import__("shlex").split(line)]
+                gpus.append({"vendor": f[2] if len(f) > 2 else "", "name": f[3] if len(f) > 3 else line, "slot": f[0]})
+    except Exception:
+        pass
+    for card in sorted(glob.glob("/sys/class/drm/card[0-9]")):
+        drv = os.path.basename(os.path.realpath(card + "/device/driver")) if os.path.exists(card + "/device/driver") else ""
+        vram = read(card + "/device/mem_info_vram_total")
+        slot = os.path.basename(os.path.realpath(card + "/device"))
+        for g in gpus:
+            if slot.endswith(g["slot"]):
+                g.update(driver=drv, vram=int(vram) if vram else 0)
+    info["gpu"] = gpus
+    info["renderer"] = read("/run/latteos/mode.toml")
+    # disky
+    disks = []
+    try:
+        r = subprocess.run(["lsblk", "-J", "-b", "-d", "-o", "NAME,MODEL,SIZE,ROTA,TRAN,TYPE,SERIAL,REV"], capture_output=True, text=True, timeout=3)
+        for d in json.loads(r.stdout).get("blockdevices", []):
+            if d.get("type") == "disk" and not (d.get("name") or "").startswith(("zram", "loop")):
+                disks.append({"name": d.get("name"), "model": (d.get("model") or "").strip(), "size": int(d.get("size") or 0),
+                              "kind": "HDD" if d.get("rota") in (True, "1", 1) else ("NVMe" if (d.get("name") or "").startswith("nvme") else "SSD"),
+                              "bus": d.get("tran") or "", "rev": d.get("rev") or ""})
+    except Exception:
+        pass
+    info["disks"] = disks
+    # senzory (HWiNFO): hwmon teploty, ventilátory, napätia
+    sensors = []
+    for hw in sorted(glob.glob("/sys/class/hwmon/hwmon*")):
+        chip = read(hw + "/name")
+        for f in sorted(glob.glob(hw + "/*_input")):
+            base = f[:-6]
+            kind = os.path.basename(base).rstrip("0123456789")
+            v = read(f)
+            if not v:
+                continue
+            label = read(base + "_label") or os.path.basename(base)
+            val, unit = int(v), ""
+            if kind == "temp":
+                val, unit = round(val / 1000, 1), "°C"
+            elif kind == "in":
+                val, unit = round(val / 1000, 3), "V"
+            elif kind == "fan":
+                unit = "ot/min"
+            elif kind == "power":
+                val, unit = round(val / 1e6, 1), "W"
+            else:
+                continue
+            sensors.append({"chip": chip, "label": label, "value": val, "unit": unit})
+    info["sensors"] = sensors
+    # batéria
+    bats = []
+    for b in sorted(glob.glob("/sys/class/power_supply/BAT*")):
+        full, design = read(b + "/energy_full") or read(b + "/charge_full"), read(b + "/energy_full_design") or read(b + "/charge_full_design")
+        bats.append({"name": os.path.basename(b), "capacity": int(read(b + "/capacity") or 0), "status": read(b + "/status"),
+                     "health": round(100 * int(full) / int(design)) if full and design and int(design) else None,
+                     "cycles": read(b + "/cycle_count"), "model": read(b + "/model_name")})
+    info["battery"] = bats
+    # systém
+    osr = {}
+    for line in read("/etc/os-release").splitlines():
+        k, _, v = line.partition("=")
+        osr[k] = v.strip('"')
+    info["system"] = {"os": osr.get("PRETTY_NAME", ""), "kernel": os.uname().release, "arch": os.uname().machine, "host": os.uname().nodename,
+                      "virt": subprocess.run(["systemd-detect-virt"], capture_output=True, text=True).stdout.strip() or "none",
+                      "uptime": int(float(read("/proc/uptime", "0 0").split()[0]))}
+    return info
+
+
 def main(a):
     cmd = a[0] if a else "once"
     state = {}
     if cmd == "autorun":
-        print(json.dumps(desktop_entries() + systemd_units(True) + systemd_units(False) + cron(), ensure_ascii=False))
+        items = desktop_entries() + session_items() + systemd_units(True) + systemd_units(False) + cron() + login_scripts() + kernel_modules()
+        for x in items:
+            x["missing"] = bool(x.get("command")) and x["kind"] in ("autostart", "session", "cron") and not exists_cmd(x["command"] if x["kind"] != "cron" else " ".join(x["command"].split()[5:]))
+        print(json.dumps(items, ensure_ascii=False))
+        return 0
+    if cmd == "hw":
+        print(json.dumps(hardware(), ensure_ascii=False))
         return 0
     if cmd == "once":
         snapshot(state, False)

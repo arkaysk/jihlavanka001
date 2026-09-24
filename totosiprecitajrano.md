@@ -70,6 +70,19 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 18:10: Monitor — Win11 Správca úloh + Autoruns + CPU-Z/HWiNFO ✅ (bod 10)
+- **Prehľad (Výkon):** grafy procesora, pamäte, siete, **disku** a **grafiky** (keď ju ovládač hlási),
+  súhrn ako vo Win11: rýchlosť procesora, procesy, vlákna, záťaž, doba behu, swap. Ďalej jadrá, disky a teploty.
+- **Hardvér (nové):**
+  - procesor: názov, jadrá/vlákna, frekvencia, rodina/model/stepping, mikrokód, cache L1d/L1i/L2/L3,
+    inštrukcie (AVX2, AES…), virtualizácia;
+  - doska a BIOS, UEFI, Secure Boot, pamäť, grafika s ovládačom, disky;
+  - senzory (teploty, ventilátory, napätia, výkon), batéria so zdravím a cyklami, systém.
+  - Tlačidlo „Kopírovať ako text“. Všetko bez práv správcu (typ RAM modulov by potreboval dmidecode).
+- **Po štarte (Autoruns):** okrem autoštartu, služieb, časovačov a cronu aj **štart relácie LatteOS**,
+  **prihlásenie a prostredie** (.bash_profile, environment.d) a **moduly jadra**. Položka, ktorej program
+  neexistuje, je označená „⚠ súbor chýba“. Hľadanie v hlavičke filtruje zoznam.
+
 ### 24. 9. 2026, 18:00: greeter — Caps Lock, Num Lock, zobrazenie hesla, písma ✅ (bod 9)
 - Pod heslom sa ukáže **„⇪ Caps Lock je zapnutý“** alebo **„Num Lock je vypnutý“**. Stav sa berie z LED
   klávesnice a zároveň z písaných znakov: veľké písmeno bez Shiftu znamená Caps Lock, kláves vpravo bez
