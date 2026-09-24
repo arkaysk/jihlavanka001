@@ -153,7 +153,7 @@ path = "/usr/share/backgrounds/latteos/latteos-wallpaper2.jpg"
 
 # pluginy LatteOS (/usr/share/latteos/noctalia/plugins/<plugin>/plugin.toml)
 [plugins]
-enabled     = ["latteos/system", "latteos/textbar", "latteos/devices", "latteos/time", "latteos/apps", "latteos/cat"]
+enabled     = ["latteos/system", "latteos/textbar", "latteos/devices", "latteos/time", "latteos/apps", "latteos/cat", "latteos/overview"]
 auto_update = "none"
 
 [[plugins.source]]

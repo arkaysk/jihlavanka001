@@ -171,4 +171,8 @@ else
         echo "== grafický štart NIE je zapnutý (spusti s --enable)"
     fi
 fi
+if pgrep -x noctalia >/dev/null; then
+    echo "   Bežiaca Noctalia prevezme zmeny konfigurácie sama; NOVÉ pluginy (panely) až po reštarte shellu:"
+    echo "   pkill -x noctalia; hyprctl eval 'hl.exec_cmd(\"noctalia\")'   (alebo sa odhlás a prihlás)"
+fi
 echo "Hotovo. Nová skupina latte platí po novom prihlásení používateľa $user."

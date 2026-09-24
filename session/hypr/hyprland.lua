@@ -97,7 +97,8 @@ local function bind(keys, action, opts) hl.bind(keys, action, opts) end
 
 bind(mod .. " + Return", hl.dsp.exec_cmd("foot"))
 bind(mod .. " + Space",  hl.dsp.exec_cmd("noctalia msg panel-toggle launcher"))     -- Text Bar / spúšťač
-bind(mod .. " + Tab",    hl.dsp.exec_cmd("noctalia msg window-switcher"))            -- prehľad pásky
+bind(mod .. " + Tab",    hl.dsp.exec_cmd("noctalia msg panel-toggle latteos/overview:panel"))  -- prehľad pásky (filtrovanie písaním)
+bind(mod .. " + SHIFT + Tab", hl.dsp.exec_cmd("noctalia msg window-switcher"))       -- rýchly prepínač okien Noctalie
 bind(mod .. " + A",      hl.dsp.exec_cmd("noctalia msg panel-toggle control-center"))
 bind(mod .. " + E",      hl.dsp.exec_cmd("latte-app subory"))                        -- Súbory (Data Manager)
 bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd("latte-app monitor"))                   -- Monitor (správca procesov)
