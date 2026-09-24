@@ -26,6 +26,15 @@ prefix = "latte"
 glyph  = "coffee"
 include_in_global_search = true
 
+# Lokálne: súbory a priečinky v domove (plocate/find)
+[[launcher_provider]]
+id     = "subory"
+entry  = "subory.luau"
+prefix = "subory"
+glyph  = "folder"
+include_in_global_search = true
+debounce_ms = 300
+
 [[launcher_provider]]
 id     = "cmd"
 entry  = "cmd.luau"
