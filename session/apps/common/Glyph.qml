@@ -109,6 +109,7 @@ Text {
         "volume": 0xEB51,
         "wifi": 0xEB52,
         "world-longitude": 0xED2F,
+        "app-window": 0xEFE6,
         "help": 0xEABF
     })
     FontLoader { id: tabler; source: "file:///usr/share/noctalia/assets/fonts/noctalia-tabler.ttf" }

@@ -192,6 +192,11 @@ hl.on("hyprland.start", function()
     -- história schránky pre Kapsu (text aj obrázky)
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
+    -- Barista (sprievodca prvým spustením) raz po prvom prihlásení
+    do
+        local f = io.open(cfgdir .. "/barista-done", "r")
+        if f then f:close() else hl.exec_cmd("sh -c 'sleep 4; latte-app barista'") end
+    end
     -- relácia je zdravá, ak po 60 s beží shell → počítadlo pádov = 0
     hl.exec_cmd("latte-boot ok --after 60 --require noctalia")
 end)
