@@ -66,7 +66,7 @@ echo "== greeter LatteOS (Quickshell QML pod labwc + pixman)"
 sudo install -Dm644 "$S/greeter/shell.qml" /usr/share/latteos/greeter/shell.qml
 for f in rc.xml environment; do sudo install -Dm644 "$S/greeter/labwc/$f" "/usr/share/latteos/greeter/labwc/$f"; done
 # vzhľad greetera (Nastavenia › Účet › Prihlasovanie) a záznam pádu: skupina latte píše, greeter (xdm_t) číta
-sudo install -d -m2775 -o root -g latte /var/lib/latteos/greeter
+sudo install -d -m2775 -o root -g latte /var/lib/latteos/greeter /var/lib/latteos/greeter/avatars   # avatary pre obrazovku prihlásenia
 [ -f /var/lib/latteos/greeter/greeter.conf ] || sudo install -m664 -o root -g latte "$S/greeter/greeter.conf" /var/lib/latteos/greeter/greeter.conf
 
 echo "== App Manager: Flatpak a Flathub (inštalácia aplikácií pre používateľa bez roota)"

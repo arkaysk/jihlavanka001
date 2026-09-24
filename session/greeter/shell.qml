@@ -301,8 +301,11 @@ ShellRoot {
                                 Rectangle {
                                     id: avatar
                                     x: 10; anchors.verticalCenter: parent.verticalCenter
-                                    width: 34; height: 34; radius: 17; color: root.cAccent
-                                    Text { anchors.centerIn: parent; text: chip.modelData.charAt(0).toUpperCase(); color: root.cOnAccent; font { family: root.fUi; pixelSize: 16; weight: Font.ExtraBold } }
+                                    width: 34; height: 34; radius: 9; color: root.cAccent; clip: true
+                                    Text { anchors.centerIn: parent; visible: pic.status !== Image.Ready; text: chip.modelData.charAt(0).toUpperCase(); color: root.cOnAccent; font { family: root.fUi; pixelSize: 16; weight: Font.ExtraBold } }
+                                    // obrázok účtu z Nastavení › Účet › Môj účet (/var/lib/latteos/greeter/avatars/<meno>.png)
+                                    Image { id: pic; anchors.fill: parent; source: "file:///var/lib/latteos/greeter/avatars/" + chip.modelData + ".png"
+                                            fillMode: Image.PreserveAspectCrop; smooth: false; asynchronous: true; sourceSize { width: 68; height: 68 } }
                                 }
                                 Column {
                                     anchors { left: avatar.right; leftMargin: 10; right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }

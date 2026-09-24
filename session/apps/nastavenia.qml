@@ -35,6 +35,9 @@ ShellRoot {
     property var location: ({})       // prepisy [location]
     property var notif: ({})          // prepisy [notification]
     property var access: ({})         // prepisy [accessibility]
+    property string fullName: ""
+    property var avatarChoices: []
+    property int avatarRev: 0          // obnovenie náhľadu po zmene
     property var idle: ({})           // [idle.behavior.*] → { lock: {enabled, timeout}, … }
     property var shellAnim: ({})      // prepisy [shell.animation]
     property bool noAnim: false
@@ -81,7 +84,7 @@ ShellRoot {
             { key: "diagnostika", label: "Diagnostika a pády", glyph: "stethoscope", status: "partial" } ] },
         { key: "ucet", title: "Účet", glyph: "user", summary: user, owner: "Session Manager",
           pages: [
-            { key: "mojucet", label: "Môj účet", glyph: "user", status: "planned" },
+            { key: "mojucet", label: "Môj účet", glyph: "user", status: "ready" },
             { key: "pouzivatelia", label: "Používatelia", glyph: "users", status: "planned" },
             { key: "prihlasovanie", label: "Prihlasovanie", glyph: "login", status: "ready" },
             { key: "uzamknutie", label: "Uzamknutie a nečinnosť", glyph: "lock", status: "ready" } ] },
@@ -119,6 +122,7 @@ ShellRoot {
         if (key === "ai") { aiStatus.running = true; aiList.running = true; }
         if (key === "o") aboutProc.running = true;
         if (key === "oznamenia") dndProc.running = true;
+        if (key === "mojucet") accountProc.running = true;
         if (key === "ulozisko" || key === "domov") storageProc.running = true;
     }
     Component.onCompleted: { go(section); aiStatus.running = true; }
@@ -246,6 +250,18 @@ ShellRoot {
         id: aiAsk; command: ["latte-ai", "ask", "Predstav sa jednou krátkou vetou po slovensky."]
         onDone: (out) => app.aiAnswer = out.trim() || "(bez odpovede — pozri stav vpravo)"
     }
+    Cmd {
+        id: accountProc
+        command: ["sh", "-c", "getent passwd \"$USER\" | cut -d: -f5 | cut -d, -f1; ls /usr/share/latteos/noctalia/plugins/cat/mascots/*-sedi.png 2>/dev/null; ls -t \"$HOME\"/Obrázky/*.png \"$HOME\"/Obrázky/*.jpg \"$HOME\"/Pictures/*.png \"$HOME\"/Pictures/*.jpg 2>/dev/null | head -8"]
+        onDone: (out) => { const l = out.split("\n"); app.fullName = l[0] || ""; app.avatarChoices = l.slice(1).filter(x => x !== ""); }
+    }
+    function setAvatar(src) {
+        const dst = "/var/lib/latteos/greeter/avatars/" + app.user + ".png";
+        if (src === "") run(["sh", "-c", "rm -f \"$1\" \"$HOME/.face\"", "sh", dst], "Obrázok účtu odstránený");
+        else run(["sh", "-c", "cp -f \"$1\" \"$2\" && chmod 664 \"$2\" && cp -f \"$1\" \"$HOME/.face\"", "sh", src, dst], "Obrázok účtu nastavený");
+        avatarTick.restart();
+    }
+    Timer { id: avatarTick; interval: 500; onTriggered: app.avatarRev++ }
     Cmd { id: dndProc; command: ["noctalia", "msg", "notification-dnd-status"]; onDone: (out) => app.dnd = out.trim() === "on" }
     Cmd {
         id: aboutProc
@@ -375,6 +391,7 @@ ShellRoot {
             start: "Režim NORMAL (Hyprland) alebo SAFE (labwc bez GPU). SAFE naskočí sám po dvoch pádoch za sebou.",
             cas: "Poloha určuje východ a západ slnka pre automatický svetlý/tmavý režim a nočné svetlo. Ďalšie časové pásma ukáže panel Čas.",
             o: "Verzie častí systému, z ktorých sa LatteOS skladá.",
+            mojucet: "Meno, heslo a obrázok, ktorý ukáže obrazovka prihlásenia.",
             uzamknutie: "Čo sa stane, keď počítač chvíľu nepoužívaš. Pred akciou obrazovka 2 s pomaly stmavne — pohyb myšou to zruší.",
             pristupnost: "Väčšie rozhranie, vyšší kontrast, žiadny pohyb, väčší kurzor.",
             oznamenia: "Kde a ako sa ukazujú oznámenia. História a Nerušiť sú aj v paneli Čas na lište.",
@@ -394,7 +411,6 @@ ShellRoot {
         siet: ["Wi-Fi a káblové pripojenia", "VPN", "zdieľanie pripojenia"],
         bluetooth: ["párovanie", "ovládače a periférie"],
         napajanie: ["profil výkonu", "uspávanie a vypnutie obrazovky", "batéria"],
-        mojucet: ["meno, obrázok", "prihlásenie mobilom"],
         pouzivatelia: ["pridať a odstrániť účet", "rodičovská kontrola"],
         jazyk: ["jazyk systému", "formáty dátumu a čísel"]
     })
@@ -409,6 +425,7 @@ ShellRoot {
         if (k === "prihlasovanie") return "Greeter: " + greeter + " · panel " + greeterConf.panel;
         if (k === "lista") return "Hrúbka " + (bar.thickness || 56) + " · okraje " + (bar.margin_ends || 12) + " · spodok " + (bar.margin_edge || 10);
         if (k === "cas") return "Poloha " + (location.latitude || "48.74") + ", " + (location.longitude || "19.15") + (clockZones.length ? "\nPásma: " + clockZones.join(", ") : "");
+        if (k === "mojucet") return (fullName || user) + " (" + user + ")";
         if (k === "uzamknutie") return "Zamknúť: " + (idleMin(idle.lock) ? idleMin(idle.lock) + " min" : "nikdy") + "\nObrazovka: " + (idleMin(idle.screen) ? idleMin(idle.screen) + " min" : "nikdy") + "\nUspať: " + (idleMin(idle.suspend) ? idleMin(idle.suspend) + " min" : "nikdy");
         if (k === "pristupnost") return "Mierka rozhrania " + Math.round((parseFloat(access.ui_scale) || 1) * 100) + " %" + (access.high_contrast === "true" ? " · vysoký kontrast" : "") + (noAnim ? " · bez animácií" : "") + "\nKurzor " + cursorSize + " px";
         if (k === "oznamenia") return (dnd ? "Nerušiť: zapnuté" : "Nerušiť: vypnuté") + "\nPoloha: " + ({ top_right: "vpravo hore", top_center: "hore v strede", top_left: "vľavo hore", bottom_right: "vpravo dole", bottom_left: "vľavo dole" })[notif.position || "top_right"];
@@ -426,6 +443,7 @@ ShellRoot {
             subory: "~/.config/latteos/subory.json\n~/.config/latteos/tags.json",
             oznamenia: "~/.local/state/noctalia/settings.toml [notification]",
             uzamknutie: "~/.local/state/noctalia/settings.toml [idle.behavior.*]",
+            mojucet: "/var/lib/latteos/greeter/avatars/<meno>.png\n~/.face",
             pristupnost: "~/.local/state/noctalia/settings.toml [accessibility]\n~/.config/latteos/no-animations, cursor-size",
             klavesnica: "/usr/share/latteos/hypr/hyprland.lua\n~/.config/latteos/hyprland.lua"
         })[k] || "—";
@@ -545,7 +563,7 @@ ShellRoot {
         return ({ domov: pDomov, ai: pAi, subory: pSubory, ulozisko: pUlozisko, vykon: pVykon, diagnostika: pDiag,
                   prihlasovanie: pGreeter, motiv: pMotiv, pozadie: pPozadie, okna: pOkna, lista: pLista, efekty: pEfekty,
                   start: pStart, cas: pCas, o: pO, klavesnica: pKlavesy, oznamenia: pOznamenia, pristupnost: pPristupnost,
-                  uzamknutie: pUzamknutie })[k] || pPlan;
+                  uzamknutie: pUzamknutie, mojucet: pUcet })[k] || pPlan;
     }
 
     // ── stránky ──────────────────────────────────────────────────────────────────
@@ -974,6 +992,49 @@ ShellRoot {
                     Text { width: 130; text: modelData.split("|")[0]; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 } }
                     Text { text: modelData.split("|")[1] || "—"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.DemiBold } }
                 }
+            }
+        }
+    }
+    Component {
+        id: pUcet
+        Column {
+            spacing: 14
+            Row {
+                spacing: 16
+                Rectangle {
+                    width: 84; height: 84; radius: 20; color: theme.primary; clip: true
+                    Text { anchors.centerIn: parent; visible: face.status !== Image.Ready; text: app.user.charAt(0).toUpperCase(); color: theme.fgOnPrimary; font { family: theme.fontDisplay; pixelSize: 40; weight: Font.Bold } }
+                    Image { id: face; anchors.fill: parent; fillMode: Image.PreserveAspectCrop; cache: false; smooth: false
+                            source: "file:///var/lib/latteos/greeter/avatars/" + app.user + ".png?" + app.avatarRev }
+                }
+                Column {
+                    anchors.verticalCenter: parent.verticalCenter; spacing: 4
+                    Text { text: app.fullName || app.user; color: theme.fg; font { family: theme.fontDisplay; pixelSize: 24; weight: Font.DemiBold } }
+                    Text { text: "používateľ " + app.user; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 } }
+                }
+            }
+            Heading { text: "OBRÁZOK ÚČTU (ukáže sa aj pri prihlásení)" }
+            Flow {
+                width: parent.width; spacing: 10
+                Repeater {
+                    model: app.avatarChoices
+                    Rectangle {
+                        required property string modelData
+                        width: 72; height: 72; radius: 16; color: theme.field; clip: true
+                        border { color: am2.containsMouse ? theme.primary : "transparent"; width: 2 }
+                        Image { anchors { fill: parent; margins: modelData.indexOf("/mascots/") >= 0 ? 8 : 0 } source: "file://" + parent.modelData
+                                fillMode: modelData.indexOf("/mascots/") >= 0 ? Image.PreserveAspectFit : Image.PreserveAspectCrop
+                                smooth: modelData.indexOf("/mascots/") < 0; asynchronous: true; sourceSize { width: 144; height: 144 } }
+                        MouseArea { id: am2; anchors.fill: parent; hoverEnabled: true; onClicked: app.setAvatar(parent.modelData) }
+                    }
+                }
+            }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Na výber sú maskoti LatteOS a posledné obrázky z priečinka Obrázky." }
+            Row {
+                spacing: 10
+                Button { label: "Bez obrázka"; glyph: "x"; onClicked: app.setAvatar("") }
+                Button { label: "Zmeniť heslo"; glyph: "lock"; onClicked: app.run(["foot", "-e", "passwd"], "Zmena hesla v termináli") }
             }
         }
     }
