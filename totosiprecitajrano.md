@@ -70,6 +70,34 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+## Zadanie 24. 9. večer (22:04): Monitor ako HWiNFO/CPU-Z, pohoda ako Pulse, maskot ako tamagoči s útekmi
+Poradie: 1. Monitor (hotové nižšie) → 2. Digitálna pohoda podľa Pulse → 3. maskot (nové postavy, potreby, útek z ostrova).
+
+### 25. 9. 2026: Monitor › Hardvér ako CPU-Z a Senzory ako HWiNFO ✅
+- **Hardvér** má karty ako CPU-Z:
+  - **Procesor:** kódové meno (napr. Rocket Lake), technológia v nm, rodina/model/stepping, inštrukcie
+    (SSE…AVX2, AES, SHA), takty, násobič, cache a živé takty a záťaž jadier.
+  - **Cache:** L1d/L1i/L2/L3 s počtom, asociativitou a dĺžkou riadku.
+  - **Doska:** čipová sada, BIOS/UEFI, Secure Boot, PCIe linka grafiky.
+  - **Pamäť** a **SPD:** sloty, typ, rýchlosť, výrobca, číslo dielu a časovania, ak sú dostupné.
+  - **Grafika:** ovládač, VRAM, OpenGL a Vulkan.
+  - **Disky:** SMART, teplota, hodiny, zapísané dáta, opotrebenie.
+  - **Systém.**
+- **Podrobnosti so správcom:** heslo raz, výsledok (dmidecode, smartctl) sa uloží do `~/.cache/latteos/hw-root.json`
+  a nabudúce heslo netreba. **Uložiť správu** vytvorí textovú správu v Dokumentoch ako „Save Report“ v HWiNFO.
+- **Senzory** (nová stránka) fungujú ako okno Sensor Status v HWiNFO:
+  - skupiny Procesor (záťaž a takt každého jadra, výkon RAPL), všetky čipy hwmon (teploty, ventilátory, napätia,
+    výkon), Pamäť, Disky (čítanie, zápis, aktivita), Sieť, Grafika (záťaž, VRAM, takty), Batéria a Systém;
+  - stĺpce **Aktuálne, Minimum, Maximum, Priemer**;
+  - klik na senzor pridá **graf** dole;
+  - **pravý klik:** Zobraziť graf, **Pridať na lištu**, Premenovať, Skryť, Kopírovať, Vynulovať;
+  - tlačidlá **Záznam do CSV** (Dokumenty) a Vynulovať.
+- **Senzory na lište:** vybrané hodnoty sa ukážu v ostrove zariadení, napr. „14,5 % · 3214 MB“.
+  Rovnako ako indikátor mikrofónu sa objavia až po ďalšom prihlásení. Overené v headless Noctalii.
+- Vo VM je senzorov málo (bez teplôt a ventilátorov) a dmidecode nevracia moduly. Parser som overil
+  na vzorovom výpise z reálnej dosky. Na skutočnom PC sa ukážu teploty, napätia, ventilátory aj moduly.
+- Nové balíky v install-session: smartmontools, dmidecode, mesa-demos, vulkan-tools, i2c-tools.
+
 ### 24. 9. 2026, 21:50: Setup Plan aj pre natívne aplikácie (RPM) — izolácia bubblewrap ✅
 - **Pravý klik › Setup Plan** funguje aj pri aplikáciách z Fedory, napr. Foot a kitty. Natívna aplikácia si nič
   nežiada, preto plán navrhuje LatteOS. Obsahuje položky Internet, Celý domov (inak súkromný), Stiahnuté, Zvuk a mikrofón,

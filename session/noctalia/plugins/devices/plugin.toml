@@ -22,6 +22,11 @@ entry = "widget.luau"
 id    = "sukromie"
 entry = "sukromie.luau"
 
+# senzory na lište (Monitor › Senzory › Pridať na lištu); neviditeľné, kým nie je nič vybrané
+[[widget]]
+id    = "senzory"
+entry = "senzory.luau"
+
 [[panel]]
 id        = "panel"
 entry     = "panel.luau"

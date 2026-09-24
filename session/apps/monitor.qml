@@ -23,6 +23,36 @@ ShellRoot {
     property var diskHist: []
     property var gpuHist: []
     property var hw: null
+    property var hwRoot: null                   // latte-sysmon hw-root (sudo), uložené v ~/.cache/latteos/hw-root.json
+    property bool rootBusy: false
+    property string rootError: ""
+    readonly property string rootCache: (Quickshell.env("XDG_CACHE_HOME") || ((Quickshell.env("HOME") || "") + "/.cache")) + "/latteos/hw-root.json"
+    FileView { id: rootFile; path: app.rootCache; printErrors: false; atomicWrites: true
+               onLoaded: { try { app.hwRoot = JSON.parse(text()); } catch (e) {} } }
+    Process {
+        id: rootProc
+        stdinEnabled: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                app.rootBusy = false;
+                try { const j = JSON.parse(this.text); app.hwRoot = j; mkCache.running = true; rootFile.setText(this.text); app.rootError = ""; app.status = "Podrobnosti hardvéru načítané a uložené"; }
+                catch (e) { app.rootError = "Nesprávne heslo alebo chyba nástrojov"; }
+            }
+        }
+    }
+    Process { id: mkCache; command: ["mkdir", "-p", app.rootCache.replace(/\/[^/]*$/, "")] }
+    function loadRoot(pw) {
+        rootBusy = true; rootError = "";
+        rootProc.command = ["sudo", "-S", "-p", "", "latte-sysmon", "hw-root"];
+        rootProc.running = true; rootProc.write(pw + "\n"); rootProc.stdinEnabled = false;
+    }
+    Process { id: reportProc }
+    function saveReport(t) {
+        const f = (Quickshell.env("HOME") || "") + "/Dokumenty/Hardvér " + Qt.formatDateTime(new Date(), "yyyy-MM-dd HH-mm") + ".txt";
+        reportProc.command = ["sh", "-c", 'mkdir -p "$(dirname "$1")" && printf "%s\n" "$2" > "$1"', "sh", f, t];
+        reportProc.running = true;
+        status = "Správa uložená: " + f;
+    }
     // Digitálna pohoda (pohoda.qml meria, latte-sysmon pohoda sčíta)
     property var well: null
     property var limits: ({})
@@ -119,7 +149,7 @@ ShellRoot {
     Process {
         id: stream
         running: true
-        command: ["latte-sysmon", "stream", "1"]
+        command: ["latte-sysmon", "stream", "1", "senzory"]
         stdout: SplitParser {
             onRead: (line) => {
                 try {
@@ -240,7 +270,8 @@ ShellRoot {
                         { key: "pohoda", glyph: "clock", label: "Čas v aplikáciách", sub: app.well ? "dnes " + app.dur(app.well.days[app.well.days.length - 1].s) : "digitálna pohoda" }
                     ] },
                     { title: "Systém", items: [
-                        { key: "hardver", glyph: "cpu", label: "Hardvér", sub: "procesor, doska, grafika, senzory" }
+                        { key: "hardver", glyph: "cpu", label: "Hardvér", sub: "ako CPU-Z: procesor, pamäť, SPD, disky" },
+                        { key: "senzory", glyph: "activity", label: "Senzory", sub: "ako HWiNFO: takty, teploty, záťaž, grafy" }
                     ] },
                     { title: "Správa", items: [
                         { key: "autorun", glyph: "player-play", label: "Po štarte", sub: "ako Autoruns: všetko, čo sa spúšťa" },
@@ -255,7 +286,7 @@ ShellRoot {
                 theme: theme
                 appId: "latteos-monitor"
                 anchors { left: side.right; right: parent.right; top: parent.top }
-                title: ({ prehlad: "Prehľad", procesy: "Procesy", autorun: "Po štarte", telemetria: "Výstupy telemetrie", hardver: "Hardvér", pohoda: "Čas v aplikáciách" })[app.section]
+                title: ({ prehlad: "Prehľad", procesy: "Procesy", autorun: "Po štarte", telemetria: "Výstupy telemetrie", hardver: "Hardvér", senzory: "Senzory", pohoda: "Čas v aplikáciách" })[app.section]
                 searchPlaceholder: app.section === "autorun" ? "Hľadať v štarte" : "Hľadať proces"
                 onSearchChanged: (t) => { if (app.section === "autorun") { app.autorunFilter = t; return; } app.search = t; if (t !== "") app.section = "procesy"; }
                 onCloseRequested: Qt.quit()
@@ -264,7 +295,7 @@ ShellRoot {
             Loader {
                 id: content
                 anchors { left: side.right; top: header.bottom; bottom: statusBar.top; right: app.section === "procesy" ? detail.left : parent.right; margins: 20 }
-                sourceComponent: ({ prehlad: pPrehlad, procesy: pProcesy, autorun: pAutorun, telemetria: pTelemetria, hardver: pHardver, pohoda: pPohoda })[app.section] || pPrehlad
+                sourceComponent: ({ prehlad: pPrehlad, procesy: pProcesy, autorun: pAutorun, telemetria: pTelemetria, hardver: pHardver, senzory: pSenzory, pohoda: pPohoda })[app.section] || pPrehlad
             }
 
             // detail vybraného procesu (návrh V2: pravý panel)
@@ -677,98 +708,25 @@ ShellRoot {
 
     Component {
         id: pHardver
-        Flickable {
-            id: rolovanie4
-            ScrollHint { flick: rolovanie4; colors: theme }
-            contentHeight: hcol.implicitHeight; clip: true
-            Column {
-                id: hcol
-                width: parent.width; spacing: 14
-                readonly property var h: app.hw
-                Text { visible: !hcol.h; text: "Zisťujem hardvér…"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 } }
-                component Card: Rectangle {
-                    id: card
-                    property string title; property string glyph; property var rows: []
-                    width: (hcol.width - 14) / 2; height: ccol.implicitHeight + 28; radius: 14; color: theme.field
-                    Column {
-                        id: ccol; x: 16; y: 14; width: parent.width - 32; spacing: 6
-                        Row { spacing: 8
-                              Glyph { name: card.glyph; size: 18; color: theme.primary; anchors.verticalCenter: parent.verticalCenter }
-                              Text { text: card.title; color: theme.fg; font { family: theme.fontUi; pixelSize: 14; weight: Font.Bold }
-                                     anchors.verticalCenter: parent.verticalCenter } }
-                        Repeater {
-                            model: card.rows.filter(r => r[1] !== "" && r[1] !== undefined && r[1] !== null)
-                            Row {
-                                required property var modelData
-                                width: ccol.width
-                                Text { width: 130; text: modelData[0]; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
-                                Text { width: parent.width - 130; wrapMode: Text.WordWrap; text: String(modelData[1]); color: theme.fg; font { family: theme.fontUi; pixelSize: 12; weight: Font.DemiBold } }
-                            }
-                        }
-                    }
-                }
-                Flow {
-                    visible: !!hcol.h; width: parent.width; spacing: 14
-                    Card {
-                        title: "Procesor"; glyph: "cpu"
-                        rows: hcol.h ? [["Názov", hcol.h.cpu.model], ["Výrobca", hcol.h.cpu.vendor], ["Jadrá / vlákna", hcol.h.cpu.cores + " / " + hcol.h.cpu.threads],
-                                        ["Frekvencia", hcol.h.cpu.curMHz + " MHz" + (hcol.h.cpu.maxMHz ? " (max " + hcol.h.cpu.maxMHz + " MHz)" : "")],
-                                        ["Rodina · model · stepping", hcol.h.cpu.family + " · " + hcol.h.cpu.modelId + " · " + hcol.h.cpu.stepping],
-                                        ["Mikrokód", hcol.h.cpu.microcode], ["Režim výkonu", hcol.h.cpu.governor],
-                                        ["Cache", hcol.h.cpu.cache.map(c => c.level + " " + c.size).join(" · ")],
-                                        ["Inštrukcie", hcol.h.cpu.flags.filter(f => f !== "hypervisor").join(", ").toUpperCase()],
-                                        ["Virtualizácia", hcol.h.cpu.flags.includes("hypervisor") ? "beží vo VM (" + hcol.h.system.virt + ")" : (hcol.h.cpu.flags.includes("vmx") || hcol.h.cpu.flags.includes("svm") ? "podporovaná" : "")]] : []
-                    }
-                    Card {
-                        title: "Doska a firmvér"; glyph: "server"
-                        rows: hcol.h ? [["Počítač", (hcol.h.board.sys_vendor + " " + hcol.h.board.product_name).trim()], ["Doska", (hcol.h.board.board_vendor + " " + hcol.h.board.board_name).trim()],
-                                        ["BIOS", (hcol.h.board.bios_vendor + " " + hcol.h.board.bios_version).trim()], ["Dátum BIOS", hcol.h.board.bios_date],
-                                        ["Štart", hcol.h.board.efi ? "UEFI" : "Legacy BIOS"], ["Secure Boot", hcol.h.board.secureBoot === null ? "" : (hcol.h.board.secureBoot ? "zapnutý" : "vypnutý")]] : []
-                    }
-                    Card {
-                        title: "Pamäť"; glyph: "database"
-                        rows: hcol.h ? [["Operačná pamäť", app.human(hcol.h.memory.total)], ["Použitá teraz", app.human(app.snap.mem.used)], ["Swap", app.human(hcol.h.memory.swap)], ["Moduly", hcol.h.memory.note]] : []
-                    }
-                    Card {
-                        title: "Grafika"; glyph: "device-desktop"
-                        rows: hcol.h ? hcol.h.gpu.map(g => [g.vendor.replace(/\s*\[[0-9a-f]+\]$/, ""), g.name.replace(/\s*\[[0-9a-f]+\]$/, "") + (g.driver ? " · ovládač " + g.driver : "") + (g.vram ? " · " + app.human(g.vram) : "")])
-                                      .concat([["Vykresľovanie", (hcol.h.renderer.match(/renderer = "([^"]*)"/) || [, ""])[1] + " · stupeň " + ((hcol.h.renderer.match(/tier = "([^"]*)"/) || [, ""])[1])]]) : []
-                    }
-                    Card {
-                        title: "Disky"; glyph: "database"
-                        rows: hcol.h ? hcol.h.disks.map(d => [d.name + " · " + d.kind, (d.model || "disk") + " · " + app.human(d.size) + (d.bus ? " · " + d.bus.toUpperCase() : "")]) : []
-                    }
-                    Card {
-                        title: "Systém"; glyph: "info-circle"
-                        rows: hcol.h ? [["Systém", hcol.h.system.os], ["Jadro", hcol.h.system.kernel + " · " + hcol.h.system.arch], ["Názov PC", hcol.h.system.host],
-                                        ["Virtualizácia", hcol.h.system.virt === "none" ? "skutočný hardvér" : hcol.h.system.virt], ["Doba behu", app.uptimeText(hcol.h.system.uptime)]] : []
-                    }
-                    Card {
-                        title: "Senzory"; glyph: "activity"
-                        rows: hcol.h ? (hcol.h.sensors.length ? hcol.h.sensors.map(x => [x.chip + " · " + x.label, x.value + " " + x.unit])
-                                                              : [["", ""], ["Senzory", "ovládač nehlási žiadne (vo VM bežné; na reálnom HW teploty, ventilátory a napätia)"]]) : []
-                    }
-                    Card {
-                        visible: !!hcol.h && hcol.h.battery.length > 0
-                        title: "Batéria"; glyph: "battery"
-                        rows: hcol.h ? hcol.h.battery.map(b => [b.name, b.capacity + " % · " + b.status + (b.health ? " · zdravie " + b.health + " %" : "") + (b.cycles ? " · " + b.cycles + " cyklov" : "")]) : []
-                    }
-                }
-                Row {
-                    visible: !!hcol.h; spacing: 10
-                    Rectangle {
-                        width: rh.implicitWidth + 24; height: 34; radius: 10; color: rhm.containsMouse ? theme.hover : theme.field
-                        Text { id: rh; anchors.centerIn: parent; text: "Obnoviť"; color: theme.fg; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold } }
-                        MouseArea { id: rhm; anchors.fill: parent; hoverEnabled: true; onClicked: hwProc.running = true }
-                    }
-                    Rectangle {
-                        width: ch.implicitWidth + 24; height: 34; radius: 10; color: chm.containsMouse ? theme.hover : theme.field
-                        Text { id: ch; anchors.centerIn: parent; text: "Kopírovať ako text"; color: theme.fg; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold } }
-                        MouseArea { id: chm; anchors.fill: parent; hoverEnabled: true
-                                    onClicked: app.run(["wl-copy", "--", JSON.stringify(app.hw, null, 1)], "Hardvér skopírovaný (JSON)") }
-                    }
-                }
-            }
+        HardverView {
+            theme: app.th
+            hw: app.hw; root: app.hwRoot; snap: app.snap
+            rootBusy: app.rootBusy; rootError: app.rootError
+            onRefresh: hwProc.running = true
+            onLoadRoot: (pw) => app.loadRoot(pw)
+            onSaveReport: (t) => app.saveReport(t)
+            onCopyText: (t) => app.run(["wl-copy", "--", t], "Správa o hardvéri skopírovaná")
+            onMenu: (t, x, y) => ctx.open(x, y, [{ glyph: "clipboard", label: "Kopírovať", action: () => app.run(["wl-copy", "--", t], "Skopírované") }], "")
+        }
+    }
+
+    Component {
+        id: pSenzory
+        SenzoryView {
+            theme: app.th
+            groups: app.snap.sensors || []
+            onOpenMenu: (items, x, y, title) => ctx.open(x, y, items, title)
+            onStatus: (t) => app.status = t
         }
     }
 
