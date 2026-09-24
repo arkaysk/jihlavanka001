@@ -292,6 +292,10 @@ flowchart TD
   .exe/.apk/.deb (aj z pravého kliku v Súboroch a ako predvolená aplikácia pre tieto typy).
 - [ ] App Manager: rpm-ostree na Atomic, ProtonDB pri .exe, Waydroid pri .apk, jednotné IPC so shellom.
 
+- [x] **Heidelberg** (editor dokumentov, `latte-app heidelberg`): Markdown/HTML/text s náhľadom, formátovanie, Ctrl+S do Dokumentov.
+- [ ] Heidelberg: rtf, odt, docx, epub (pandoc), export do PDF, kontrola pravopisu (hunspell sk).
+- [x] Súbory: Kôš v Obľúbených (obnoviť, odstrániť natrvalo, vysypať), kopírovanie s priebehom (rsync).
+
 ### F5 — Stabilita a pamäť
 - [x] OOM politika podľa Ubuntu 26.10 ([session/oom](session/oom/README.md)): `user@` −500 a `ManagedOOMMemoryPressure=auto`,
   služby správcu +100, dbus/PipeWire/portály/gvfs −500, okná aplikácií +300 (Lua `window.open` → `choom`).
