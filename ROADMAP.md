@@ -373,6 +373,9 @@ flowchart TD
 - [ ] video tapeta s GPU otestovať na reálnom HW · Electron pruh (NET jazýček je hotový)
 - [x] Digitálna pohoda (pohoda.qml, Monitor › Čas v aplikáciách, limity, čas a RAM v App Manageri)
 - [ ] Plynulé animácie všetkých panelov a vyskakovacích okien pri stupni s GPU (vzor: video „Hyprland as fluid as it gets“) — otestovať na reálnom HW
-- [ ] Kolekcia maskotov (10 postáv) s režimami OFF / SLOT / WORLD / CHAOS, útek z ostrova po lište a oknách, potreby ako tamagoči
+- [x] Kolekcia maskotov (12 postáv) s režimami OFF / SLOT / WORLD / CHAOS, výbehy po lište a oknách (maskot.qml), potreby ako tamagoči, panel
+- [ ] Balíčky maskotov (PNG snímky + pet.json) pre podrobné sprity; komunitné balíčky iba ako dáta
+- [ ] Softvérové sklo pre panely a popupy LatteOS (rozmazaný výrez tapety ako v starej vetve), GPU blur ostáva pre okná
+- [ ] Súbory ako Total Commander: F-lišta, karty, výber maskou, hromadné premenovanie, porovnanie/synchronizácia, archívy ako priečinky, hľadanie v obsahu, hotlist, Lister, kontrolné súčty
 - [ ] Živá tapeta podľa aura (mpv, pauza pri zakrytí a hre, farby z videa); výber tapiet a prechody podľa skwd-wall
 - [ ] Shaderové efekty (prechody skwd-wall) na popupy a panely LatteOS a cez plugin Hyprlandu na okná — iba stupeň Plný (H)

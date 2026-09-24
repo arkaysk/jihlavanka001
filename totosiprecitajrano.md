@@ -100,6 +100,62 @@ Poradie: 1. Monitor (hotové nižšie) → 2. Digitálna pohoda podľa Pulse →
     alebo animácie Hyprlandu;
   - pri stupni Softvér ostanú vypnuté (pravidlo „každý prvok má variant bez shaderov“).
 
+### 25. 9. 2026: Maskoti — 12 postáv, potreby ako tamagoči, výbehy z ostrova ✅ (panel po ďalšom prihlásení)
+- **Nové postavy** (vlastná pixel-art, ručne kreslené predlohy):
+  - Homebrew (kávový sliz pod prevrátenou šálkou, s lyžičkou);
+  - Kávový drak v šálke;
+  - Líška, Mýval, Mini robot, Svetluška, Kapybara s kačičkou a Void drak;
+  - k tomu pôvodné Latte mačka, Mokka, Zrnko a Ktulu.
+
+  Každá postava má snímky sedí, žmurkne, spí, radosť, smutná, ťukanie do hudby, odchod a chôdzu doľava aj doprava.
+- **Podrobnejší pixel-art** (tvoja pripomienka): generátor po novom tieňuje (svetlá horná hrana, tieň dole) a zväčšuje
+  cez scale2x, teda so zaoblenými šikminami namiesto kociek. Úroveň tvojej kolekcie (ručne kreslené asi 64 px)
+  z ASCII predlôh nedosiahne. Ďalší krok preto bude **balíček PNG**: priečinok s podrobnými snímkami a `pet.json`
+  (meno, lieta alebo chodí, osobnosť). Tak sa dajú použiť sprity vyrezané z tvojej kolekcie alebo od komunity,
+  bez kódu, iba dáta.
+- **Potreby:** káva, nálada a energia plynú v čase. V noci, pri Nerušiť alebo po uložení spať si maskot dobíja energiu.
+  Keď chce kávu, je smutný a tooltip to povie. Starostlivosť počíta „deň N s tebou“.
+- **Panel maskota** (pravý klik):
+  - podoba, potreby s pruhmi;
+  - akcie Dať kávu, Pohladkať, Hrať sa a Spať;
+  - **režim:** Vypnutý / Ostrov (iba na lište) / **Výbehy** (predvolené) / Chaos;
+  - mriežka všetkých 12 postáv.
+- **Výbehy** (`apps/maskot.qml`, malé okno nad oknami, kliky mimo maskota prechádzajú):
+  - Maskot občas alebo po „Hrať sa“ odíde z ostrova (widget prehrá odchod a ostrov ostane prázdny).
+  - Chodí po hornej hrane lišty a **sadá na titulky okien**, ktoré šplhá hore. Lietajúce postavy (drak, svetluška,
+    robot, void) letia rovno. Keď sa okno pohne, maskot sa vezie s ním, keď zmizne, zoskočí.
+  - Po chvíli sa vráti domov.
+  - Keď si 3 min nečinný, príde **zdriemnuť si ku kurzoru** a po tvojom návrate sa zobudí a ide domov.
+  - V Chaose a pri hre naháňa kurzor. Pri hre alebo okne na celú obrazovku sa hneď schová.
+  - Klik ho pohladká, pravý klik ho pošle domov. Klik na prázdny ostrov ho zavolá domov.
+  - Pri stupni Softvér sa hýbe 4 krokmi za sekundu, s GPU 20.
+- Otestované naživo: výbeh s naháňaním kurzora, návrat do ostrova a panel v headless Noctalii.
+  **Panel na pravý klik uvidíš až po ďalšom prihlásení**, rovnako ako pri iných nových widgetoch.
+  Výbehy už bežia aj teraz.
+- **Pixel Maid** som nespravil: je to zjavne postava Asuka z Evangelionu, čiže cudzia chránená postava.
+  Vlastnú podobnú „čašníčku“ viem nakresliť, ak chceš.
+
+**Tvoje otázky z 25. 9.:**
+- **Sklo (priehľadnosť s rozmazaním):** nie je to zámer, ktorý by si mal vidieť ako zhoršenie.
+  - Stará vetva ho kreslila **softvérovo**: tapetu rozmazala raz pri štarte a panely mali za sebou jej výrez.
+  - V novej vetve ho robí Hyprland (blur), a to iba pri stupňoch Plný a Štandard, teda s GPU. Vo VM s llvmpipe
+    rozmazanie spôsobovalo pády (denník 23. 9., 21:40), preto je pri stupni Softvér vypnuté a náhrada chýba.
+  - **Do plánu:** softvérové sklo ako v starej vetve pre panely a popupy LatteOS (Quickshell), ktoré majú pevnú
+    polohu a rozmazaný výrez tapety pod sebou. Pri pohyblivých oknách aplikácií to softvérovo nejde, tam ostane GPU blur.
+- **Súbory ako Total Commander:** súhlasím, že to ešte nie je plná náhrada. Do plánu som dal zoznam, čo chýba:
+  - F-lišta (F3 zobraziť, F4 upraviť, F5 kopírovať, F6 presunúť, F7 priečinok, F8 zmazať);
+  - karty v každom paneli;
+  - výber maskou (+ / − / *), rýchly filter písaním;
+  - hromadné premenovanie s náhľadom;
+  - porovnanie a synchronizácia priečinkov;
+  - archívy ako priečinky (zip/7z/rar), balenie a rozbalenie;
+  - hľadanie aj v obsahu súborov;
+  - obľúbené priečinky (hotlist) a riadok príkazu;
+  - Lister (rýchly náhľad), výpočet veľkosti priečinkov;
+  - kontrolné súčty, rozdelenie a spojenie súborov.
+
+  Povedz, ktoré z nich používaš najviac, a začnem nimi.
+
 ### 25. 9. 2026: Digitálna pohoda podľa Pulse ✅
 Monitor › Čas v aplikáciách má karty:
 - **Prehľad:** „Dobré popoludnie“, kruh s dnešným časom voči dennému cieľu, rozdelenie medzi aplikácie,

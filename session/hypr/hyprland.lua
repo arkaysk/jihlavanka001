@@ -217,6 +217,8 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("latte-app spustac")
     -- Digitálna pohoda: čas v aplikáciách (Monitor › Čas v aplikáciách)
     hl.exec_cmd("latte-app pohoda")
+    -- maskot: výbehy z ostrova po lište a oknách (režim world/chaos v paneli maskota)
+    hl.exec_cmd("latte-app maskot")
     -- Barista (sprievodca prvým spustením) raz po prvom prihlásení
     do
         local f = io.open(cfgdir .. "/barista-done", "r")

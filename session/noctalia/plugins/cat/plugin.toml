@@ -1,7 +1,8 @@
-# LatteOS — maskot na lište („kde mám mačku?“). Vlastná pixel-art (make-mascots.py): Latte mačka,
-# čierna Mokka, kávové Zrnko a Ktulu (Cthulhu mačka, chápadlá vyrastajú z lišty). Keď hrá hudba, ťuká labkami
+# LatteOS — maskot na lište („kde mám mačku?“). Vlastná pixel-art (make-mascots.py), 12 postáv: Latte mačka,
+# čierna Mokka, kávové Zrnko, Ktulu (chápadlá vyrastajú z lišty), Homebrew, Kávový drak, Líška, Mýval, Mini robot,
+# Svetluška, Kapybara, Void drak. Potreby ako tamagoči (káva, nálada, energia), režimy off/slot/world/chaos. Keď hrá hudba, ťuká labkami
 # (štýl bongo cat); inak sedí a žmurká, v noci a pri Nerušiť spí; pri nečinnosti alebo z nudy odíde z ostrova.
-# Klik = pohladkať / zavolať späť, pravý klik = ďalší maskot.
+# Klik = pohladkať / zavolať späť, pravý klik = panel maskota (postava, potreby, režim). Výbehy: apps/maskot.qml.
 # Voľba: ~/.config/latteos/mascot (macka | mokka | zrnko | ktulu | ziadny), mascot-escape (off = neutekať),
 # Nastavenia › Prostredie › Lišta.
 
@@ -22,3 +23,12 @@ entry = "mascot.luau"
 
 [widget.actions]
 middle = "none"
+
+[[panel]]
+id        = "panel"
+entry     = "panel.luau"
+width     = 440
+height    = 560
+placement = "floating"
+position  = "auto"
+open_near_click = true
