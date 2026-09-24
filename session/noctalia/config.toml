@@ -91,7 +91,7 @@ enabled = true
 
 [[bar.main.capsule_group]]
 id      = "devices"
-members = ["files", "tray", "network", "volume", "battery", "latte-dev"]
+members = ["files", "network", "volume", "battery", "latte-dev"]   # aplikácie na pozadí: App Manager › Na pozadí
 enabled = true
 
 # ── Widgety ────────────────────────────────────────────────────────────────────

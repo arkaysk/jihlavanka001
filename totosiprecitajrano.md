@@ -70,6 +70,19 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 19:20: App Manager — rýchle spustenie z rohu ✅ (zadanie 24. 9. večer, časť 1)
+- **Klik na dlaždicu aplikácií** otvorí vyskakovacie okno nad ňou. Klik na aplikáciu ju spustí a okno zavrie,
+  klik mimo alebo Esc ho zavrie. Písaním sa hľadá, Enter spustí prvý výsledok.
+- **Vnútri ako v mobile:** často používané a všetky aplikácie v skupinách (LatteOS, Hry, Internet a komunikácia,
+  Hudba a video, Grafika, Kancelária, Vývoj, Nástroje, Systém…), A–Z so skutočnými ikonami.
+- **Záložka „Na pozadí“:** aplikácie z oblasti oznámení ako skryté ikony vo Win11 (Discord, Steam, KDE Connect…).
+  Klik otvorí, pravý klik ukáže ich ponuku. Pod tým sú bežiace Flatpaky s tlačidlami Otvoriť a Ukončiť.
+  Tray som z pravého ostrova lišty odstránil, aby nebol dvakrát.
+- **📌 Pripnúť** (vpravo hore) aj tlačidlo **App Manager** dole otvoria plný App Manager ako klasické okno
+  s – □ ✕. Kým je otvorený, klik na dlaždicu ho iba vytiahne dopredu.
+- Spúšťač beží skrytý na pozadí, aby sa otváral hneď (latte-spustac, IPC Quickshellu).
+- Ďalej: plný App Manager (lepší prehliadač aplikácií, aktualizácie systému, Flatpakov, LatteOS, ovládačov).
+
 ### 24. 9. 2026, 18:25: živá tapeta — video/GIF ako X Live Wallpaper, para zo šálky pri Mraze ✅ (bod 12)
 - **Video alebo animácia ako tapeta:** MP4, WebM, MKV, GIF, WebP, bez zvuku, v slučke. Pri hre a okne na celú
   obrazovku sa pozastaví. Zapína sa v Nastaveniach › Animácie a efekty (pole s cestou) alebo v Súboroch:
