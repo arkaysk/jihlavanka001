@@ -70,6 +70,14 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 20:30: šípky Späť / Dopredu iba keď sa dajú použiť ✅
+- **Pravidlo pre všetky aplikácie LatteOS** (spoločná hlavička): šípka Späť je vidieť iba vtedy, keď je kam
+  sa vrátiť, Dopredu iba po návrate. Aplikácie bez prechádzania (Monitor, Heidelberg, AI, Správca zariadení)
+  ich nemajú vôbec. Neaktívne sivé šípky už nikde nie sú. Klávesy Alt+← a Alt+→ robia to isté.
+- Históriu si pamätajú Súbory (priečinky), Nastavenia (stránky) a teraz aj **App Manager**
+  (obchod → kategória → detail aplikácie, sekcie).
+- Tlačidlo „‹ Späť do obchodu“ som odstránil, aby Späť nebolo dvakrát.
+
 ### 24. 9. 2026, 20:15: pravý klik, ukazovateľ rolovania, Discord 1×, inštalácia zo zložky ✅
 - **Pravý klik na ikonu aplikácie** v rýchlom spustení je ponuka ako v ponuke Štart vo Windows 11:
   - Otvoriť a **úlohy aplikácie** (Firefox: Nové okno, Nové súkromné okno…);

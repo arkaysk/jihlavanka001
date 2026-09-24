@@ -118,21 +118,40 @@ ShellRoot {
         const ex = (a.exec || "").replace(/%[fFuUdDnNickvm]/g, "").trim();
         if (ex) run(["sh", "-c", "setsid " + ex + " >/dev/null 2>&1 &"], "Spúšťam " + a.name);
     }
-    function openApp(id) {
+    // história pohybu (Späť / Dopredu v hlavičke): sekcia, detail aplikácie, kategória
+    property var history: []
+    property int historyIndex: -1
+    function push(st) {
+        const cur = history[historyIndex];
+        if (cur && JSON.stringify(cur) === JSON.stringify(st)) return;
+        history = history.slice(0, historyIndex + 1).concat([st]);
+        historyIndex = history.length - 1;
+    }
+    function restore(st) {
+        if (st.app) openApp(st.app, false);
+        else if (st.cat) openCategory(st.cat, st.catName, 1, false);
+        else { go(st.section, false); if (st.section === "objavovat") storeHome(false); }
+    }
+    function back() { if (historyIndex > 0) { historyIndex--; restore(history[historyIndex]); } }
+    function forward() { if (historyIndex < history.length - 1) { historyIndex++; restore(history[historyIndex]); } }
+    function openApp(id, rec) {
+        if (rec !== false) push({ section: "objavovat", app: id });
         appPageId = id; appPage = null; section = "objavovat";
         appProc.command = ["latte-apps", "store", "app", id]; appProc.running = true;
         content.contentY = 0;
     }
-    function openCategory(key, name, page) {
+    function openCategory(key, name, page, rec) {
+        if (rec !== false && (page || 1) === 1) push({ section: "objavovat", cat: key, catName: name });
         category = key; categoryName = name; categoryPage = page || 1; appPage = null; if (categoryPage === 1) categoryApps = [];
         catProc.command = ["latte-apps", "store", "category", key, String(categoryPage)]; catProc.running = true;
         if (categoryPage === 1) content.contentY = 0;
     }
-    function storeHome() { appPage = null; appPageId = ""; category = ""; header.searchText = ""; content.contentY = 0; }
+    function storeHome(rec) { if (rec !== false) push({ section: "objavovat" }); appPage = null; appPageId = ""; category = ""; header.searchText = ""; content.contentY = 0; }
     function fmtCount(n) { return n >= 1000000 ? (n / 1000000).toFixed(1).replace(".", ",") + " mil." : (n >= 1000 ? Math.round(n / 1000) + " tis." : String(n)); }
     function runFlatpak(id) { run(["sh", "-c", "setsid flatpak run \"$1\" >/dev/null 2>&1 &", "sh", id], "Spúšťam " + id); }
     function check(p) { checkPath = p; verdict = null; checkProc.command = ["latte-apps", "check", p]; checkProc.running = true; }
-    function go(k) {
+    function go(k, rec) {
+        if (rec !== false) push({ section: k });
         section = k;
         if (k === "aktualizacie" && updatesList.length === 0) { updatesLoading = true; updProc.running = true; }
         if (k === "aktualizacie") { latteProc.running = true; drvProc.running = true; }
@@ -185,6 +204,10 @@ ShellRoot {
                 appId: "latteos-aplikacie"
                 anchors { left: side.right; right: parent.right; top: parent.top }
                 title: ({ objavovat: app.appPage ? app.appPage.name : (app.category ? app.categoryName : "Obchod"), aktualizacie: "Aktualizácie", nainstalovane: "Nainštalované", opravnenia: "Oprávnenia a NET", check: "Bude to fungovať?" })[app.section] || ""
+                canBack: app.historyIndex > 0
+                canForward: app.historyIndex < app.history.length - 1
+                onBack: app.back()
+                onForward: app.forward()
                 searchPlaceholder: "Hľadať aplikáciu"
                 onSearchChanged: (t) => { app.query = t; if (t !== "" && app.section !== "nainstalovane") app.section = "objavovat"; debounce.restart(); }
                 onCloseRequested: Qt.quit()
@@ -364,7 +387,6 @@ ShellRoot {
                 visible: app.appPageId !== ""
                 width: parent.width; spacing: 14
                 readonly property var d: app.appPage
-                Pill { label: "‹ Späť do obchodu"; onClicked: { app.appPageId = ""; app.appPage = null; } }
                 Text { visible: !parent.d; text: "Načítavam z Flathubu…"; color: theme.primary; font { family: theme.fontUi; pixelSize: 13 } }
                 Row {
                     visible: !!parent.d; spacing: 18; width: parent.width
@@ -469,7 +491,6 @@ ShellRoot {
             Column {
                 visible: app.appPageId === "" && app.query === "" && app.category !== ""
                 width: parent.width; spacing: 10
-                Pill { label: "‹ Obchod"; onClicked: app.storeHome() }
                 Flow { width: parent.width; spacing: 10; Repeater { model: app.categoryApps; AppCard { required property var modelData; info: modelData } } }
                 Text { visible: app.categoryApps.length === 0; text: "Načítavam…"; color: theme.primary; font { family: theme.fontUi; pixelSize: 13 } }
                 Pill { visible: app.categoryApps.length >= 48 * app.categoryPage; label: "Ďalšie"; onClicked: app.openCategory(app.category, app.categoryName, app.categoryPage + 1) }

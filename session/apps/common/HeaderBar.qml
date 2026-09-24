@@ -44,14 +44,20 @@ Rectangle {
         id: left
         anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
         spacing: 4
+        // Späť / Dopredu ako v prehliadači: šípka je vidieť iba vtedy, keď sa dá použiť (aplikácie bez
+        // prechádzania ich nemajú vôbec); Alt+← / Alt+→ robia to isté
         Rectangle {
-            width: 76; height: 36; radius: 10; color: hb.theme.field
+            visible: hb.canBack || hb.canForward
+            width: navRow.implicitWidth + 4; height: 36; radius: 10; color: hb.theme.field
             Row {
+                id: navRow
                 anchors.centerIn: parent
-                IconButton { theme: hb.theme; glyph: "chevron-left"; enabledState: hb.canBack; onClicked: hb.back() }
-                IconButton { theme: hb.theme; glyph: "chevron-right"; enabledState: hb.canForward; onClicked: hb.forward() }
+                IconButton { visible: hb.canBack; theme: hb.theme; glyph: "chevron-left"; tip: "Späť (Alt+←)"; onClicked: hb.back() }
+                IconButton { visible: hb.canForward; theme: hb.theme; glyph: "chevron-right"; tip: "Dopredu (Alt+→)"; onClicked: hb.forward() }
             }
         }
+        Shortcut { sequence: "Alt+Left"; enabled: hb.canBack; onActivated: hb.back() }
+        Shortcut { sequence: "Alt+Right"; enabled: hb.canForward; onActivated: hb.forward() }
         Row { id: toolRow; spacing: 2; leftPadding: 8; anchors.verticalCenter: parent.verticalCenter }
     }
 
