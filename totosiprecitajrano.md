@@ -435,7 +435,11 @@ nižšie):
    v paneli Čas › Oznámenia.
 3. **Cloudové AI:** ak chceš Claude, ChatGPT alebo Gemini, vlož API kľúč v Nastaveniach › Softvér › AI.
    Kľúč nikam neposielam, uloží sa iba do `~/.config/latteos/ai-keys`.
-4. **Poradie ostrovov na lište:** maskot je vpravo pred schránkou a zvonček ostal v ostrove času.
+4. **Test zaplnenia RAM (F5):** OOM politika je nastavená a overená na skóre (okná +300, Hyprland a
+   Noctalia 0). Samotný test („aplikácia zje všetku pamäť, relácia musí prežiť“) som na tvojej živej
+   relácii nespustil: ak by systemd-oomd zabil celú reláciu, grafika VM sa môže znova dostať do stavu,
+   ktorý treba riešiť reštartom. Mám ho spustiť, keď budeš pri PC? (`setup/f1/stress.sh` + sledovanie)
+5. **Poradie ostrovov na lište:** maskot je vpravo pred schránkou a zvonček ostal v ostrove času.
    Chceš to inak?
 
 Vybavené (24. 9.): distribúcia balíkov počká na HW a Atomic · AI ide cez tvoje LM Studio · režim okien
