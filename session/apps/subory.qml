@@ -21,6 +21,25 @@ ShellRoot {
     readonly property var activePane: activeIndex === 0 ? paneA : paneB
     readonly property var otherPane: activeIndex === 0 ? paneB : paneA
     readonly property var sel: activePane ? activePane.current : null
+    // Kôš podľa freedesktop (~/.local/share/Trash); v Súboroch je zložkou Obľúbených (old/docs/nastavenia.md)
+    readonly property string trashDir: app.home + "/.local/share/Trash/files"
+    property int trashCount: 0
+    function inTrash(p) { return p === app.trashDir || p.startsWith(app.trashDir + "/"); }
+    Process {
+        id: trashProc; running: true
+        command: ["sh", "-c", "mkdir -p \"$HOME/.local/share/Trash/files\" \"$HOME/.local/share/Trash/info\"; ls -A \"$HOME/.local/share/Trash/files\" | wc -l"]
+        stdout: StdioCollector { onStreamFinished: app.trashCount = parseInt(this.text) || 0 }
+    }
+    // kopírovanie s priebehom (rsync --info=progress2); presun v rámci disku je okamžitý (mv)
+    property int copyPct: -1
+    property string copyLabel: ""
+    Process {
+        id: copyProc
+        stdout: SplitParser {
+            onRead: (line) => { const m = line.match(/\s(\d+)%\s/); if (m) app.copyPct = parseInt(m[1]); }
+        }
+        onExited: (code) => { app.status = code === 0 ? "Hotovo: " + app.copyLabel : "Kopírovanie zlyhalo (kód " + code + ")"; app.copyPct = -1; trashProc.running = true; }
+    }
 
     // ── farebné štítky a vlastné obľúbené (~/.config/latteos/tags.json) ─────────────
     // Štítok nemení priečinok, je to iba pohľad Súborov (IDEAS: „farba v kontextovom menu“).
@@ -76,7 +95,18 @@ ShellRoot {
                 { glyph: "clipboard", label: "Kopírovať cestu priečinka", action: () => app.run(["wl-copy", "--", pane.path], "Cesta skopírovaná") },
                 { glyph: "star", label: app.favorites.indexOf(pane.path) >= 0 ? "Odobrať z Obľúbených" : "Pridať do Obľúbených", action: () => app.toggleFavorite(pane.path) }
             ];
+            if (app.inTrash(pane.path)) items.unshift({ glyph: "trash", label: "Vysypať kôš (" + app.trashCount + ")", danger: true, enabled: app.trashCount > 0,
+                                                        action: () => { app.run(["gio", "trash", "--empty"], "Kôš vysypaný"); trashRefresh.restart(); } });
             ctx.open(x, y, items, pane.path);
+            return;
+        }
+        if (app.inTrash(e.path) && e.path.substring(0, e.path.lastIndexOf("/")) === app.trashDir) {
+            ctx.open(x, y, [
+                { glyph: "refresh", label: "Obnoviť na pôvodné miesto", action: () => { app.run(["gio", "trash", "--restore", "trash:///" + e.name], "Obnovené: " + e.name); trashRefresh.restart(); } },
+                { glyph: "clipboard", label: "Kopírovať cestu", action: () => app.run(["wl-copy", "--", e.path], "Cesta skopírovaná") },
+                { separator: true },
+                { glyph: "trash", label: "Odstrániť natrvalo", danger: true, action: () => { app.run(["sh", "-c", "rm -rf -- \"$1\" \"$HOME/.local/share/Trash/info/$(basename \"$1\").trashinfo\"", "sh", e.path], "Odstránené natrvalo: " + e.name); trashRefresh.restart(); } }
+            ], e.name + " · v koši");
             return;
         }
         items = [
@@ -99,7 +129,7 @@ ShellRoot {
             items.push({ glyph: "terminal-2", label: "Terminál tu", action: () => app.run(["foot", "--working-directory=" + e.path]) });
         }
         items.push({ separator: true });
-        items.push({ glyph: "trash", label: "Do koša", hint: "Del", danger: true, action: () => app.run(["gio", "trash", "--", e.path], "Do koša: " + e.name) });
+        items.push({ glyph: "trash", label: "Do koša", hint: "Del", danger: true, action: () => { app.run(["gio", "trash", "--", e.path], "Do koša: " + e.name); trashRefresh.restart(); } });
         ctx.open(x, y, items, e.name);
     }
     // kontextové menu položky bočnej lišty (disky, obľúbené)
@@ -113,6 +143,7 @@ ShellRoot {
             items.push({ separator: true });
             items.push({ colors: app.tagColors, current: app.tags[it.path] || "", label: "Farba", action: (c) => app.setTag(it.path, c) });
         }
+        if (it.key === "fav:trash") { items.push({ separator: true }); items.push({ glyph: "trash", label: "Vysypať kôš", danger: true, enabled: app.trashCount > 0, action: () => { app.run(["gio", "trash", "--empty"], "Kôš vysypaný"); trashRefresh.restart(); } }); }
         if (it.custom) { items.push({ separator: true }); items.push({ glyph: "star", label: "Odobrať z Obľúbených", action: () => app.toggleFavorite(it.path) }); }
         ctx.open(x, y, items, it.label);
     }
@@ -204,7 +235,8 @@ ShellRoot {
             { key: "fav:down", path: app.home + "/Stiahnuté", glyph: "download", label: "Stiahnuté" },
             { key: "fav:pics", path: app.home + "/Obrázky", glyph: "photo", label: "Obrázky" },
             { key: "fav:music", path: app.home + "/Hudba", glyph: "music", label: "Hudba" },
-            { key: "fav:video", path: app.home + "/Videá", glyph: "movie", label: "Videá" }
+            { key: "fav:video", path: app.home + "/Videá", glyph: "movie", label: "Videá" },
+            { key: "fav:trash", path: app.trashDir, glyph: "trash", label: "Kôš", sub: app.trashCount ? app.trashCount + " položiek · pravý klik: vysypať" : "prázdny" }
         ].concat(app.favorites.map(f => ({ key: "fav+:" + f, path: f, glyph: "folder", label: f.split("/").pop() || f, custom: true })))
          .map(it => Object.assign({}, it, { tag: app.tags[it.path] || "" })) },
         { title: "Aplikácie", items: [
@@ -226,14 +258,20 @@ ShellRoot {
     function copyToOther(move) {
         const e = app.sel; if (!e || !app.dual) { app.status = "F5/F6 potrebuje dva panely (F3)"; return; }
         const dst = app.otherPane.path;
-        run(move ? ["mv", "-n", "--", e.path, dst] : ["cp", "-rn", "--", e.path, dst],
-            (move ? "Presúvam " : "Kopírujem ") + e.name + " → " + dst);
+        if (move) { run(["mv", "-n", "--", e.path, dst], "Presúvam " + e.name + " → " + dst); return; }
+        if (copyProc.running) { app.status = "Ešte kopírujem " + app.copyLabel; return; }
+        app.copyLabel = e.name + " → " + dst; app.copyPct = 0; app.status = "Kopírujem " + app.copyLabel;
+        // --ignore-existing = neprepíše nič v cieli (ako cp -n); \r z priebehu rsync sa mení na nové riadky
+        copyProc.command = ["sh", "-c", "rsync -a --ignore-existing --no-inc-recursive --info=progress2 -- \"$1\" \"$2/\" | stdbuf -o0 tr '\\r' '\\n'", "sh", e.path, dst];
+        copyProc.running = true;
     }
+    Timer { id: trashRefresh; interval: 600; onTriggered: trashProc.running = true }
     function trash() {
         const e = app.sel; if (!e) return;
         if (app.confirm !== "trash") { app.confirm = "trash"; app.status = "Stlač Delete znova (alebo tlačidlo) na presun do koša: " + e.name; return; }
         app.confirm = "";
         run(["gio", "trash", "--", e.path], "Do koša: " + e.name);
+        trashRefresh.restart();
     }
 
     FloatingWindow {
@@ -406,9 +444,14 @@ ShellRoot {
                 anchors { left: side.right; right: parent.right; bottom: parent.bottom }
                 height: 30; color: "transparent"
                 Rectangle { width: parent.width; height: 1; color: theme.line }
+                Rectangle {   // priebeh kopírovania
+                    visible: app.copyPct >= 0
+                    anchors { left: parent.left; bottom: parent.bottom }
+                    width: parent.width * Math.max(0, app.copyPct) / 100; height: 3; color: theme.primary
+                }
                 Text {
                     x: 14; anchors.verticalCenter: parent.verticalCenter
-                    text: (app.activePane ? app.activePane.count + " položiek" : "") + (app.status !== "" ? "   ·   " + app.status : "")
+                    text: (app.activePane ? app.activePane.count + " položiek" : "") + (app.copyPct >= 0 ? "   ·   " + app.copyPct + " % · " + app.copyLabel : (app.status !== "" ? "   ·   " + app.status : ""))
                     color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
                 }
                 Text {
