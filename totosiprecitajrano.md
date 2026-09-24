@@ -34,6 +34,24 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 08:25: prehľad pásky, Kapsa, AI rozhovor ✅
+- **Super+Tab = prehľad pásky:** všetky okná po plochách v poradí pásky. **Píš a filtruje**, Enter
+  zameria prvé nájdené okno, klik zameria okno. Prepínač Noctalie ostal na Super+Shift+Tab.
+- **Kapsa** (schránka, podľa radaru):
+  - Na lište je **jediná odložená vec** navrchu (skrátená).
+  - Klik otvorí kapsu: „Navrchu“ a pod tým sloty histórie (text aj obrázky). Klik na slot ho vytiahne
+    navrch, × ho vyhodí, „Vysypať“ vymaže všetko.
+  - Beží na cliphist a nahrádza ikonu schránky Noctalie.
+  - Drag and drop do kapsy zatiaľ nie je: Noctalia nevie prijať súbory pretiahnuté z okien.
+- **AI rozhovor (Super+I):**
+  - Panel s bublinami, AI si pamätá predošlé správy, odpovede sú v markdowne.
+  - Overené s tvojím LM Studio. Prvý pokus zlyhal na skrytom 5-sekundovom limite príkazov v Noctalii;
+    chat teraz ide cez stream bez limitu.
+  - Model si najprv vymyslel, že LatteOS je pre IoT 😄, preto dostal krátky popis LatteOS v
+    systémovom prompte.
+- Pri inštalácii nových pluginov treba reštartovať shell (Noctalia registruje nové panely iba pri štarte).
+  Reštartoval som ho v tvojej relácii 3× na pár sekúnd; inštalátor na to teraz upozorní.
+
 ### 24. 9. 2026, 08:20: Monitor, Aplikácie, Správca zariadení ✅ (podľa starých dokumentov)
 Prečítal som staré dokumenty (`old/IDEAS.md`, `old/main_setting_v2.md` §63–64, `old/docs/nastavenia.md`,
 `old/docs/lista-a-rohy.md`). Nové prototypy na spoločnej kostre aplikácií:
