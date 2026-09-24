@@ -39,7 +39,8 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
   účtu, mesto z Dátum, čas a poloha) a **Novinky (RSS)** (Aktuality.sk, STVR, Root.cz, Phoronix alebo
   vlastný odkaz). Prepína sa v Nastaveniach › Účet › Prihlasovanie; vo vývojárskej verzii ostáva
   predvolený log pádu. Screenshoty: `setup/f1/results/f1-greeter-pocasie.png`, `…-rss.png`.
-  Neoverené: či SELinux pustí greeter (doména xdm_t) na internet. Ak nie, panel napíše „bez siete“.
+  SELinux greeter na internet pustí (politika: `allow xdm_t port_type:tcp_socket name_connect`, overené
+  cez sesearch). Bez siete panel napíše „bez siete?“.
 - **Tlačidlo NET** v hlavičke každej aplikácie LatteOS teraz naozaj vypína internet (od ďalšieho spustenia).
 - **Súbory:** Enter v hľadaní = **hľadať všade** (aj v podpriečinkoch), klik otvorí priečinok s nájdenou položkou.
 - **Hra má prednosť:** hra z Herne dostane viac CPU (vlastný systemd scope) a profil Výkon; po hre sa všetko vráti.
