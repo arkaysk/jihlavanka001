@@ -5,6 +5,9 @@
   latte-apps updates                 JSON: dostupné aktualizácie (dnf z cache, Flatpak)
   latte-apps search TEXT             JSON: Flathub (appstream) + balíky Fedory
   latte-apps permissions APP_ID      JSON: oprávnenia Flatpak aplikácie (sieť, súbory, zariadenia…)
+  latte-apps plan APP_ID             JSON: Setup Plan — čo si aplikácia žiada (pred inštaláciou z Flathubu, inak nainštalovaná),
+                                     po položkách s rizikom a profilmi Dôveryhodná / Nedôveryhodná
+  latte-apps plan-apply APP_ID JSON  schváliť plán: JSON zoznam zamietnutých kľúčov → flatpak override --user (povolí ostatné)
   latte-apps net APP_ID on|off       tlačidlo NET (latte-net: Flatpak override alebo bubblewrap bez siete)
   latte-apps check SÚBOR             „Bude to fungovať?“ — JSON verdikt pre .flatpakref/.rpm/.AppImage/.exe/.apk/.deb…,
                                      aj zložku (stiahnutá hra, CD/DVD), archív .zip/.rar/.7z a obraz .iso:
@@ -177,6 +180,151 @@ def permissions(app):
                 ["Zariadenia", ", ".join(ctx.get("devices", [])) or "žiadne"],
                 ["Okná a zvuk", ", ".join(ctx.get("sockets", [])) or "—"],
             ]}
+
+
+# Setup Plan (vzor Flatseal): oprávnenie → (skupina, popis, riziko 0 nízke / 1 stredné / 2 vysoké, povinné)
+PLAN_SHARED = {"network": ("Internet", "Prístup na internet a do miestnej siete", 1)}
+PLAN_SOCKETS = {
+    "wayland": ("Okná", "Zobrazovať okná (Wayland)", 0, True), "x11": ("Okná", "Zobrazovať okná (X11, staršie)", 1, True),
+    "fallback-x11": ("Okná", "Okná cez X11, ak chýba Wayland", 0, True),
+    "pulseaudio": ("Zvuk", "Prehrávať zvuk a nahrávať z mikrofónu", 1, False),
+    "cups": ("Zariadenia", "Tlačiť", 0, False), "pcsc": ("Zariadenia", "Čipové karty (občiansky preukaz)", 1, False),
+    "ssh-auth": ("Tajomstvá", "Používať tvoje SSH kľúče", 2, False), "gpg-agent": ("Tajomstvá", "Používať tvoje GPG kľúče", 2, False),
+    "session-bus": ("Systém", "Celá zbernica relácie — ovládať ostatné aplikácie", 2, False),
+    "system-bus": ("Systém", "Celá systémová zbernica", 2, False),
+}
+PLAN_DEVICES = {
+    "dri": ("Zariadenia", "Grafická karta (zrýchlené vykresľovanie)", 0), "all": ("Zariadenia", "Všetky zariadenia — kamera, USB, ovládače", 2),
+    "input": ("Zariadenia", "Herné ovládače a vstupné zariadenia", 1), "usb": ("Zariadenia", "Zariadenia USB", 1),
+    "kvm": ("Systém", "Virtualizácia (KVM)", 1), "shm": ("Systém", "Zdieľaná pamäť", 0),
+}
+PLAN_FS = {"host": ("Celý počítač vrátane systému", 2), "host-os": ("Systémové súbory", 2), "host-etc": ("Nastavenia systému (/etc)", 2),
+           "home": ("Celý tvoj domovský priečinok", 2), "xdg-download": ("Stiahnuté", 1), "xdg-documents": ("Dokumenty", 1),
+           "xdg-pictures": ("Obrázky", 1), "xdg-music": ("Hudba", 1), "xdg-videos": ("Videá", 1), "xdg-desktop": ("Plocha", 1),
+           "/media": ("Vymeniteľné disky (/media)", 1), "/run/media": ("Vymeniteľné disky", 1), "/mnt": ("Pripojené disky (/mnt)", 1)}
+PLAN_TALK = {"org.freedesktop.Flatpak": ("Systém", "Spúšťať príkazy mimo sandboxu", 2),
+             "org.freedesktop.secrets": ("Tajomstvá", "Heslá v kľúčenke", 1),
+             "org.freedesktop.Notifications": ("Systém", "Posielať oznámenia", 0),
+             "org.kde.StatusNotifierWatcher": ("Systém", "Ikona na pozadí (tray)", 0),
+             "org.freedesktop.ScreenSaver": ("Systém", "Brániť šetriču obrazovky", 0),
+             "org.mpris.MediaPlayer2.*": ("Systém", "Ovládanie prehrávania médií", 0),
+             "org.gtk.vfs.*": ("Súbory", "Sieťové a vymeniteľné disky (gvfs)", 0),
+             "com.canonical.AppMenu.Registrar": ("Systém", "Menu aplikácie v paneli", 0),
+             "com.canonical.indicator.application": ("Systém", "Ikona na pozadí (tray)", 0),
+             "com.canonical.Unity": ("Systém", "Odznaky a priebeh na ikone", 0),
+             "org.freedesktop.FileManager1": ("Súbory", "Ukázať súbor v Súboroch", 0),
+             "org.a11y.Bus": ("Systém", "Prístupnosť (čítačka obrazovky)", 0)}
+PLANS_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME") or HOME + "/.config", "latteos", "plany")
+
+
+def ini(text):
+    out, section = {}, None
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("[") and line.endswith("]"):
+            section = line[1:-1]
+        elif "=" in line and section:
+            k, _, v = line.partition("=")
+            out.setdefault(section, {})[k] = v
+    return out
+
+
+def plan(app):
+    rc, text, _ = sh(["flatpak", "info", "-m", app])
+    installed_ = rc == 0
+    if not installed_:
+        rc, text, err = sh(["flatpak", "remote-info", "--user", "-m", "flathub", app], timeout=60)
+        if rc != 0:
+            return {"app": app, "error": (err or "aplikácia sa nenašla na Flathube").strip()}
+    meta = ini(text)
+    ctx = meta.get("Context", {})
+    lst = lambda k: [x for x in ctx.get(k, "").split(";") if x]
+    items = []
+    for x in lst("shared"):
+        if x in PLAN_SHARED:
+            g, d, r = PLAN_SHARED[x]
+            items.append({"key": "shared:" + x, "group": g, "label": d, "risk": r})
+    for x in lst("sockets"):
+        g, d, r, req = PLAN_SOCKETS.get(x, ("Systém", "Rozhranie " + x, 1, False))
+        items.append({"key": "socket:" + x, "group": g, "label": d, "risk": r, "required": req})
+    for x in lst("devices"):
+        g, d, r = PLAN_DEVICES.get(x, ("Zariadenia", "Zariadenie " + x, 1))
+        items.append({"key": "device:" + x, "group": g, "label": d, "risk": r})
+    for x in lst("filesystems"):
+        base, _, mode = x.partition(":")
+        if base.startswith("xdg-run/") or base.startswith("xdg-config/") or base.startswith("xdg-data/") or base.startswith("xdg-cache/"):
+            continue                                      # technické (gvfs, nastavenia vlastných súborov)
+        name, r = PLAN_FS.get(base, (base.replace("~", "domov"), 1))
+        ro = mode == "ro"
+        items.append({"key": "fs:" + base, "group": "Súbory", "label": name + (" — iba čítať" if ro else ""), "risk": max(0, r - 1) if ro else r})
+    for sec, kind in (("Session Bus Policy", "talk"), ("System Bus Policy", "system-talk")):
+        for name, pol in meta.get(sec, {}).items():
+            if pol != "talk":
+                continue
+            g, d, r = PLAN_TALK.get(name, ("Systém", "Služba " + name, 1))
+            if kind == "system-talk":
+                r = max(r, 1)
+            items.append({"key": kind + ":" + name, "group": g, "label": d, "risk": r})
+    saved = {}
+    try:
+        with open(os.path.join(PLANS_DIR, app + ".json")) as f:
+            saved = json.load(f)
+    except (OSError, ValueError):
+        pass
+    denied = set(saved.get("denied", []))
+    if installed_:                                        # aktuálne úpravy (tlačidlo NET, Flatseal) majú prednosť
+        ov = ini(sh(["flatpak", "override", "--user", "--show", app])[1])
+        oc = ov.get("Context", {})
+        for k, pre in (("shared", "shared:"), ("sockets", "socket:"), ("devices", "device:"), ("filesystems", "fs:")):
+            for x in oc.get(k, "").split(";"):
+                if x.startswith("!"):
+                    denied.add(pre + x[1:].partition(":")[0])
+                elif x:
+                    denied.discard(pre + x.partition(":")[0])
+        for sec, pre in (("Session Bus Policy", "talk:"), ("System Bus Policy", "system-talk:")):
+            for name, pol in ov.get(sec, {}).items():
+                (denied.add if pol == "none" else denied.discard)(pre + name)
+    for i in items:
+        i["allowed"] = i["key"] not in denied
+    runtime = meta.get("Application", {}).get("runtime", "")
+    size = ""
+    if not installed_:
+        rc, info, _ = sh(["flatpak", "remote-info", "--user", "flathub", app], timeout=60)
+        m = re.search(r"Installed Size:\s*(.+)", info, re.I)
+        d = re.search(r"Download Size:\s*(.+)", info, re.I)
+        size = (m.group(1).strip() + (" (stiahne sa " + d.group(1).strip() + ")" if d else "")) if m else ""
+    has_rt = bool(runtime) and sh(["flatpak", "info", runtime.split("/")[0] + "//" + runtime.split("/")[-1]])[0] == 0
+    return {"app": app, "installed": installed_, "runtime": runtime, "runtimeInstalled": has_rt, "size": size,
+            "profile": saved.get("profile", ""), "items": items,
+            "untrusted": [i["key"] for i in items if i["risk"] >= 1 and not i.get("required")]}
+
+
+def plan_apply(app, denied_json):
+    denied = set(json.loads(denied_json or "[]"))
+    p = plan(app)
+    if p.get("error"):
+        print(p["error"], file=sys.stderr)
+        return 1
+    args = []
+    for i in p["items"]:
+        kind, _, v = i["key"].partition(":")
+        deny = i["key"] in denied and not i.get("required")
+        args += {"shared": ["--unshare=" + v] if deny else ["--share=" + v],
+                 "socket": ["--nosocket=" + v] if deny else ["--socket=" + v],
+                 "device": ["--nodevice=" + v] if deny else ["--device=" + v],
+                 "fs": ["--nofilesystem=" + v] if deny else [],   # povolenie = to, čo si aplikácia žiada (bez prepisu)
+                 "talk": ["--no-talk-name=" + v] if deny else ["--talk-name=" + v],
+                 "system-talk": ["--system-no-talk-name=" + v] if deny else ["--system-talk-name=" + v]}.get(kind, [])
+    if p["installed"] and args:
+        rc = subprocess.call(["flatpak", "override", "--user"] + args + [app])
+        if rc != 0:
+            return rc
+    os.makedirs(PLANS_DIR, exist_ok=True)
+    unt = set(p["untrusted"])
+    profile = "trusted" if not denied else ("untrusted" if unt and unt <= denied else "custom")
+    with open(os.path.join(PLANS_DIR, app + ".json"), "w") as f:
+        json.dump({"app": app, "profile": profile, "denied": sorted(denied), "date": __import__("time").strftime("%Y-%m-%d %H:%M")}, f, ensure_ascii=False)
+    return 0
 
 
 SKIP_EXE = re.compile(r"(^|/)(unins\d*|uninstall|vc_?redist[^/]*|dxsetup|dxwebsetup|directx[^/]*|dotnet[^/]*|ndp\d+[^/]*|physx[^/]*|oalinst|"
@@ -545,6 +693,10 @@ def main(a):
         print(json.dumps(search(" ".join(a[1:])), ensure_ascii=False))
     elif cmd == "permissions" and len(a) == 2:
         print(json.dumps(permissions(a[1]), ensure_ascii=False))
+    elif cmd == "plan" and len(a) == 2:
+        print(json.dumps(plan(a[1]), ensure_ascii=False))
+    elif cmd == "plan-apply" and len(a) == 3:
+        return plan_apply(a[1], a[2])
     elif cmd == "net" and len(a) == 3:
         return subprocess.call(["latte-net", "on" if a[2] == "on" else "off", a[1]])   # Flatpak aj natívne (bubblewrap)
     elif cmd == "store" and len(a) > 1:

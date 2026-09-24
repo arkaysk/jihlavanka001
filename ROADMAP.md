@@ -326,7 +326,8 @@ flowchart TD
 - [x] Tlačidlo NET pre **natívne** aplikácie (`latte-net`): prekrytie .desktop spúšťa aplikáciu cez bubblewrap --unshare-net
   (bez práv správcu; Wayland a D-Bus fungujú, sieť nie — overené).
 - [ ] NET pre Windows hry (Proton) a pre aplikácie spustené z terminálu (cgroup + nftables, vyžaduje službu so správcom).
-- [ ] Setup Plan dialóg (vzor Flatseal).
+- [x] **Setup Plan** (vzor Flatseal): pred inštaláciou Flatpaku a pre nainštalované (pravý klik › Setup Plan) — oprávnenia po skupinách s rizikom,
+  profily Dôveryhodná / Nedôveryhodná / Vlastná, schválenie → `flatpak override --user`, plán v ~/.config/latteos/plany. Overené inštaláciou Papers.
 
 ### F7 — AI a Text Bar
 - [x] `latte-ai`: poskytovatelia **lokálne** (Ollama), **domáci server** (OpenAI API: LM Studio, llama.cpp; voliteľne SSH tunel),

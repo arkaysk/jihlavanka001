@@ -98,6 +98,31 @@ ShellRoot {
     Cmd { id: installProc
           onDone: (out, code) => { app.status = code === 0 ? "Hotovo: " + app.busyId : "Nepodarilo sa: " + app.busyId + " (kód " + code + ")"; app.busyId = ""; listProc.running = true;
                                    if (app.appPageId !== "") { appProc.command = ["latte-apps", "store", "app", app.appPageId]; appProc.running = true; } } }
+    // Setup Plan (vzor Flatseal): pred inštaláciou Flatpaku a v Oprávneniach — schváliť celý, časť alebo upraviť
+    property var plan: null
+    property bool planOpen: false
+    property bool planInstall: false
+    property string planName: ""
+    property var planDenied: []
+    readonly property string planProfile: !plan || !plan.items ? "" : (planDenied.length === 0 ? "trusted"
+        : (plan.untrusted.length > 0 && plan.untrusted.every(k => planDenied.indexOf(k) >= 0) && planDenied.every(k => plan.untrusted.indexOf(k) >= 0) ? "untrusted" : "custom"))
+    Cmd { id: planProc; onDone: (out) => { try { app.plan = JSON.parse(out); } catch (e) { app.plan = { error: "Plán sa nepodarilo načítať" }; }
+                                            app.planDenied = app.plan.items ? app.plan.items.filter(i => !i.allowed).map(i => i.key) : []; } }
+    Cmd { id: planApply; onDone: (out, code) => { app.status = code === 0 ? "Setup Plan uložený: " + app.planName + " (platí po reštarte aplikácie)" : "Setup Plan sa nepodarilo uložiť";
+                                                  if (app.perms.app) { permProc.command = ["latte-apps", "permissions", app.perms.app]; permProc.running = true; } listProc.running = true; } }
+    function openPlan(id, name, forInstall) {
+        plan = null; planDenied = []; planName = name || id; planInstall = forInstall; planOpen = true;
+        planProc.command = ["latte-apps", "plan", id]; planProc.running = true;
+    }
+    function togglePlan(key) { planDenied = planDenied.indexOf(key) >= 0 ? planDenied.filter(k => k !== key) : planDenied.concat([key]); }
+    function approvePlan() {
+        const id = plan.app, denied = JSON.stringify(planDenied);
+        planOpen = false;
+        if (planInstall) {
+            busyId = id; status = "Inštalujem " + planName + " z Flathubu podľa Setup Planu…";
+            installProc.command = ["sh", "-c", "latte-apps install flatpak \"$1\" && latte-apps plan-apply \"$1\" \"$2\"", "sh", id, denied]; installProc.running = true;
+        } else { planApply.command = ["latte-apps", "plan-apply", id, denied]; planApply.running = true; }
+    }
     Process { id: runner }
     function run(cmd, msg) { runner.command = cmd; runner.running = true; if (msg) app.status = msg; }
 
@@ -108,10 +133,8 @@ ShellRoot {
         searching = true; searchProc.command = ["latte-apps", "store", "search", query.trim()]; searchProc.running = true;
     }
     function install(src, id, name) {
-        if (src === "flatpak") {
-            busyId = id; status = "Inštalujem " + (name || id) + " z Flathubu…";
-            installProc.command = ["latte-apps", "install", "flatpak", id]; installProc.running = true;
-        } else run(["latte-app", "instalator", "install", id], "Inštalácia: " + id);
+        if (src === "flatpak") openPlan(id, name, true);        // inštalácia až po schválení Setup Planu
+        else run(["latte-app", "instalator", "install", id], "Inštalácia: " + id);
     }
     function uninstall(a) {
         if (a.source === "flatpak") {
@@ -274,6 +297,8 @@ ShellRoot {
                     Action { visible: !!parent.a; glyph: "player-play"; label: "Spustiť"; onClicked: app.launch(app.sel) }
                     Action { visible: !!parent.a && parent.a.source === "flatpak"; glyph: "shield"; label: "Oprávnenia a NET"
                              onClicked: { app.section = "opravnenia"; permProc.command = ["latte-apps", "permissions", app.sel.id]; permProc.running = true; } }
+                    Action { visible: !!parent.a && parent.a.source === "flatpak"; glyph: "list-check"; label: "Setup Plan (čo smie)"
+                             onClicked: app.openPlan(app.sel.id, app.sel.name, false) }
                     Action { visible: !!parent.a && !parent.a.latteos && (parent.a.source === "flatpak" || !!parent.a.package); danger: true; glyph: "trash"
                              label: "Odinštalovať"; onClicked: app.uninstall(app.sel) }
                 }
@@ -287,7 +312,110 @@ ShellRoot {
                 Text { x: 14; anchors.verticalCenter: parent.verticalCenter; text: app.status || (app.busyId ? "Pracujem…" : "Flatpak: pre tvoj účet bez hesla · RPM a systém: Inštalátor s heslom správcu")
                        color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
             }
+            PlanSheet { anchors.fill: parent; visible: app.planOpen }
             ContextMenu { id: ctx; theme: theme }
+        }
+    }
+
+    component PlanSheet: Rectangle {
+        id: ps
+        color: Qt.rgba(0, 0, 0, 0.55); z: 50
+        readonly property var groups: {
+            const order = ["Internet", "Súbory", "Zariadenia", "Zvuk", "Tajomstvá", "Systém", "Okná"], out = [];
+            const items = app.plan && app.plan.items ? app.plan.items : [];
+            for (const g of order) { const it = items.filter(i => i.group === g); if (it.length) out.push({ name: g, items: it }); }
+            return out;
+        }
+        MouseArea { anchors.fill: parent; onClicked: app.planOpen = false }
+        Keys.onEscapePressed: app.planOpen = false
+        Rectangle {
+            id: card
+            width: Math.min(660, parent.width - 60); height: Math.min(parent.height - 60, 640)
+            anchors.centerIn: parent; radius: 18; color: theme.surface; border { color: theme.line; width: 1 }
+            MouseArea { anchors.fill: parent }                       // kliky vnútri nezatvárajú
+            Column {
+                id: head
+                x: 22; y: 20; width: parent.width - 44; spacing: 6
+                Text { text: "Setup Plan · " + app.planName; width: parent.width; elide: Text.ElideRight; color: theme.fg; font { family: theme.fontDisplay; pixelSize: 22; weight: Font.DemiBold } }
+                Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                       text: "Toto si aplikácia žiada. Schváľ celý plán, vypni, čo nechceš, alebo zvoľ profil. LatteOS to zapíše do izolácie Flatpaku a kedykoľvek to zmeníš v Oprávneniach." }
+                Text { visible: !!app.plan && !!app.plan.items; width: parent.width; wrapMode: Text.WordWrap; color: theme.fg; font { family: theme.fontUi; pixelSize: 12 }
+                       text: !app.plan || !app.plan.items ? "" : [app.plan.size ? "Veľkosť: " + app.plan.size : "",
+                             app.plan.runtime ? "Runtime " + app.plan.runtime.split("/")[0] + " " + app.plan.runtime.split("/").pop() + (app.plan.runtimeInstalled ? " (už máš)" : " (stiahne sa)") : ""].filter(x => x).join("  ·  ") }
+                Row {
+                    visible: !!app.plan && !!app.plan.items; spacing: 8; topPadding: 6
+                    Repeater {
+                        model: [["trusted", "Dôveryhodná", "všetko, čo žiada"], ["untrusted", "Nedôveryhodná", "bez internetu a citlivých prístupov"], ["custom", "Vlastná", "podľa prepínačov"]]
+                        Rectangle {
+                            required property var modelData
+                            readonly property bool cur: app.planProfile === modelData[0]
+                            width: 190; height: 48; radius: 12
+                            color: cur ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.18) : (prm.containsMouse ? theme.hover : theme.field)
+                            border { color: cur ? theme.primary : "transparent"; width: 1 }
+                            Column { x: 12; anchors.verticalCenter: parent.verticalCenter; spacing: 1
+                                Text { text: modelData[1]; color: parent.parent.cur ? theme.primary : theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.Bold } }
+                                Text { text: modelData[2]; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 10 } } }
+                            MouseArea { id: prm; anchors.fill: parent; hoverEnabled: true
+                                        onClicked: { if (modelData[0] === "trusted") app.planDenied = []; else if (modelData[0] === "untrusted") app.planDenied = app.plan.untrusted.slice(); } }
+                        }
+                    }
+                }
+            }
+            Flickable {
+                id: planFlick
+                anchors { left: parent.left; right: parent.right; top: head.bottom; bottom: foot.top; margins: 22; topMargin: 14; bottomMargin: 10 }
+                contentHeight: planCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
+                ScrollHint { flick: planFlick; colors: theme }
+                Column {
+                    id: planCol
+                    width: planFlick.width - 10; spacing: 4
+                    Text { visible: !app.plan; text: "Zisťujem, čo si aplikácia žiada…"; color: theme.primary; font { family: theme.fontUi; pixelSize: 13 } }
+                    Text { visible: !!app.plan && !!app.plan.error; width: parent.width; wrapMode: Text.WordWrap; text: app.plan ? app.plan.error || "" : ""; color: theme.error; font { family: theme.fontUi; pixelSize: 13 } }
+                    Text { visible: !!app.plan && !!app.plan.items && app.plan.items.length === 0; text: "Aplikácia si nežiada nič navyše — beží úplne izolovaná."; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 } }
+                    Repeater {
+                        model: ps.groups
+                        Column {
+                            required property var modelData
+                            width: planCol.width; spacing: 4
+                            Heading { text: modelData.name.toUpperCase(); topPadding: 8 }
+                            Repeater {
+                                model: modelData.items
+                                Rectangle {
+                                    required property var modelData
+                                    readonly property bool allowed: app.planDenied.indexOf(modelData.key) < 0 || !!modelData.required
+                                    width: planCol.width; height: 44; radius: 10; color: rim.containsMouse && !modelData.required ? theme.hover : theme.field
+                                    Rectangle { x: 12; anchors.verticalCenter: parent.verticalCenter; width: 8; height: 8; radius: 4
+                                                color: modelData.risk >= 2 ? theme.error : (modelData.risk === 1 ? theme.primary : theme.fgDim) }
+                                    Text { x: 30; width: parent.width - 120; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight
+                                           text: modelData.label; color: parent.allowed ? theme.fg : theme.fgDim; font { family: theme.fontUi; pixelSize: 13; strikeout: !parent.allowed } }
+                                    Text { visible: !!modelData.required; anchors { right: parent.right; rightMargin: 14; verticalCenter: parent.verticalCenter }
+                                           text: "nutné"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } }
+                                    Rectangle {                                                     // prepínač
+                                        visible: !modelData.required
+                                        anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
+                                        width: 40; height: 22; radius: 11; color: parent.allowed ? theme.primary : theme.outline
+                                        Rectangle { width: 16; height: 16; radius: 8; y: 3; x: parent.parent.allowed ? 21 : 3; color: parent.parent.allowed ? theme.fgOnPrimary : theme.fgDim
+                                                    Behavior on x { NumberAnimation { duration: 120 } } }
+                                    }
+                                    MouseArea { id: rim; anchors.fill: parent; hoverEnabled: true; enabled: !parent.modelData.required
+                                                onClicked: app.togglePlan(parent.modelData.key) }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Row {
+                id: foot
+                anchors { right: parent.right; bottom: parent.bottom; margins: 20 }
+                spacing: 10
+                Text { anchors.verticalCenter: parent.verticalCenter; rightPadding: 8; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 }
+                       text: app.plan && app.plan.items ? (app.planDenied.length ? "Zamietnuté: " + app.planDenied.length : "Schvaľuješ celý plán") : "" }
+                Pill { label: "Zrušiť"; onClicked: app.planOpen = false }
+                Pill { primaryStyle: true; on: !!app.plan && !!app.plan.items
+                       label: app.planInstall ? (app.planDenied.length ? "Schváliť upravený a inštalovať" : "Schváliť a inštalovať") : "Uložiť plán"
+                       onClicked: app.approvePlan() }
+            }
         }
     }
 
@@ -360,6 +488,7 @@ ShellRoot {
                 if (i.installed) {
                     items.push({ glyph: "player-play", label: "Otvoriť", action: () => app.runFlatpak(i.id) });
                     items.push({ glyph: "shield", label: "Oprávnenia a NET", action: () => { app.section = "opravnenia"; app.selId = i.id; permProc.command = ["latte-apps", "permissions", i.id]; permProc.running = true; } });
+                    items.push({ glyph: "list-check", label: "Setup Plan (čo smie)", action: () => app.openPlan(i.id, i.name, false) });
                 } else items.push({ glyph: "download", label: "Inštalovať", enabled: app.busyId === "", action: () => app.install("flatpak", i.id, i.name) });
                 items.push({ separator: true });
                 items.push({ glyph: "external-link", label: "Otvoriť na Flathube", action: () => Qt.openUrlExternally("https://flathub.org/apps/" + i.id) });
@@ -667,6 +796,7 @@ ShellRoot {
                             const a = ir.modelData, p = mapToItem(null, m.x, m.y);
                             const items = [{ glyph: "player-play", label: "Spustiť", action: () => app.launch(a) }];
                             if (a.source === "flatpak") items.push({ glyph: "shield", label: "Oprávnenia a NET", action: () => { app.section = "opravnenia"; permProc.command = ["latte-apps", "permissions", a.id]; permProc.running = true; } });
+                            if (a.source === "flatpak") items.push({ glyph: "list-check", label: "Setup Plan (čo smie)", action: () => app.openPlan(a.id, a.name, false) });
                             items.push({ glyph: "folder", label: "Súbor .desktop", action: () => app.run(["latte-app", "subory", a.desktop.substring(0, a.desktop.lastIndexOf("/"))]) });
                             if (!a.latteos && (a.source === "flatpak" || a.package)) { items.push({ separator: true }); items.push({ glyph: "trash", label: "Odinštalovať", danger: true, action: () => app.uninstall(a) }); }
                             ctx.open(p.x, p.y, items, a.name + " · " + app.srcName(a));
@@ -705,8 +835,9 @@ ShellRoot {
                     x: 14; y: 14; width: parent.width - 28; spacing: 8
                     Row {
                         width: parent.width; spacing: 12
-                        Text { width: parent.width - netBtn.width - 12; elide: Text.ElideRight; anchors.verticalCenter: parent.verticalCenter
+                        Text { width: parent.width - netBtn.width - 130; elide: Text.ElideRight; anchors.verticalCenter: parent.verticalCenter
                                text: app.perms.app || ""; color: theme.fg; font { family: theme.fontUi; pixelSize: 15; weight: Font.Bold } }
+                        Pill { label: "Setup Plan"; onClicked: app.openPlan(app.perms.app, app.perms.app, false) }
                         Pill {
                             id: netBtn
                             label: app.perms.network ? "● NET zapnutý" : "○ NET vypnutý"; primaryStyle: app.perms.network

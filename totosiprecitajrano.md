@@ -70,6 +70,23 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 21:30: Setup Plan pred inštaláciou (F6, vzor Flatseal) ✅
+- **Inštalovať** v obchode najprv otvorí **Setup Plan** so zoznamom toho, čo si aplikácia žiada, v zrozumiteľnej reči
+  a po skupinách: Internet, Súbory, Zariadenia, Zvuk, Tajomstvá (SSH/GPG kľúče, kľúčenka), Systém, Okná.
+  Bodka pri položke ukazuje riziko: sivá nízke, oranžová stredné, červená vysoké (napr. „celý počítač“, „všetky zariadenia“).
+- Plán schváliš celý, vypneš jednotlivé položky prepínačom alebo zvolíš profil:
+  - **Dôveryhodná:** všetko, čo si žiada;
+  - **Nedôveryhodná:** bez internetu, domova, mikrofónu a citlivých prístupov;
+  - **Vlastná:** podľa prepínačov.
+  Ukáže sa aj veľkosť a to, či sa stiahne runtime.
+- Po inštalácii sa zamietnuté oprávnenia zapíšu do izolácie Flatpaku (`flatpak override --user`) a plán sa uloží
+  do `~/.config/latteos/plany/`. Pri opätovnej inštalácii sa ponúkne rovnaký plán.
+- Pre nainštalované Flatpaky je **pravý klik › Setup Plan (čo smie)** v Nainštalovaných, na kartách obchodu
+  a v detaile. Plán vychádza z aktuálneho stavu, takže vypnutý NET alebo úpravy z Flatseal sa nestratia.
+- Otestované: Papers s profilom Nedôveryhodná. Override bol `!pulseaudio`, `!home` a plán sa po inštalácii
+  načítal späť správne. Papers som potom odinštaloval a override aj plán zmazal. Discord ostal nezmenený.
+- Ďalší krok (F6): trusted/untrusted aj pre natívne a Windows aplikácie (bubblewrap/Proton). Zatiaľ platí iba pre Flatpak.
+
 ### 24. 9. 2026, 21:25: Text Bar /cmd lepšie rozozná nebezpečné príkazy ✅
 - Predtým sa chytalo iba `rm -r/-f`, `sudo` na začiatku a pár ďalších príkazov. Teraz sa kontroluje prvé slovo
   **každej časti** príkazu, teda aj za `;`, `&&`, `|` a `$(`. Takto sa chytí napr. `ls; rm x` alebo `/usr/bin/rm`.
