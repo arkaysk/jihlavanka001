@@ -32,6 +32,7 @@ local items = {
   { "Rozlíšenie obrazovky", "Správca zariadení › Obrazovky", "device-desktop", "obrazovka rozlisenie mierka monitor display", { "latte-app", "zariadenia", "obrazovky" } },
   { "Heidelberg (nový dokument)", "Editor dokumentov LatteOS: Markdown, HTML, text", "file-text", "heidelberg editor dokument text poznamka markdown", { "latte-app", "heidelberg" } },
   { "Barista (sprievodca)", "Vzhľad, okná, lišta, AI a aplikácie krok za krokom", "coffee", "barista sprievodca uvod zaciatok nastavenie welcome", { "latte-app", "barista" } },
+  { "Herňa", "Hry zo Steamu a Heroicu · Super+G", "device-gamepad-2", "hry herna games steam heroic epic gog hrat", { "noctalia", "msg", "panel-open", "latteos/games:panel" } },
   { "Po štarte", "Čo sa spúšťa pri prihlásení (Monitor)", "player-play", "autorun autostart po starte sluzby", { "latte-app", "monitor", "autorun" } },
   { "AI", "Lokálne, domáci server, cloud (Nastavenia)", "sparkles", "ai llm lm studio ollama claude chatgpt", { "latte-app", "nastavenia", "ai" } },
   { "Kalendár", "Panel Čas · plánovač udalostí", "calendar", "kalendar udalosti planovac todo", { "noctalia", "msg", "panel-open", "latteos/time:panel" } },

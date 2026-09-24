@@ -321,7 +321,9 @@ flowchart TD
 
 ### F8 — Herná vrstva (len integrácia, bez výkonu)
 - [ ] Steam, umu-launcher, Proton 11: inštalácia, spustenie launchera, integrácia do App Managera.
-- [ ] Prepínač „Desktop ↔ Hra“ ako UI, zatiaľ bez gamescope.
+- [x] **Herňa** (Super+G, `latte-games`): hry zo Steamu (aj Flatpak) a Heroicu (Epic, GOG, Amazon) s obalmi, filter,
+  spustenie v hernom režime a jeho vypnutie po hre. Steam/Heroic sa inštalujú v App Manageri.
+- [ ] Prepínač „Desktop ↔ Hra“ s gamescope reláciou (H, reálny HW).
 
 ### H — Reálny hardvér *(keď bude pripravený PC s AMD aj NVIDIA)*
 - [ ] `latte-hw` rozšíriť o stupne Plný / Štandard / Úsporný / Minimálny.
