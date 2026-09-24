@@ -368,8 +368,7 @@ ShellRoot {
         uzamknutie: ["automatické zamknutie", "obrazovka zámku (Noctalia)"],
         oznamenia: ["nerušiť a plán", "oznámenia z mobilu (KDE Connect)", "pravidlá podľa aplikácie"],
         pristupnost: ["veľké písmo a kontrast", "čítačka obrazovky", "bez animácií"],
-        jazyk: ["jazyk systému", "formáty dátumu a čísel"],
-        klavesnica: ["rozloženia (teraz sk, us; Alt+Shift)", "skratky LatteOS"]
+        jazyk: ["jazyk systému", "formáty dátumu a čísel"]
     })
     function stateText(k) {
         const m = app.mode;
@@ -382,6 +381,7 @@ ShellRoot {
         if (k === "prihlasovanie") return "Greeter: " + greeter + " · panel " + greeterConf.panel;
         if (k === "lista") return "Hrúbka " + (bar.thickness || 56) + " · okraje " + (bar.margin_ends || 12) + " · spodok " + (bar.margin_edge || 10);
         if (k === "cas") return "Poloha " + (location.latitude || "48.74") + ", " + (location.longitude || "19.15") + (clockZones.length ? "\nPásma: " + clockZones.join(", ") : "");
+        if (k === "klavesnica") return "Rozloženia sk, us (Alt+Shift)\nEditor skratiek: plán";
         if (plans[k]) return "Zatiaľ len plán";
         return "—";
     }
@@ -392,7 +392,8 @@ ShellRoot {
             start: "/etc/latteos/boot.toml\n/var/lib/latteos/", ai: "~/.config/latteos/ai.toml\n~/.config/latteos/ai-keys (0600)",
             lista: "~/.local/state/noctalia/settings.toml [bar.main]\n~/.config/latteos/bar-anim, bar-scene, mascot", cas: "~/.local/state/noctalia/settings.toml [location]\n~/.config/latteos/clock.conf",
             prihlasovanie: "/var/lib/latteos/greeter/greeter.conf", diagnostika: "/var/lib/latteos/greeter/last-crash.log\n/var/lib/latteos/crash-count",
-            subory: "~/.config/latteos/subory.json\n~/.config/latteos/tags.json"
+            subory: "~/.config/latteos/subory.json\n~/.config/latteos/tags.json",
+            klavesnica: "/usr/share/latteos/hypr/hyprland.lua\n~/.config/latteos/hyprland.lua"
         })[k] || "—";
     }
 
