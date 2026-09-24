@@ -7,6 +7,7 @@
   latte-sysmon hw            JSON: hardvér ako CPU-Z/HWiNFO (procesor, cache, doska/BIOS, pamäť, grafika, disky,
                              senzory, batéria, systém)
   latte-sysmon once          jeden snímok (bez procesov)
+  latte-sysmon sukromie      riadky „mic|camera<TAB>aplikácia“: kto práve používa mikrofón alebo kameru (indikátor na lište)
   latte-sysmon rss PID       pamäť (RSS, kB) procesu aj s podprocesmi — pre Digitálnu pohodu
   latte-sysmon pohoda-den DÁTUM [TRIEDA]   JSON pre stránku Čas v aplikáciách: deň (spolu, priemer, včera,
                              týždeň, mesiac ako teplotná mapa, aplikácie, 48 polhodín), týždeň (mapa 7×24, najčastejšie
@@ -171,8 +172,8 @@ def device_use(procs):
     """pid → zariadenia, ktoré proces práve používa: gpu, kamera, mikrofón, zvuk (fd na /dev + streamy PipeWire)."""
     use = {}
     for x in procs:
-        if not x["mine"]:
-            continue
+        if not x["mine"] or x["name"] in ("pipewire", "pipewire-pulse", "wireplumber", "pulseaudio"):
+            continue                                 # zvukový server drží zariadenia sám; rátajú sa jeho klienti (pactl)
         d = "/proc/%d/fd" % x["pid"]
         try:
             fds = os.listdir(d)
@@ -772,6 +773,23 @@ def main(a):
         for x in items:
             x["missing"] = bool(x.get("command")) and x["kind"] in ("autostart", "session", "cron") and not exists_cmd(x["command"] if x["kind"] != "cron" else " ".join(x["command"].split()[5:]))
         print(json.dumps(items, ensure_ascii=False))
+        return 0
+    if cmd == "sukromie":
+        wins = window_pids()
+        procs, _ = processes({}, 0, 0, wins)
+        devs = device_use(procs)
+        names = app_names({x["app"] for x in procs if x["app"]})
+        by = {x["pid"]: x for x in procs}
+        seen = set()
+        for k, ds in devs.items():
+            for d in ds & {"mic", "camera"}:
+                if isinstance(k, str):
+                    who = names.get(k[4:], k[4:])
+                else:
+                    x = by.get(k, {})
+                    who = names.get(x.get("app"), "") or x.get("name", "?")
+                if (d, who) not in seen:
+                    seen.add((d, who)); print(d + "\t" + who)
         return 0
     if cmd == "rss" and len(a) == 2 and a[1].isdigit():
         print(tree_rss(int(a[1])))

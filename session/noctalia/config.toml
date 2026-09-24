@@ -91,7 +91,7 @@ enabled = true
 
 [[bar.main.capsule_group]]
 id      = "devices"
-members = ["files", "network", "volume", "battery", "latte-dev"]   # aplikácie na pozadí: App Manager › Na pozadí
+members = ["latte-sukromie", "files", "network", "volume", "battery", "latte-dev"]   # aplikácie na pozadí: App Manager › Na pozadí
 enabled = true
 
 # ── Widgety ────────────────────────────────────────────────────────────────────
@@ -124,6 +124,10 @@ type = "latteos/system:cup"
 # Zariadenia = riadiace centrum LatteOS (plugin latteos/devices); riadiace centrum Noctalie: Super+A
 [widget.latte-dev]
 type = "latteos/devices:dev"
+
+# indikátor súkromia (plugin latteos/devices): červená kapsula, kým aplikácia používa mikrofón alebo kameru
+[widget.latte-sukromie]
+type = "latteos/devices:sukromie"
 
 [widget.control-center]
 custom_image = "/usr/share/latteos/noctalia/icons/latte-cup.png"

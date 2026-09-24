@@ -17,6 +17,11 @@ description = "Riadiace centrum LatteOS: sieť, zvuk, jas, herný režim, profil
 id    = "dev"
 entry = "widget.luau"
 
+# indikátor súkromia: mikrofón/kamera práve v použití (neviditeľný, kým ich nikto nepoužíva)
+[[widget]]
+id    = "sukromie"
+entry = "sukromie.luau"
+
 [[panel]]
 id        = "panel"
 entry     = "panel.luau"

@@ -70,6 +70,15 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 21:45: indikátor mikrofónu a kamery na lište ✅ (ukáže sa po ďalšom prihlásení)
+- Kým niektorá aplikácia používa **mikrofón alebo kameru**, v ostrove zariadení svieti **červená kapsula**
+  s ikonou, ako bodka v iOS a Androide. Inak je neviditeľná. Tooltip povie ktorá aplikácia
+  (napr. „Mikrofón: Discord“), klik otvorí Monitor › Procesy. Kontroluje sa raz za 3 s (`latte-sysmon sukromie`, ~90 ms).
+- Zvukový server (PipeWire) sa nepočíta, pretože zariadenia drží stále otvorené. Počítajú sa jeho klienti.
+- **V tvojej relácii ešte nie je vidieť.** Noctalia načíta nové widgety lišty iba pri štarte a reštart lišty
+  som ti na diaľku nechcel robiť. Objaví sa po ďalšom prihlásení. Otestované v headless Noctalii s bežiacim
+  `parecord` (snímka: červený mikrofón pred ikonou súborov).
+
 ### 24. 9. 2026, 21:35: Monitor › Procesy podľa aplikácií ✅
 - Procesy sú predvolene zoskupené **podľa aplikácií**, ako v Správcovi úloh vo Windows. Každá aplikácia ukazuje
   súčet CPU a RAM. Klik ju rozbalí na procesy, detail ukáže súčty a tlačidlo **Ukončiť aplikáciu**
