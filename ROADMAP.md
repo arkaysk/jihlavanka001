@@ -268,7 +268,8 @@ flowchart TD
   pozadie a farba z Nastavení (`/var/lib/latteos/greeter/`, SELinux `xdm_var_lib_t`).
 - [ ] Materiály tém (mráz, kov, kameň, jantár, fazety) ako shadery vo forku Noctalie, iba pri stupni Plný.
 - [x] Schránka „kapsa“, prehľad pásky, inštalácia aplikácie („Bude to fungovať?“ v App Manageri).
-- [ ] AI panel (rozhovor, nie iba výsledky Text Baru).
+- [x] **AI panel** (Super+I, plugin latteos/ai): rozhovor s pamäťou (`latte-ai chat`), odpovede v markdowne, beží cez runStream
+  bez 5 s limitu runAsync; overené s LM Studio.
 
 ### F4 — Systémové služby (Rust)
 - [x] **Správca zariadení** (prototyp `latte-app zariadenia` + `latte-devices`): dlaždice po skupinách (obrazovky, grafika, zvuk,

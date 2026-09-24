@@ -10,6 +10,7 @@ Poskytovatelia (~/.config/latteos/ai.toml, píšu ho Nastavenia › Softvér ›
   latte-ai status            poskytovateľ, model, dostupnosť (jeden riadok key=value na riadok)
   latte-ai models            modely poskytovateľa (id<TAB>stav)
   latte-ai ask OTÁZKA        odpoveď na stdout (bez <think> blokov)
+  latte-ai chat SÚBOR.json   rozhovor: [{"role":"user"|"assistant","content":…}, …] → ďalšia odpoveď na stdout
   latte-ai set KĽÚČ HODNOTA  zapíše voľbu do ai.toml (provider, url, model, ssh, cloud, cloud_model)
   latte-ai key SLUŽBA KĽÚČ   uloží API kľúč cloudu
 """
@@ -28,7 +29,10 @@ DEFAULTS = {
     "ssh": "",
     "cloud": "anthropic",
     "cloud_model": "",
-    "system": "Si asistent v LatteOS. Odpovedaj stručne a po slovensky, ak sa ťa používateľ pýta po slovensky.",
+    "system": ("Si asistent v LatteOS. LatteOS je desktopová Linux distribúcia na Fedore pre bežných ľudí a hráčov: "
+               "Hyprland (nekonečná páska okien), shell Noctalia so spodnou lištou z ostrovov, témy Latte, Súbory, "
+               "Nastavenia, Monitor, App Manager (Flatpak, RPM, kontrola „Bude to fungovať?“), režimy NORMAL a SAFE. "
+               "Odpovedaj stručne a po slovensky, ak sa ťa používateľ pýta po slovensky."),
 }
 CLOUD = {   # predvolené modely a adresy veľkých AI
     "anthropic": ("https://api.anthropic.com/v1", "claude-sonnet-5"),
@@ -149,12 +153,13 @@ def pick(c):
     return ""
 
 
-def ask(c, q):
+def ask(c, q, history=None):
     base, hdr, _ = endpoint(c)
     model = pick(c)
     if not model:
         raise RuntimeError("Na serveri nie je načítaný žiadny model. Vyber ho v Nastaveniach › AI.")
-    msgs = [{"role": "user", "content": q}]
+    msgs = history if history else [{"role": "user", "content": q}]
+    msgs = [{"role": m["role"], "content": str(m["content"])} for m in msgs if m.get("role") in ("user", "assistant")][-20:]
     if c["provider"] == "cloud" and c["cloud"] == "anthropic":
         r = http(base + "/messages", {"model": model, "max_tokens": 1024, "system": c["system"], "messages": msgs}, hdr, 120)
         text = "".join(b.get("text", "") for b in r.get("content", []))
@@ -184,6 +189,11 @@ def main(a):
                 print(m + "\t" + s)
         elif cmd == "ask":
             text, _model = ask(c, " ".join(a[1:]))
+            print(text)
+        elif cmd == "chat" and len(a) == 2:
+            with open(a[1], encoding="utf-8") as f:
+                history = json.load(f)
+            text, _model = ask(c, "", history)
             print(text)
         elif cmd == "set" and len(a) == 3 and a[1] in DEFAULTS:
             c[a[1]] = a[2]

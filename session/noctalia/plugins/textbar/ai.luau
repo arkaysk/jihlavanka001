@@ -21,6 +21,9 @@ end
 local function settingsItem()
   return { id = "::settings", title = "Nastaviť AI", subtitle = "Nastavenia › Softvér › AI", glyph = "settings" }
 end
+local function chatItem()
+  return { id = "::chat", title = "Rozhovor s AI", subtitle = "panel s pamäťou (Super+I)", glyph = "message" }
+end
 
 function onQuery(text)
   local q = text or ""
@@ -36,13 +39,13 @@ function onQuery(text)
   end
   local who = (st.model ~= "" and st.model) or "model vyberie server"
   if q == "" then
-    launcher.setResults(text, { { id = "", title = "Opýtaj sa AI", subtitle = who .. " · " .. (st.target or ""), glyph = "sparkles" }, settingsItem() })
+    launcher.setResults(text, { { id = "", title = "Opýtaj sa AI", subtitle = who .. " · " .. (st.target or ""), glyph = "sparkles" }, chatItem(), settingsItem() })
     return
   end
   if busy then return end
   busy = true
   launcher.setResults(text, { { id = "", title = "Premýšľam…", subtitle = who, glyph = "loader" } })
-  noctalia.runAsync({ "latte-ai", "ask", q }, function(r)
+  noctalia.runAsync({ "latte-ai", "ask", q }, function(r)   -- limit 60 s (tretí argument), predvolený je iba 5 s
     busy = false
     if r.exitCode ~= 0 then
       launcher.setResults(text, { { id = "", title = "AI neodpovedalo", subtitle = string.sub(r.stderr or "", 1, 160), glyph = "robot-off" }, settingsItem() })
@@ -56,10 +59,11 @@ function onQuery(text)
     end
     if #items == 0 then items = { { id = "", title = "(prázdna odpoveď)", glyph = "sparkles" } } end
     launcher.setResults(text, items)
-  end)
+  end, 60000)
 end
 
 function onActivate(id)
   if id == "::settings" then noctalia.runAsync({ "latte-app", "nastavenia", "ai" }); return end
+  if id == "::chat" then noctalia.runAsync({ "noctalia", "msg", "panel-open", "latteos/ai:chat" }); return end
   if id and id ~= "" then noctalia.copyToClipboard(id, "text/plain") end
 end

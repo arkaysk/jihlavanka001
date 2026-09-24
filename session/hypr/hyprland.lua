@@ -101,6 +101,7 @@ bind(mod .. " + Tab",    hl.dsp.exec_cmd("noctalia msg panel-toggle latteos/over
 bind(mod .. " + SHIFT + Tab", hl.dsp.exec_cmd("noctalia msg window-switcher"))       -- rýchly prepínač okien Noctalie
 bind(mod .. " + A",      hl.dsp.exec_cmd("noctalia msg panel-toggle control-center"))
 bind(mod .. " + E",      hl.dsp.exec_cmd("latte-app subory"))                        -- Súbory (Data Manager)
+bind(mod .. " + I",      hl.dsp.exec_cmd("noctalia msg panel-toggle latteos/ai:chat"))  -- AI rozhovor
 bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd("latte-app monitor"))                   -- Monitor (správca procesov)
 bind(mod .. " + Q",      hl.dsp.window.close())
 bind(mod .. " + F",      hl.dsp.window.fullscreen())
