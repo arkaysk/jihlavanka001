@@ -20,7 +20,7 @@ Stream Deck a pod. (old/IDEAS.md: „poskytuje údaje cez štandardné lokálne 
 nekonfiguruje na cieľovom zariadení, iba dáva údaje.
 Iba čítanie /proc a /sys, bez práv správcu.
 """
-import glob, json, os, pwd, subprocess, sys, time
+import glob, json, os, pwd, re, subprocess, sys, time
 
 CLK = os.sysconf("SC_CLK_TCK")
 PAGE = os.sysconf("SC_PAGE_SIZE")
@@ -122,11 +122,69 @@ def filesystems():
 
 
 def window_pids():
+    """pid → kľúč aplikácie okna (trieda; aplikácie LatteOS majú všetky org.quickshell → „latte:<názov>“ z titulku)."""
     try:
         r = subprocess.run(["hyprctl", "clients", "-j"], capture_output=True, text=True, timeout=2)
-        return {c["pid"]: c.get("class") or c.get("title") for c in json.loads(r.stdout or "[]")}
+        out = {}
+        for c in json.loads(r.stdout or "[]"):
+            cls, title = c.get("class") or "", c.get("title") or ""
+            if cls == "org.quickshell":
+                m = re.search(r" — (Heidelberg)$", title) or re.search(r"^(.*) — LatteOS$", title)
+                cls = "latte:" + (m.group(1) if m else title)
+            out[c["pid"]] = cls or title
+        return out
     except Exception:
         return {}
+
+
+APP_SCOPE = re.compile(r"/app-(?:flatpak-)?([^/]+?)(?:-\d+)?\.(?:scope|service)$")
+
+
+def app_of(procs, wins):
+    """Proces → aplikácia: cgroup Flatpaku / scope aplikácie systemd, inak najbližší predok s oknom."""
+    by = {x["pid"]: x for x in procs}
+    memo = {}
+
+    def up(pid, depth=0):
+        if pid in memo:
+            return memo[pid]
+        x = by.get(pid)
+        res = ""
+        if x is not None and depth < 64:
+            cg = x.get("_cg", "")
+            m = APP_SCOPE.search(cg)
+            if pid in wins:
+                res = wins[pid]
+            elif m and not m.group(1).startswith(("dbus", "gnome-", "org.freedesktop", "xdg-")):
+                res = m.group(1).replace("\\x2d", "-")
+            elif x["ppid"] > 1:
+                res = up(x["ppid"], depth + 1)
+        memo[pid] = res
+        return res
+
+    for x in procs:
+        x["app"] = up(x["pid"]) if x["mine"] else ""
+        x.pop("_cg", None)
+
+
+_APPNAMES = {}
+
+
+def app_names(keys):
+    """kľúč aplikácie → čitateľný názov (desktop súbor, inak kľúč)."""
+    if not _APPNAMES.get("_idx"):
+        _APPNAMES["_idx"] = desktop_index()
+    idx = _APPNAMES["_idx"]
+    out = {}
+    for k in keys:
+        if not k:
+            continue
+        if k.startswith("latte:"):
+            out[k] = k[6:]
+            continue
+        e = idx.get(k.lower()) or idx.get(k.split(".")[-1].lower())
+        out[k] = e[1] if e else k
+    return out
 
 
 USERS = {}
@@ -171,7 +229,9 @@ def processes(prev, dt, total_ticks, wins):
         else:
             kind = "helper"
         procs.append({"pid": pid, "ppid": ppid, "name": name, "user": user_of(uid), "cpu": round(cpu, 1), "rss": rss,
-                      "kind": kind, "window": wins.get(pid, ""), "mine": uid == ME})
+                      "kind": kind, "window": wins.get(pid, ""), "mine": uid == ME,
+                      "_cg": read("/proc/%d/cgroup" % pid).rsplit(":", 1)[-1] if uid == ME else ""})
+    app_of(procs, wins)
     return procs, now
 
 
@@ -235,6 +295,15 @@ def snapshot(state, with_procs=True):
             x["cmd"] = cmdline(x["pid"])[:300]
         snap["procs"] = procs
         snap["procCount"] = len(procs)
+        apps = {}                              # aplikácia → súčet procesov (Monitor › Procesy › podľa aplikácií)
+        for x in procs:
+            if x["app"]:
+                a = apps.setdefault(x["app"], {"key": x["app"], "cpu": 0.0, "rss": 0, "n": 0})
+                a["cpu"] += x["cpu"]; a["rss"] += x["rss"]; a["n"] += 1
+        names = app_names(apps.keys())
+        for a in apps.values():
+            a["name"] = names.get(a["key"], a["key"]); a["cpu"] = round(a["cpu"], 1)
+        snap["apps"] = sorted(apps.values(), key=lambda a: (-a["cpu"], -a["rss"]))
         snap["threads"] = sum(int(read("/proc/%d/stat" % x["pid"], "0 " * 20).rsplit(")", 1)[-1].split()[17] or 0) for x in procs) if procs else 0
         state["ticks"] = ticks
     state.update(t=t, cpus=cpus, io=(rd, wr, rx, tx))

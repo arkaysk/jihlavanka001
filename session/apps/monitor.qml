@@ -68,6 +68,19 @@ ShellRoot {
     property string kindFilter: ""
     property string sortKey: "cpu"
     property bool tree: (Quickshell.env("LATTE_APP_ARGS") || "").trim() === "strom"   // strom procesov (rodič → deti)
+    property bool byApp: !tree                   // procesy zoskupené podľa aplikácie (ako Správca úloh)
+    property var expanded: ({})                  // kľúč aplikácie → rozbalená
+    property string selApp: "-"                  // vybraná skupina ("-" = žiadna, "" = ostatné procesy)
+    readonly property var selGroup: selApp === "-" ? null : (shown.find(r => r.group && r.key === selApp) || null)
+    function toggleGroup(k) { const e = Object.assign({}, expanded); e[k] = !e[k]; expanded = e; }
+    function stopApp(g) {
+        if (!g || g.key === "") return;
+        const pids = (snap.procs || []).filter(p => p.app === g.key && p.kind !== "system").map(p => String(p.pid));
+        if (!pids.length) return;
+        if (confirm !== "app:" + g.key) { confirm = "app:" + g.key; status = "Ukončiť aplikáciu " + g.name + " (" + pids.length + " procesov)? Klikni znova."; return; }
+        confirm = "";
+        run(["kill", "-TERM"].concat(pids), "Ukončujem aplikáciu " + g.name + "…");
+    }
     property int selPid: -1
     property string confirm: ""           // "term:PID" | "kill:PID" čaká na druhé kliknutie
     property var autorun: []
@@ -167,6 +180,24 @@ ShellRoot {
             && (search === "" || (p.name + " " + (p.cmd || "") + " " + p.pid).toLowerCase().includes(search.toLowerCase())));
         const k = sortKey;
         const cmp = (a, b) => k === "name" ? progName(a).localeCompare(progName(b)) : (k === "pid" ? a.pid - b.pid : (b[k] - a[k]));
+        if (byApp && !tree) {
+            const names = {}, groups = {};
+            for (const a of (snap.apps || [])) names[a.key] = a.name;
+            for (const p of list) {
+                const key = p.app || "";
+                const g = groups[key] = groups[key] || { group: true, key: key, name: key === "" ? "Ostatné procesy" : (names[key] || key), cpu: 0, rss: 0, pid: 0, n: 0, procs: [], hasWin: false, kind: "app" };
+                g.cpu += p.cpu; g.rss += p.rss; g.n++; g.procs.push(p); if (p.window) g.hasWin = true;
+            }
+            const gcmp = (a, b) => k === "name" ? a.name.localeCompare(b.name) : (k === "pid" || k === "kind" ? a.name.localeCompare(b.name) : (b[k] - a[k]));
+            const gl = Object.values(groups).filter(g => g.key !== "").sort(gcmp);
+            if (groups[""]) gl.push(groups[""]);
+            const out = [];
+            for (const g of gl) {
+                out.push(g);
+                if (expanded[g.key] || (search !== "" && g.key !== "")) for (const p of g.procs.slice().sort(cmp).slice(0, 200)) out.push(Object.assign({ depth: 1 }, p));
+            }
+            return out;
+        }
         if (!tree) return list.slice().sort(cmp).slice(0, 150);
         // strom: koreň = proces, ktorého rodič nie je v zozname; deti pod rodičom, poradie podľa triedenia
         const byPid = {}, kids = {};
@@ -242,7 +273,31 @@ ShellRoot {
                     anchors { fill: parent; margins: 16 }
                     spacing: 10
                     readonly property var p: app.sel
+                    readonly property var g: app.selGroup
                     Text {
+                        visible: !!parent.g && !parent.p
+                        width: parent.width; wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight
+                        text: parent.g ? parent.g.name : ""
+                        color: theme.fg; font { family: theme.fontDisplay; pixelSize: 19; weight: Font.DemiBold }
+                    }
+                    Text {
+                        visible: !!parent.g && !parent.p
+                        width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                        text: !parent.g ? "" : (parent.g.key === "" ? "Procesy, ktoré nepatria žiadnej aplikácii: prostredie, služby, terminály a systém."
+                              : "Aplikácia a všetky jej procesy spolu (okná, pomocné procesy, izolácia Flatpaku). Súčet sa obnovuje každú sekundu.")
+                    }
+                    Repeater {
+                        model: parent.g && !parent.p ? [["Procesy", String(parent.g.n)], ["CPU spolu", parent.g.cpu.toFixed(1).replace(".", ",") + " %"], ["Pamäť spolu", app.human(parent.g.rss)],
+                                                        ["Kľúč", parent.g.key || "—"]] : []
+                        Column {
+                            required property var modelData
+                            width: parent.width; spacing: 1
+                            Text { text: modelData[0].toUpperCase(); color: theme.fgDim; font { family: theme.fontUi; pixelSize: 10; weight: Font.Bold; letterSpacing: 0.6 } }
+                            Text { width: parent.width; wrapMode: Text.WrapAnywhere; text: modelData[1]; color: theme.fg; font { family: theme.fontUi; pixelSize: 12 } }
+                        }
+                    }
+                    Text {
+                        visible: !parent.g || !!parent.p
                         width: parent.width; wrapMode: Text.WrapAnywhere; maximumLineCount: 2; elide: Text.ElideRight
                         text: parent.p ? app.progName(parent.p) : "Vyber proces"
                         color: theme.fg; font { family: theme.fontDisplay; pixelSize: 19; weight: Font.DemiBold }
@@ -254,12 +309,14 @@ ShellRoot {
                         font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold }
                     }
                     Text {
+                        visible: !parent.g || !!parent.p
                         width: parent.width; wrapMode: Text.WordWrap
                         text: parent.p ? app.kindHints[parent.p.kind] : "Klikni na proces v zozname. Pravý klik otvorí ponuku."
                         color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
                     }
                     Repeater {
-                        model: parent.p ? [["PID / rodič", parent.p.pid + " / " + parent.p.ppid], ["Vlastník", parent.p.user],
+                        model: parent.p ? [["Aplikácia", parent.p.app ? ((app.snap.apps || []).find(a => a.key === parent.p.app) || { name: parent.p.app }).name : "žiadna"],
+                                           ["PID / rodič", parent.p.pid + " / " + parent.p.ppid], ["Vlastník", parent.p.user],
                                            ["CPU", parent.p.cpu.toFixed(1).replace(".", ",") + " %"], ["Pamäť", app.human(parent.p.rss)],
                                            ["Príkaz", parent.p.cmd || parent.p.name]] : []
                         Column {
@@ -282,6 +339,8 @@ ShellRoot {
                               Text { text: act.label; color: act.danger ? theme.error : theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.DemiBold } } }
                         MouseArea { id: am; anchors.fill: parent; hoverEnabled: true; onClicked: if (act.on) act.clicked() }
                     }
+                    Action { visible: !!parent.g && !parent.p && parent.g.key !== ""; glyph: "x"
+                             label: parent.g && app.confirm === "app:" + parent.g.key ? "Naozaj ukončiť aplikáciu?" : "Ukončiť aplikáciu"; onClicked: app.stopApp(app.selGroup) }
                     Action { visible: !!parent.p; on: !!parent.p && parent.p.kind !== "system"; glyph: "x"
                              label: parent.p && app.confirm === "term:" + parent.p.pid ? "Naozaj ukončiť?" : "Ukončiť"; onClicked: app.stop(app.sel, false) }
                     Action { visible: !!parent.p; on: !!parent.p && parent.p.kind !== "system"; danger: true; glyph: "alert-triangle"
@@ -422,7 +481,14 @@ ShellRoot {
                     color: app.tree ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.18) : theme.field
                     border { color: app.tree ? theme.primary : "transparent"; width: 1.5 }
                     Text { id: tt; anchors.centerIn: parent; text: app.tree ? "Strom ✓" : "Strom"; color: theme.fg; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold } }
-                    MouseArea { anchors.fill: parent; onClicked: app.tree = !app.tree }
+                    MouseArea { anchors.fill: parent; onClicked: { app.tree = !app.tree; if (app.tree) app.byApp = false; } }
+                }
+                Rectangle {
+                    width: ta.implicitWidth + 26; height: 32; radius: 10
+                    color: app.byApp ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.18) : theme.field
+                    border { color: app.byApp ? theme.primary : "transparent"; width: 1.5 }
+                    Text { id: ta; anchors.centerIn: parent; text: app.byApp ? "Podľa aplikácií ✓" : "Podľa aplikácií"; color: theme.fg; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold } }
+                    MouseArea { anchors.fill: parent; onClicked: { app.byApp = !app.byApp; if (app.byApp) app.tree = false; app.selApp = "-"; } }
                 }
                 Item { width: 8; height: 1 }
                 Repeater {
@@ -466,7 +532,7 @@ ShellRoot {
                 delegate: Rectangle {
                     id: row
                     required property var modelData
-                    readonly property bool picked: app.selPid === modelData.pid
+                    readonly property bool picked: modelData.group ? app.selApp === modelData.key : app.selPid === modelData.pid
                     width: list.width; height: 32; radius: 8
                     color: picked ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.18) : (rm.containsMouse ? theme.hover : "transparent")
                     Row {
@@ -474,22 +540,41 @@ ShellRoot {
                         Item {
                             width: head.nameW; height: 32
                             Glyph { x: 8 + (row.modelData.depth || 0) * 16; anchors.verticalCenter: parent.verticalCenter; size: 15
-                                    name: ({ app: "window", desktop: "coffee", helper: "terminal-2", system: "shield" })[row.modelData.kind]
+                                    name: row.modelData.group ? (app.expanded[row.modelData.key] ? "chevron-up" : "chevron-right")
+                                                              : ({ app: "window", desktop: "coffee", helper: "terminal-2", system: "shield" })[row.modelData.kind]
                                     color: row.modelData.kind === "app" ? theme.primary : theme.fgDim }
                             Text { x: 32 + (row.modelData.depth || 0) * 16; width: parent.width - 40 - (row.modelData.depth || 0) * 16; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight
-                                   text: ((row.modelData.depth || 0) > 0 ? "└ " : "") + app.progName(row.modelData) + (row.modelData.window ? "  —  " + row.modelData.window : ""); color: theme.fg
-                                   font { family: theme.fontUi; pixelSize: 13; weight: row.modelData.kind === "app" ? Font.DemiBold : Font.Normal } }
+                                   text: row.modelData.group ? row.modelData.name + (row.modelData.key !== "" && !row.modelData.hasWin ? "   · na pozadí" : "")
+                                         : ((row.modelData.depth || 0) > 0 && !app.byApp ? "└ " : "") + app.progName(row.modelData) + (row.modelData.window && !app.byApp ? "  —  " + row.modelData.window : "")
+                                   color: row.modelData.group && row.modelData.key === "" ? theme.fgDim : theme.fg
+                                   font { family: theme.fontUi; pixelSize: 13; weight: row.modelData.group || row.modelData.kind === "app" ? Font.DemiBold : Font.Normal } }
                         }
-                        Text { width: 110; leftPadding: 8; anchors.verticalCenter: parent.verticalCenter; text: app.kinds[row.modelData.kind]; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+                        Text { width: 110; leftPadding: 8; anchors.verticalCenter: parent.verticalCenter; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                               text: row.modelData.group ? row.modelData.n + (row.modelData.n === 1 ? " proces" : (row.modelData.n < 5 ? " procesy" : " procesov")) : app.kinds[row.modelData.kind] }
                         Text { width: 80; leftPadding: 8; anchors.verticalCenter: parent.verticalCenter; text: row.modelData.cpu.toFixed(1).replace(".", ",") + " %"
                                color: row.modelData.cpu > 50 ? theme.error : theme.fg; font { family: theme.fontUi; pixelSize: 12; weight: Font.DemiBold } }
                         Text { width: 100; leftPadding: 8; anchors.verticalCenter: parent.verticalCenter; text: app.human(row.modelData.rss); color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
-                        Text { width: 80; leftPadding: 8; anchors.verticalCenter: parent.verticalCenter; text: row.modelData.pid; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+                        Text { width: 80; leftPadding: 8; anchors.verticalCenter: parent.verticalCenter; text: row.modelData.group ? "" : row.modelData.pid; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
                     }
                     MouseArea {
                         id: rm; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.LeftButton | Qt.RightButton
                         onClicked: (m) => {
-                            app.selPid = row.modelData.pid; app.confirm = "";
+                            app.confirm = "";
+                            if (row.modelData.group) {
+                                const g = row.modelData;
+                                app.selApp = g.key; app.selPid = -1;
+                                if (m.button !== Qt.RightButton) { app.toggleGroup(g.key); return; }
+                                const q = mapToItem(null, m.x, m.y), items = [
+                                    { glyph: app.expanded[g.key] ? "chevron-up" : "chevron-right", label: app.expanded[g.key] ? "Zbaliť procesy" : "Rozbaliť procesy", action: () => app.toggleGroup(g.key) }];
+                                if (g.key !== "") {
+                                    items.push({ separator: true });
+                                    items.push({ glyph: "x", label: "Ukončiť aplikáciu", hint: g.n + " procesov", action: () => { app.confirm = "app:" + g.key; app.stopApp(g); } });
+                                    if (!g.key.startsWith("latte:")) items.push({ glyph: "apps", label: "Detail v App Manageri", action: () => app.run(["sh", "-c", "setsid latte-app aplikacie detail \"$1\" >/dev/null 2>&1 &", "sh", g.key]) });
+                                }
+                                ctx.open(q.x, q.y, items, g.name);
+                                return;
+                            }
+                            app.selPid = row.modelData.pid; app.selApp = "-";
                             if (m.button !== Qt.RightButton) return;
                             const p = row.modelData, pt = mapToItem(null, m.x, m.y), sys = p.kind === "system";
                             ctx.open(pt.x, pt.y, [

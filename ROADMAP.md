@@ -290,7 +290,8 @@ flowchart TD
   druhu (aplikácia/prostredie/pomocný/systém) s varovaním a potvrdením, **Po štarte** (XDG autostart, systemd, časovače, cron,
   vypnutie pre vlastný účet), **telemetria** do `$XDG_RUNTIME_DIR/latteos/telemetry.json` (OLED, Stream Deck).
 - [x] Monitor: strom procesov (rodič → deti, prepínač Strom).
-- [ ] Monitor: stála služba telemetrie, HW info (vzor Mission Center), proces → aplikácia → zariadenie.
+- [x] Monitor: proces → aplikácia (cgroup Flatpaku, scope systemd, predok s oknom), zoskupenie „Podľa aplikácií“ so súčtom CPU/RAM a ukončením celej aplikácie; HW info (Hardvér).
+- [ ] Monitor: stála služba telemetrie, aplikácia → zariadenie (kamera, mikrofón, GPU).
 - [x] Data Manager **prototyp** (Quickshell, `latte-app subory`): Tento počítač (lsblk), dva panely F3/F5/F6, detail, kôš.
 - [x] Data Manager: **kontextové menu** (pravý klik v zozname aj v bočnej lište), **farebné štítky** priečinkov a súborov
   (`~/.config/latteos/tags.json`), vlastné Obľúbené, premenovanie, nový priečinok, terminál tu.
@@ -303,7 +304,8 @@ flowchart TD
 
 - [x] **Heidelberg** (editor dokumentov, `latte-app heidelberg`): Markdown/HTML/text s náhľadom, formátovanie, Ctrl+S do Dokumentov.
 - [x] Heidelberg: docx, odt, rtf, epub cez pandoc (úprava ako Markdown, uloženie späť, záloha originálu „súbor~“), export DOCX/ODT/EPUB/HTML.
-- [ ] Heidelberg: export do PDF (bez LaTeXu, napr. weasyprint), kontrola pravopisu (hunspell sk), verné formátovanie docx.
+- [x] Heidelberg: export do PDF (weasyprint), kontrola pravopisu (hunspell sk), otváranie PDF na úpravu (pdftohtml).
+- [ ] Heidelberg: verné formátovanie docx (tabuľky, štýly, hlavičky).
 - [x] Súbory: Kôš v Obľúbených (obnoviť, odstrániť natrvalo, vysypať), kopírovanie s priebehom (rsync).
 
 - [x] **Zálohovanie** (`latte-backup`, Nastavenia › Dáta): snímky domova cez rsync --link-dest na USB disk alebo do priečinka,
@@ -363,6 +365,7 @@ flowchart TD
 - [x] 4 ponuka šálky · [x] 5 Text Bar, AI cez prihlásenie, Bez AI · [x] 6 Kapsa · [x] 7 Súbory (Forklift/TC, FTP/SFTP, Kôš na ploche)
 - [x] 8 Heidelberg WYSIWYG, tlač, kontrola textu · [x] 9 greeter · [x] 10 Monitor · [x] 11 Ktulu a útek maskota · [x] 12 živá tapeta
 - [ ] tvar L (panel zrastený s lištou) iba pri viditeľnom páse lišty — ostrovy ostali oddelené podľa želania
-- [ ] Heidelberg: otvárať PDF · video tapeta s GPU otestovať na reálnom HW · Electron pruh (NET jazýček je hotový)
+- [x] Heidelberg: otvárať PDF
+- [ ] video tapeta s GPU otestovať na reálnom HW · Electron pruh (NET jazýček je hotový)
 - [x] Digitálna pohoda (pohoda.qml, Monitor › Čas v aplikáciách, limity, čas a RAM v App Manageri)
 - [ ] Plynulé animácie všetkých panelov a vyskakovacích okien pri stupni s GPU (vzor: video „Hyprland as fluid as it gets“) — otestovať na reálnom HW

@@ -70,6 +70,18 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 21:35: Monitor › Procesy podľa aplikácií ✅
+- Procesy sú predvolene zoskupené **podľa aplikácií**, ako v Správcovi úloh vo Windows. Každá aplikácia ukazuje
+  súčet CPU a RAM. Klik ju rozbalí na procesy, detail ukáže súčty a tlačidlo **Ukončiť aplikáciu**
+  (s potvrdením). Pravý klik ponúka Rozbaliť, Ukončiť aplikáciu a Detail v App Manageri.
+- Príslušnosť k aplikácii sa zistí tromi spôsobmi:
+  - Flatpak podľa cgroup (`app-flatpak-ID`), takže Discord má všetkých 23 procesov vrátane izolácie;
+  - scope systemd;
+  - najbližší predok s oknom.
+  Aplikácie LatteOS sa rozlíšia podľa titulku. Procesy bez aplikácie sú v „Ostatné procesy“.
+- Aplikácia bez okna má pri názve „· na pozadí“ (napr. Discord v tray). Detail procesu ukazuje, ku ktorej aplikácii patrí.
+- Tlačidlo „Strom“ ostáva; prepína sa medzi stromom a zoskupením.
+
 ### 24. 9. 2026, 21:30: Setup Plan pred inštaláciou (F6, vzor Flatseal) ✅
 - **Inštalovať** v obchode najprv otvorí **Setup Plan** so zoznamom toho, čo si aplikácia žiada, v zrozumiteľnej reči
   a po skupinách: Internet, Súbory, Zariadenia, Zvuk, Tajomstvá (SSH/GPG kľúče, kľúčenka), Systém, Okná.
