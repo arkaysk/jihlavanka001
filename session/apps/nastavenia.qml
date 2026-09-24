@@ -91,7 +91,7 @@ ShellRoot {
             { key: "start", label: "Štart a režim", glyph: "shield", status: "ready" },
             { key: "cas", label: "Dátum, čas a poloha", glyph: "clock", status: "ready" },
             { key: "jazyk", label: "Jazyk a región", glyph: "language", status: "planned" },
-            { key: "klavesnica", label: "Klávesnica a vstup", glyph: "keyboard", status: "planned" },
+            { key: "klavesnica", label: "Klávesnica a skratky", glyph: "keyboard", status: "partial" },
             { key: "o", label: "O LatteOS", glyph: "info-circle", status: "ready" } ] }
     ]
     readonly property var allPages: {
@@ -346,7 +346,8 @@ ShellRoot {
             efekty: "Efekty kompozitora riadi stupeň výkonu; pohyblivé materiály tém prídu na silnejšom HW.",
             start: "Režim NORMAL (Hyprland) alebo SAFE (labwc bez GPU). SAFE naskočí sám po dvoch pádoch za sebou.",
             cas: "Poloha určuje východ a západ slnka pre automatický svetlý/tmavý režim a nočné svetlo. Ďalšie časové pásma ukáže panel Čas.",
-            o: "Verzie častí systému, z ktorých sa LatteOS skladá."
+            o: "Verzie častí systému, z ktorých sa LatteOS skladá.",
+            klavesnica: "Rozloženia klávesnice sk a us, prepínanie Alt+Shift. Skratky LatteOS:"
         })[k] || (plans[k] ? "Pripravujeme. Čo tu bude:" : "");
     }
     readonly property var plans: ({
@@ -508,7 +509,7 @@ ShellRoot {
         if (managed[k]) return pManaged;
         return ({ domov: pDomov, ai: pAi, subory: pSubory, ulozisko: pUlozisko, vykon: pVykon, diagnostika: pDiag,
                   prihlasovanie: pGreeter, motiv: pMotiv, pozadie: pPozadie, okna: pOkna, lista: pLista, efekty: pEfekty,
-                  start: pStart, cas: pCas, o: pO })[k] || pPlan;
+                  start: pStart, cas: pCas, o: pO, klavesnica: pKlavesy })[k] || pPlan;
     }
 
     // ── stránky ──────────────────────────────────────────────────────────────────
@@ -938,6 +939,30 @@ ShellRoot {
                     Text { text: modelData.split("|")[1] || "—"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.DemiBold } }
                 }
             }
+        }
+    }
+    Component {
+        id: pKlavesy
+        Column {
+            spacing: 4
+            Repeater {
+                model: [["Super + Medzerník", "Text Bar / spúšťač"], ["Super + Tab", "Prehľad pásky (píš pre filter)"], ["Super + Shift + Tab", "Rýchly prepínač okien"],
+                        ["Super + Z", "Rozloženie okna (polovice, štvrtiny…)"], ["Super + I", "AI rozhovor"], ["Super + E", "Súbory"],
+                        ["Super + A", "Riadiace centrum"], ["Super + W", "Režim okien: páska → dlaždice → plávajúce"], ["Super + D", "Zobraziť plochu (a späť)"],
+                        ["Super + Enter", "Terminál"], ["Super + Q", "Zavrieť okno"], ["Super + F", "Celá obrazovka"], ["Super + V", "Plávajúce okno"],
+                        ["Super + šípky", "Fokus (v páske stĺpce)"], ["Super + Ctrl + šípky", "Presun okna"], ["Super + Shift + ←/→", "Okno na iný monitor"],
+                        ["Super + 1…9", "Plocha 1…9"], ["Super + Shift + 1…9", "Okno na plochu"], ["Ctrl + Shift + Esc", "Monitor (správca procesov)"],
+                        ["Super + L", "Zamknúť"], ["Alt + Shift", "Prepnúť rozloženie sk / us"], ["3 prsty ←/→", "Plochy"], ["4 prsty ↑ / ↓", "Prehľad pásky / plocha"]]
+                Row {
+                    required property var modelData
+                    spacing: 16
+                    Rectangle { width: 190; height: 30; radius: 8; color: theme.field
+                                Text { anchors.centerIn: parent; text: modelData[0]; color: theme.fg; font { family: theme.fontMono; pixelSize: 12; weight: Font.Bold } } }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: modelData[1]; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 } }
+                }
+            }
+            Text { topPadding: 10; width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Vlastné skratky: ~/.config/latteos/hyprland.lua (načíta sa na konci a môže prepísať čokoľvek). Editor skratiek pripravujeme." }
         }
     }
     Component {

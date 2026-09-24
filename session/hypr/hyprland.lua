@@ -104,6 +104,7 @@ bind(mod .. " + E",      hl.dsp.exec_cmd("latte-app subory"))                   
 bind(mod .. " + Z",      hl.dsp.exec_cmd("noctalia msg panel-toggle latteos/snap:panel"))  -- rozloženie okna (ako Win+Z)
 bind(mod .. " + I",      hl.dsp.exec_cmd("noctalia msg panel-toggle latteos/ai:chat"))  -- AI rozhovor
 bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd("latte-app monitor"))                   -- Monitor (správca procesov)
+bind(mod .. " + L",      hl.dsp.exec_cmd("noctalia msg session lock"))              -- zamknúť obrazovku
 bind(mod .. " + Q",      hl.dsp.window.close())
 bind(mod .. " + F",      hl.dsp.window.fullscreen())
 bind(mod .. " + V",      hl.dsp.window.float({ action = "toggle" }))
