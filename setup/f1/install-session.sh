@@ -80,6 +80,8 @@ sudo install -m644 "$S"/apps/common/*.qml /usr/share/latteos/apps/common/
 sudo install -m644 "$S"/apps/data/*.qml /usr/share/latteos/apps/data/
 sudo install -m644 "$S"/apps/*.desktop /usr/share/applications/
 xdg-mime default latteos-subory.desktop inode/directory 2>/dev/null || true
+# Markdown otvára Heidelberg (editor dokumentov LatteOS); obyčajný text ostáva na systémovej voľbe
+xdg-mime default latteos-heidelberg.desktop text/markdown 2>/dev/null || true
 # inštalačné súbory otvára App Manager („Bude to fungovať?“)
 for m in application/x-rpm application/vnd.flatpak.ref application/x-msdownload application/vnd.android.package-archive application/vnd.debian.binary-package application/x-iso9660-appimage; do
     xdg-mime default latteos-aplikacie.desktop "$m" 2>/dev/null || true
