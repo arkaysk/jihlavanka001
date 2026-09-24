@@ -15,7 +15,7 @@ ShellRoot {
     readonly property var args: (Quickshell.env("LATTE_APP_ARGS") || "").trim().split(" ")
     // „check“ bez súboru (spustenie z ponuky, .desktop má %f) = Objavovať
     property string section: args[0] === "check" ? (args.length > 1 && args[1] !== "" ? "check" : "objavovat")
-                           : (({ aplikacie: "nainstalovane", instalacia: "objavovat" })[args[0]] || args[0] || "objavovat")
+                           : (({ aplikacie: "nainstalovane", instalacia: "objavovat", hladat: "objavovat" })[args[0]] || args[0] || "objavovat")
     property string status: ""
     property string query: ""
     property var results: []
@@ -103,7 +103,11 @@ ShellRoot {
         if (k === "check") { dlProc.running = true; if (checkPath !== "") check(checkPath); }
         if (k === "nainstalovane" || k === "opravnenia") listProc.running = true;
     }
-    Component.onCompleted: go(section)
+    Component.onCompleted: {
+        go(section);
+        // latte-app aplikacie hladat <názov alebo id> (napr. zo Súborov › Otvoriť v › Nainštalovať): rovno hľadá
+        if (args[0] === "hladat" && args.length > 1) { query = args.slice(1).join(" "); doSearch(); Qt.callLater(() => header.searchText = query); }
+    }
 
     FloatingWindow {
 

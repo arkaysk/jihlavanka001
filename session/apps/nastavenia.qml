@@ -64,6 +64,7 @@ ShellRoot {
     property string mascot: "macka"
     property string barAnim: ""        // prázdne = podľa stupňa (VM: pod kurzorom)
     property string cupQuick: ""       // prázdne = šálka ukazuje stupeň a režim okien, "off" = skryté
+    property string deskIcons: ""      // prázdne = ikony na ploche s košom, "off" = bez ikon
     property string barScene: "para"
     property bool wsWallpaper: false
     property string liveWp: ""
@@ -205,6 +206,8 @@ ShellRoot {
                onLoaded: app.mascot = text().trim() || "macka"; onLoadFailed: app.mascot = "macka" }
     FileView { path: app.cfgHome + "/latteos/bar-anim"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.barAnim = text().trim(); onLoadFailed: app.barAnim = "" }
+    FileView { path: app.cfgHome + "/latteos/desktop-icons"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.deskIcons = text().trim(); onLoadFailed: app.deskIcons = "" }
     FileView { path: app.cfgHome + "/latteos/cup-quick"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.cupQuick = text().trim(); onLoadFailed: app.cupQuick = "" }
     FileView { path: app.cfgHome + "/latteos/bar-scene"; printErrors: false; watchChanges: true; onFileChanged: reload()
@@ -991,6 +994,21 @@ ShellRoot {
                 MouseArea { anchors.fill: parent; onClicked: { app.wsWallpaper = !app.wsWallpaper; app.writePref("wallpaper-per-workspace", app.wsWallpaper ? "1" : "", app.wsWallpaper ? "Tapeta podľa plochy: zapnuté" : "Tapeta podľa plochy: vypnuté"); } }
             }
             Text { anchors.verticalCenter: parent.verticalCenter; text: "Každá plocha má inú tapetu (poradie tapiet LatteOS)"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 } }
+          }
+          Row {
+            spacing: 10
+            Rectangle {
+                width: 46; height: 26; radius: 13; anchors.verticalCenter: parent.verticalCenter
+                color: app.deskIcons !== "off" ? theme.primary : theme.field; border { color: theme.line; width: 1 }
+                Rectangle { width: 20; height: 20; radius: 10; y: 3; x: app.deskIcons !== "off" ? 23 : 3; color: app.deskIcons !== "off" ? theme.fgOnPrimary : theme.fgDim }
+                MouseArea { anchors.fill: parent; onClicked: {
+                    const on = app.deskIcons === "off";
+                    app.deskIcons = on ? "" : "off";
+                    app.writePref("desktop-icons", on ? "" : "off", on ? "Ikony na ploche zapnuté" : "Ikony na ploche vypnuté");
+                    if (on) app.run(["sh", "-c", "pgrep -f 'apps/[p]locha.qml' >/dev/null || setsid latte-app plocha >/dev/null 2>&1 &"]);
+                } }
+            }
+            Text { anchors.verticalCenter: parent.verticalCenter; text: "Ikony na ploche (Kôš a súbory z ~/Plocha)"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 } }
           }
           Flow {
             width: parent.width

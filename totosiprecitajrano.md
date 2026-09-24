@@ -70,6 +70,24 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 17:40: Súbory — Forklift a Total Commander, FTP/SFTP, Otvoriť v…, Kôš na ploche ✅ (bod 7)
+- **Dva režimy** (tlačidlo v hlavičke):
+  - **Forklift:** panel náhľadu sa dá skryť (Alt+P). **Zobrazenie ako vo Win11:** extra veľké, veľké, stredné
+    a malé ikony (obrázky s náhľadom), zoznam, podrobnosti. Tlačidlo **+ Nový** vytvorí priečinok, textový
+    súbor, dokument Heidelberg alebo prázdny súbor.
+  - **Total Commander:** dva panely a lišta **F3 Zobraziť · F4 Upraviť · F5 Kopírovať · F6 Presunúť ·
+    F7 Nový priečinok · F8 Do koša · F9 Server**.
+- **FTP/SFTP:** „Pripojiť server…“ (F9) otvorí `sftp://meno@server` alebo `ftp://…` ako priečinok v ~/Siet
+  (bočná lišta › Sieť, pravý klik = Odpojiť). Heslo ide iba cez stdin, SFTP bez hesla použije SSH kľúče.
+  Otestované proti vlastnému SSH serveru VM (dočasný kľúč som potom z authorized_keys odstránil).
+- **Otvoriť v…:** aplikácie pre typ súboru (predvolená, odporúčané), „Vždy otvárať v…“ a odporúčané
+  aplikácie z App Managera na inštaláciu (napr. obrázok → GIMP, Krita). PDF v Heidelbergu zatiaľ nie
+  (príde s bodom 8).
+- **Kôš na ploche:** ikony na ploche (Kôš vždy, pod ním súbory z ~/Plocha). Súbor pretiahnutý na Kôš ide do
+  koša, na koši je počet položiek. Dá sa vypnúť v Nastaveniach › Pozadie.
+- **Oprava:** „Vysypať kôš“ a „Obnoviť“ nefungovali, lebo `gio` bez gvfs to nevie. Kôš teraz spravuje
+  `latte-kos` podľa freedesktop, pôvodné miesto sa pri obnovení zachová.
+
 ### 24. 9. 2026, 17:25: Text Bar, AI cez prihlásenie, Bez AI ✅ (bod 5)
 - **Text Bar** je širší riadok s textom. Ikona režimu je na okraji, režim sa mení **kolieskom** alebo
   **šípkami ‹ ›** (bodky ukazujú, kde si). Klik na text otvorí hľadanie v danom režime.

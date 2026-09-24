@@ -211,6 +211,8 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("latte-app kapsavyrez")
     -- živý náhľad okna nad oválom okien
     hl.exec_cmd("latte-app nahlad")
+    -- ikony na ploche s košom (vypnutie: Nastavenia › Pozadie)
+    hl.exec_cmd("latte-app plocha")
     -- Barista (sprievodca prvým spustením) raz po prvom prihlásení
     do
         local f = io.open(cfgdir .. "/barista-done", "r")
