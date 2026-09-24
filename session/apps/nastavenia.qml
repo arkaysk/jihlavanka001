@@ -1101,12 +1101,22 @@ ShellRoot {
             spacing: 14
             Heading { text: "ŽIVÁ TAPETA (pohyblivá textúra nad tapetou, pod oknami)" }
             Segments {
-                options: [["", "Vypnutá"], ["tema", "Podľa témy"], ["para", "Para"], ["bublinky", "Bublinky"], ["sneh", "Sneh"], ["iskry", "Iskry"], ["trblietky", "Trblietky"], ["prach", "Prach"]]
-                value: app.liveWp
+                options: [["", "Vypnutá"], ["tema", "Podľa témy"], ["para", "Para"], ["salka", "Para zo šálky"], ["bublinky", "Bublinky"], ["sneh", "Sneh"], ["iskry", "Iskry"], ["trblietky", "Trblietky"], ["prach", "Prach"]]
+                value: app.liveWp.startsWith("video:") ? "" : app.liveWp
                 onPicked: (v) => app.setLive(v)
             }
+            Heading { text: "VIDEO ALEBO ANIMÁCIA AKO TAPETA (ako X Live Wallpaper)" }
+            Row {
+                spacing: 10
+                Field { width: 460; text: app.liveWp.startsWith("video:") ? app.liveWp.slice(6) : ""; placeholder: "/cesta/k/videu.mp4 alebo animácia.gif — Enter zapne"
+                        onCommitted: (t) => { if (t.trim() !== "") app.setLive("video:" + t.trim()); } }
+                Button { visible: app.liveWp.startsWith("video:"); label: "Vypnúť video"; glyph: "x"; onClicked: app.setLive("") }
+            }
             Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
-                   text: "Podľa témy: Latte = para nad šálkou, Jantár = bublinky, Mráz = sneh, kovy = iskry, drahokamy = trblietky, kameň = prach. "
+                   text: "Bez zvuku, v slučke, pri hre a okne na celú obrazovku stojí. V Súboroch: pravý klik na video › Nastaviť ako živú tapetu. "
+                         + ((app.mode.tier === "softver" || app.mode.tier === "minimalny") ? "Video (MP4, WebM) potrebuje grafickú akceleráciu — v stupni Softvér pôjde iba animovaný GIF alebo WebP." : "MP4, WebM, MKV, GIF aj WebP.") }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Podľa témy: Latte = para, Mráz = para zo šálky na tapete, Jantár = bublinky, kovy = iskry, drahokamy = trblietky, kameň = prach. "
                          + "V hernom režime stojí. Stojí asi 2 % jedného jadra" + ((app.mode.tier === "softver" || app.mode.tier === "minimalny") ? " — vo VM so softvérovým kreslením ju odporúčame nechať vypnutú." : ".") }
             Heading { text: "EFEKTY OKIEN" }
             Button { label: "Stupeň výkonu"; glyph: "bolt"; primaryStyle: true; onClicked: app.go("vykon") }

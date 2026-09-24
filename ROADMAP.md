@@ -356,3 +356,10 @@ flowchart TD
 - DMS alebo Caelestia ako základ shellu. Rozhodne meranie v F3.
 - Vydrží llvmpipe na 4 vCPU plynulé animácie shellu pri 1080p? Ak nie, tier Softvér vypne animácie úplne.
 - ~~Vlastný COPR `latteos`, alebo lokálne RPM repo počas vývoja?~~ Lokálne repo, kým nebude HW a Atomic (24. 9. 2026).
+
+### Zadanie 24. 9. popoludní — stav (18:25)
+- [x] 1 okenné tlačidlá a NET · [x] 2 lišta (hodiny, zvonček, dátum s úlohami, App Manager, šálka) · [x] 3 ovál okien
+- [x] 4 ponuka šálky · [x] 5 Text Bar, AI cez prihlásenie, Bez AI · [x] 6 Kapsa · [x] 7 Súbory (Forklift/TC, FTP/SFTP, Kôš na ploche)
+- [x] 8 Heidelberg WYSIWYG, tlač, kontrola textu · [x] 9 greeter · [x] 10 Monitor · [x] 11 Ktulu a útek maskota · [x] 12 živá tapeta
+- [ ] tvar L (panel zrastený s lištou) iba pri viditeľnom páse lišty — ostrovy ostali oddelené podľa želania
+- [ ] Heidelberg: otvárať PDF · video tapeta s GPU otestovať na reálnom HW · Electron pruh (NET jazýček je hotový)

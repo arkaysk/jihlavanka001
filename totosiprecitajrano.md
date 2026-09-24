@@ -70,6 +70,19 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 18:25: živá tapeta — video/GIF ako X Live Wallpaper, para zo šálky pri Mraze ✅ (bod 12)
+- **Video alebo animácia ako tapeta:** MP4, WebM, MKV, GIF, WebP, bez zvuku, v slučke. Pri hre a okne na celú
+  obrazovku sa pozastaví. Zapína sa v Nastaveniach › Animácie a efekty (pole s cestou) alebo v Súboroch:
+  pravý klik na video › **Nastaviť ako živú tapetu**.
+  - Vo VM (stupeň Softvér) ide **iba GIF/WebP**. Video potrebuje grafickú akceleráciu, preto sa nespustí
+    a príde vysvetľujúce oznámenie (predtým by len pálilo 50 % CPU bez obrazu). GIF som overil, animuje sa.
+- **Textúra naviazaná na tému:** pri **Mraze** stúpa **para zo šálky** na tapete, poloha šálky je pre každú
+  tapetu LatteOS. Keď je logo šálky orezané pri hornom okraji, para ide zo skutočnej šálky v strede.
+  Na výber je aj ručne („Para zo šálky“). Para je vždy biela, aby bola vidieť aj na tmavých zrnách.
+- Živá tapeta je teraz vo vrstve tapety (nad tapetou Noctalie, pod ikonami plochy). Pri reštarte Noctalie
+  sa sama preusporiada navrch.
+- Živú tapetu som po teste znova vypol (tak ako bola).
+
 ### 24. 9. 2026, 18:20: Ktulu (Cthulhu mačka) a maskoti, čo utekajú ✅ (bod 11)
 - **Ktulu:** zelenkavá mačka so žiariacimi očami a chápadlami pod bradou. Občas jej **z hrany lišty
   vyrastú chápadlá** a chvíľu sa vlnia. Nový maskot: pravý klik na maskota alebo Nastavenia › Lišta.
