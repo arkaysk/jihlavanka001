@@ -70,6 +70,16 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 17:00: Kapsa podľa tvojho náčrtu ✅ (bod 6)
+- **Široký kontajner vedľa hľadania:** vľavo **jamka (výrez)**, vpravo **8 slotov** schránky. Plný slot je v
+  akcentovej farbe, prázdny sivý. Podržanie myši ukáže obsah, klik ho vytiahne navrch. Počet slotov určuje
+  `~/.config/latteos/kapsa-sloty` (4–12).
+- **Súbor pretiahnutý na jamku** v nej zostane: ikona podľa typu (Word, PDF, obrázok ako náhľad) je naklonená,
+  **čiastočne zapadne do jamky a presahuje nad lištu**. Klik súbor otvorí, potiahnutím ho presunieš ďalej,
+  pravým klikom ho vyberieš. Nová vec posunie predošlú do slotov.
+- Technicky: Noctalia neprijme súbor z iného okna, preto jamku obsluhuje malá vrstva `latte-app kapsavyrez`.
+  Kapsa preto sedí pri hľadaní, kde má stálu polohu; tú si zistí pri prvom prechode myšou nad Kapsou.
+
 ### 24. 9. 2026, 16:50: lišta — hodiny, zvonček, dátum s úlohami, App Manager, šálka ✅ (bod 2)
 - **Ostrov Čas** má tri časti: **hodiny** · **zvonček s počtom nových oznámení** · **dátum s počtom úloh** („št 24. 9. (2)“).
   - Klik na hodiny: časové pásma, **stopky** (medzičasy), **minútka** (1/5/10/25 min alebo vlastná), **budíky**

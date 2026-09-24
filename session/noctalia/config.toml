@@ -45,7 +45,7 @@ clipboard_placement      = "floating"
 control_center_placement = "attached"
 
 # ── Lišta: ostrovy zľava doprava ───────────────────────────────────────────────
-# Aplikácie · Čas a dátum+oznámenia · Systém+páska · Hľadanie · Maskot · Kapsa · Súbory+zariadenia
+# Aplikácie · Čas, oznámenia, dátum · Systém+páska · Hľadanie+Kapsa · Maskot · Súbory+zariadenia
 [bar.main]
 position           = "bottom"
 thickness          = 56
@@ -66,8 +66,8 @@ capsule_padding    = 8
 font_scale         = 1.05
 
 start  = ["group:apps", "group:time", "group:system"]
-center = ["group:search"]
-end    = ["latte-cat", "latte-kapsa", "group:devices"]
+center = ["group:search", "latte-kapsa"]
+end    = ["latte-cat", "group:devices"]
 
 [[bar.main.capsule_group]]
 id      = "apps"
@@ -144,6 +144,7 @@ type = "latteos/cat:mascot"
 # Kapsa = schránka LatteOS (plugin latteos/kapsa, história cez cliphist); nahrádza widget clipboard Noctalie
 [widget.latte-kapsa]
 type = "latteos/kapsa:pocket"
+capsule = false          # vlastný široký kontajner s výrezom a slotmi (náčrt 24. 9.); vedľa hľadania = stála poloha
 
 [widget.files]
 type  = "custom_button"

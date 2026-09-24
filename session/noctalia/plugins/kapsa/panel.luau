@@ -4,6 +4,7 @@
 local C = require("./common.luau")
 local items = {}
 local preview = noctalia.pluginDataDir() .. "/navrchu.png"
+local vecFile = (noctalia.getenv("XDG_STATE_HOME") or ((noctalia.getenv("HOME") or "") .. "/.local/state")) .. "/latteos/kapsa-vec"
 
 local function load()
   noctalia.runAsync({ "sh", "-c", "cliphist list 2>/dev/null | head -24" }, function(r)
@@ -26,6 +27,21 @@ end
 function render()
   local top = items[1]
   local body = {}
+  -- vec vo výreze (súbor pretiahnutý na Kapsu na lište)
+  local vec = string.match(noctalia.readFile(vecFile) or "", "^%s*(.-)%s*$") or ""
+  if vec ~= "" then
+    table.insert(body, ui.row({ fill = "surface_variant", radius = 14, padding = 10, gap = 8, align = "center" }, {
+      ui.glyph({ name = "file", size = 18, color = "primary" }),
+      ui.column({ flexGrow = 1, gap = 2 }, {
+        ui.label({ text = "VO VÝREZE", fontSize = 10, fontWeight = "bold", color = "on_surface_variant" }),
+        ui.label({ text = string.match(vec, "[^/]+$") or vec, fontSize = 13, maxWidth = 280, maxLines = 1 }),
+      }),
+      ui.button({ glyph = "external-link", variant = "ghost", tooltip = "Otvoriť", onClick = function() noctalia.runAsync({ "xdg-open", vec }) end }),
+      ui.button({ glyph = "x", variant = "ghost", tooltip = "Vybrať z Kapsy", onClick = function() noctalia.removeFile(vecFile); render() end }),
+    }))
+  else
+    table.insert(body, ui.label({ text = "Výrez je prázdny: pretiahni súbor na jamku Kapsy na lište.", fontSize = 12, color = "on_surface_variant", maxWidth = 400, maxLines = 2 }))
+  end
   if top then
     local card = { ui.label({ text = "NAVRCHU", fontSize = 11, fontWeight = "bold", color = "on_primary" }) }
     if top.image then

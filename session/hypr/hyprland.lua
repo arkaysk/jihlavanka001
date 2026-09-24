@@ -207,6 +207,8 @@ hl.on("hyprland.start", function()
     end
     -- znak NET pre cudzie okná (ukáže sa, až keď aplikácia použije sieť)
     hl.exec_cmd("latte-app netznak")
+    -- výrez Kapsy: prijme súbor pretiahnutý na lištu
+    hl.exec_cmd("latte-app kapsavyrez")
     -- Barista (sprievodca prvým spustením) raz po prvom prihlásení
     do
         local f = io.open(cfgdir .. "/barista-done", "r")
