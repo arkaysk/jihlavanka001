@@ -25,10 +25,14 @@ sudo install -Dm755 "$repo/target/release/latte-boot" /usr/bin/latte-boot
 for f in latte-session latte-safe latte-greeter latte-theme latte-app latte-ai latte-shellset; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
 
 echo "== konfigurácie relácií → /usr/share/latteos"
-sudo install -Dm644 "$S/hypr/hyprland.conf" /usr/share/latteos/hypr/hyprland.conf
-sudo install -Dm644 "$S/hypr/hyprland.lua" /usr/share/latteos/hypr/hyprland.lua
+# bežiaci Hyprland sleduje svoje súbory a pri zmene sa znovu načíta: súbor sa preto vymieňa atomicky
+# (dočasný súbor + premenovanie) a moduly latte/*.lua idú pred hyprland.lua. Inak reload uprostred
+# inštalácie nenájde modul a Hyprland prejde do núdzového režimu (stalo sa 24. 9. 2026).
+put() { sudo install -Dm644 "$1" "$2.latte-new" && sudo mv -f "$2.latte-new" "$2"; }
 sudo install -d /usr/share/latteos/hypr/latte
-sudo install -m644 "$S"/hypr/latte/*.lua /usr/share/latteos/hypr/latte/
+for f in "$S"/hypr/latte/*.lua; do put "$f" "/usr/share/latteos/hypr/latte/$(basename "$f")"; done
+put "$S/hypr/hyprland.conf" /usr/share/latteos/hypr/hyprland.conf
+put "$S/hypr/hyprland.lua" /usr/share/latteos/hypr/hyprland.lua
 for f in rc.xml autostart environment menu.xml; do sudo install -Dm644 "$S/labwc/$f" "/usr/share/latteos/labwc/$f"; done
 # relácie LatteOS: v systémovom zozname (pre iné greetery) aj vo vlastnom, ktorý ponúka latte-greeter
 # (tuigreet by inak ponúkol aj „Hyprland“ z COPR bez Noctalie a bez latte-session)
@@ -38,12 +42,12 @@ for f in latteos.desktop latteos-safe.desktop; do
 done
 
 echo "== vzhľad: Noctalia (téma Latte), písma Manrope/Fraunces (OFL), tapety LatteOS"
-sudo install -Dm644 "$S/noctalia/config.toml" /usr/share/latteos/noctalia/config.toml
+put "$S/noctalia/config.toml" /usr/share/latteos/noctalia/config.toml   # Noctalia sleduje priečinok (hot reload)
 sudo install -Dm644 "$S/noctalia/palettes/Latte.json" /usr/share/latteos/noctalia/palettes/Latte.json
 sudo install -Dm644 "$S/noctalia/icons/latte-cup.png" /usr/share/latteos/noctalia/icons/latte-cup.png
 for p in "$S"/noctalia/plugins/*/; do   # pluginy LatteOS (zdroj „latteos“ v config.toml)
     n="$(basename "$p")"; sudo install -d "/usr/share/latteos/noctalia/plugins/$n"
-    sudo install -m644 "$p"* "/usr/share/latteos/noctalia/plugins/$n/"
+    for f in "$p"*; do [ -f "$f" ] && sudo install -m644 "$f" "/usr/share/latteos/noctalia/plugins/$n/"; done   # iba súbory
 done
 # maskoti na lištu: vlastná pixel-art, snímky sa generujú (plugin latteos/cat)
 tmpm="$(mktemp -d)"; python3 "$S/noctalia/plugins/cat/make-mascots.py" "$tmpm" | sed 's/^/   /'
@@ -88,6 +92,13 @@ sudo restorecon -R /run/latteos
 [ -f /etc/latteos/boot.toml ] || sudo install -Dm644 "$S/etc/boot.toml" /etc/latteos/boot.toml
 # nové kľúče doplniť do existujúceho boot.toml (hodnoty používateľa sa nemenia)
 grep -q '^greeter' /etc/latteos/boot.toml || sed -n '/^# obrazovka prihlásenia/,/^greeter/p' "$S/etc/boot.toml" | sudo tee -a /etc/latteos/boot.toml >/dev/null
+echo "== OOM politika (F5): najprv aplikácia, nie relácia"
+sudo install -Dm644 "$S/oom/user@-50-latteos-oom.conf" /usr/lib/systemd/system/user@.service.d/50-latteos-oom.conf
+sudo install -Dm644 "$S/oom/user@-52-latteos-oomd.conf" /usr/lib/systemd/system/user@.service.d/52-latteos-oomd.conf
+sudo install -Dm644 "$S/oom/user.conf.d-50-latteos-oom.conf" /usr/lib/systemd/user.conf.d/50-latteos-oom.conf
+grep -v '^#' "$S/oom/services.list" | while read -r svc; do
+    [ -n "$svc" ] && sudo install -Dm644 "$S/oom/user-service-50-latteos-oom.conf" "/usr/lib/systemd/user/$svc.service.d/50-latteos-oom.conf"
+done
 sudo systemctl daemon-reload
 
 echo "== greetd → latte-greeter (záloha pôvodnej konfigurácie raz)"

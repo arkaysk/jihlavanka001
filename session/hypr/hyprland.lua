@@ -144,6 +144,11 @@ hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 -- ── pravidlá okien ────────────────────────────────────────────────────────────
 hl.window_rule({ name = "latte-bez-maximalizacie", match = { class = ".*" }, suppress_event = "maximize" })
 
+-- OOM (F5, session/oom): okná aplikácií majú pri nedostatku pamäte prednosť pred kompozitorom a shellom
+hl.on("window.open", function(w)
+    if w and w.pid and w.pid > 0 then hl.exec_cmd("choom -n 300 -p " .. math.floor(w.pid)) end
+end)
+
 -- ── autoštart ─────────────────────────────────────────────────────────────────
 hl.on("hyprland.start", function()
     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE LATTE_MODE LATTE_RENDERER LATTE_TIER")

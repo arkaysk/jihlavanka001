@@ -188,7 +188,7 @@ flowchart TD
 - [x] SAFE relácia: labwc + pixman + Noctalia + ponuka `latte-safe` (diagnostika, skúsiť NORMAL, sieť, rollback dnf). Boot s `nomodeset` naštartoval (simpledrm); grafická relácia nad simpledrm ešte neoverená.
 - [x] Greeter: greetd + **tuigreet** (textový, bez GPU), ponúka iba „LatteOS“ a „LatteOS SAFE“. Noctalia Greeter je vypnutý (`greeter = "tui"`): pod greetd prepúšťa pamäť jadra ~36 MB/s.
 - [x] **Celý štart overený 23. 9. 2026:** Plymouth → `latte-boot` (NORMAL · sw-gl) → tuigreet → LatteOS (Hyprland + Noctalia) → `latte-boot ok` po 60 s. Boot 13,4 s.
-- [ ] Presunuté ďalej: vlastný COPR `latteos` (treba FAS účet a API token; zatiaľ lokálny repozitár `latteos-local`, COPR má `excludepkgs=hyprland*`).
+- [ ] Presunuté ďalej: distribúcia balíkov pre iné PC. **Rozhodnuté 24. 9. 2026:** čaká sa na HW testovací stroj a Atomic (bootc); dovtedy lokálny repozitár `latteos-local`, COPR má `excludepkgs=hyprland*`.
 - [ ] Presunuté ďalej: Noctalia Greeter bez úniku pamäte (F3), grafická SAFE relácia s `nomodeset`, systemd user integrácia relácie (`latte-session.target`).
 
 ### F2 — Hyprland Lua modul LatteOS *(základ hotový 23. 9. 2026)*
@@ -244,7 +244,11 @@ flowchart TD
   k cieľu: natívny shell bez Qt, jeden vzhľad od prihlásenia po plochu a podpora labwc.
   Preto je v porovnaní ako rovnocenný kandidát. Balíky sú v COPR `lionheartp/Hyprland`
   (`noctalia-git` 5.1.0, `noctalia-greeter-git`). **Prvý test 23. 9. 2026:** beží v NORMAL aj SAFE, pozri F1.
-- [ ] Spodná lišta z ostrovov: App Manager, čas a notifikácie, Latte a páska, Text Bar, kapsa, súbory a zariadenia.
+- [x] Spodná lišta z ostrovov: **dlaždica aplikácií** (široká, textúra para/matrix, podľa starej verzie), **čas a dátum**
+  s panelom Čas · Oznámenia · Kalendár (časové pásma, plánovač, účty kalendárov a to-do cez kalendár Noctalie,
+  mobil cez KDE Connect), Latte a páska, Text Bar, **maskot** (vlastná pixel mačka, ťuká do rytmu hudby), schránka, súbory a zariadenia.
+  Šírka, odsadenie, hrúbka, pohyb dlaždice a maskot sú v Nastaveniach › Prostredie › Lišta.
+- [ ] Kapsa (schránka) ako vlastný ostrov.
 - [ ] Prehľad pásky (Super+Tab) nad IPC Hyprlandu.
 - [ ] Fork Noctalie v5 (`latte-shell`), vlastný repozitár.
 - [ ] Téma **Latte** a **Úsporná**, farby z tapety (Noctalia má vlastný generátor, matugen ako záloha).
@@ -255,7 +259,12 @@ flowchart TD
 - [x] Pluginy Noctalie (Luau): **systémové menu** (šálka), **Text Bar** (Lokálne/Web/AI/Linux príkaz),
   **Zariadenia** (riadiace centrum, herný režim).
 - [x] **14 tém** (palety, okraje, režim, tapeta) + `latte-theme`; materiály bez animácie (čaká na fork a shadery).
-- [x] Aplikácia **Nastavenia** (návrh V2).
+  Každá téma má tmavú aj svetlú verziu: `latte-theme mode tema|dark|light|auto` (auto podľa východu/západu slnka z polohy).
+- [x] Aplikácia **Nastavenia** (návrh V2) s **vrstvenými kartami** oblastí podľa old/main_setting_v2.md: Softvér, Dáta,
+  Hardvér, Účet, Prostredie + Systém; vždy otvorená jedna karta, stav ● ◐ ○ + text. Stránky: Domov (stav), AI, Súbory,
+  Úložisko, Výkon, Diagnostika (log pádu), Prihlasovanie (greeter), Motív, Pozadie, Okná, Lišta, Štart, Dátum a čas, O LatteOS.
+- [x] Greeter: posledné dva účty na klik, ľavý panel s prvým logom posledného pádu (vývoj) alebo vlastným textom,
+  pozadie a farba z Nastavení (`/var/lib/latteos/greeter/`, SELinux `xdm_var_lib_t`).
 - [ ] Materiály tém (mráz, kov, kameň, jantár, fazety) ako shadery vo forku Noctalie, iba pri stupni Plný.
 - [ ] Schránka „kapsa“, prehľad pásky, AI panel, inštalácia aplikácie („Bude to fungovať?“).
 
@@ -263,12 +272,14 @@ flowchart TD
 - [ ] Device Manager: stavia na crate `latte-hw`, udisks2, NetworkManager, PipeWire.
 - [ ] Process Manager: náhrada Ctrl+Alt+Del, autoruns, HW info (vzor Mission Center).
 - [x] Data Manager **prototyp** (Quickshell, `latte-app subory`): Tento počítač (lsblk), dva panely F3/F5/F6, detail, kôš.
+- [x] Data Manager: **kontextové menu** (pravý klik v zozname aj v bočnej lište), **farebné štítky** priečinkov a súborov
+  (`~/.config/latteos/tags.json`), vlastné Obľúbené, premenovanie, nový priečinok, terminál tu.
 - [ ] Data Manager v Ruste (udisks2, kopírovanie s priebehom, zdieľané priečinky) podľa prototypu.
 - [ ] App Manager: dnf + Flatpak (neskôr rpm-ostree), jednotné IPC so shellom.
 
 ### F5 — Stabilita a pamäť
-- [ ] Port `resources/upstream/ubuntu-settings/oom/` do Fedory: premapovať GNOME služby na LatteOS
-  (Hyprland, shell, PipeWire, portály, dbus-broker) a nastaviť `ManagedOOMMemoryPressure=auto` pre `user@.service`.
+- [x] OOM politika podľa Ubuntu 26.10 ([session/oom](session/oom/README.md)): `user@` −500 a `ManagedOOMMemoryPressure=auto`,
+  služby správcu +100, dbus/PipeWire/portály/gvfs −500, okná aplikácií +300 (Lua `window.open` → `choom`).
 - [ ] Profil „hra má prednosť“ (zatiaľ len konfigurácia).
 - [ ] Test: zaplniť RAM vo VM, relácia musí prežiť.
 
@@ -278,7 +289,9 @@ flowchart TD
 - [ ] Setup Plan dialóg (vzor Flatseal).
 
 ### F7 — AI a Text Bar
-- [ ] Ollama na CPU s malým modelom (3–4B). Router lokálne/online.
+- [x] `latte-ai`: poskytovatelia **lokálne** (Ollama), **domáci server** (OpenAI API: LM Studio, llama.cpp; voliteľne SSH tunel),
+  **cloud** (Claude, ChatGPT, Gemini, Mistral s API kľúčom). Text Bar /ai a Nastavenia › Softvér › AI. Overené s LM Studio na hostiteľovi.
+- [ ] Ollama na CPU s malým modelom (3–4B) priamo v PC. Router lokálne/online podľa otázky.
 - [ ] Text Bar: 4 režimy (Lokálne, Web, AI, Linux príkaz) a potvrdenie deštruktívnych príkazov.
 
 ### F8 — Herná vrstva (len integrácia, bez výkonu)
@@ -300,4 +313,4 @@ flowchart TD
 ## Otvorené otázky
 - DMS alebo Caelestia ako základ shellu. Rozhodne meranie v F3.
 - Vydrží llvmpipe na 4 vCPU plynulé animácie shellu pri 1080p? Ak nie, tier Softvér vypne animácie úplne.
-- Vlastný COPR `latteos`, alebo lokálne RPM repo počas vývoja?
+- ~~Vlastný COPR `latteos`, alebo lokálne RPM repo počas vývoja?~~ Lokálne repo, kým nebude HW a Atomic (24. 9. 2026).
