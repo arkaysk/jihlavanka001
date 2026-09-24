@@ -312,6 +312,8 @@ ShellRoot {
     }
 
     FloatingWindow {
+
+        onClosed: Qt.quit()              // zavretie z kompozitora (✕ v titulku, Super+Q) ukončí aj proces
         id: win
         title: "Súbory — LatteOS"
         implicitWidth: 1280

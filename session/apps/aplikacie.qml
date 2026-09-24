@@ -106,6 +106,8 @@ ShellRoot {
     Component.onCompleted: go(section)
 
     FloatingWindow {
+
+        onClosed: Qt.quit()              // zavretie z kompozitora (✕ v titulku, Super+Q) ukončí aj proces
         title: "Aplikácie — LatteOS"
         implicitWidth: 1220; implicitHeight: 780
         color: theme.surface

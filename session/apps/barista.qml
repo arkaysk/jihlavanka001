@@ -76,6 +76,8 @@ ShellRoot {
     }
 
     FloatingWindow {
+
+        onClosed: app.finish()              // zavretie z kompozitora (✕ v titulku, Super+Q) ukončí aj proces
         title: "Barista — LatteOS"
         implicitWidth: 980; implicitHeight: 680
         color: theme.surface

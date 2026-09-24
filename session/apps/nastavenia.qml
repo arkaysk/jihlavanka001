@@ -374,6 +374,7 @@ ShellRoot {
 
     // ── okno ─────────────────────────────────────────────────────────────────────
     FloatingWindow {
+        onClosed: Qt.quit()              // zavretie z kompozitora (✕ v titulku, Super+Q) ukončí aj proces
         title: "Nastavenia — LatteOS"
         implicitWidth: 1220; implicitHeight: 780
         color: theme.surface

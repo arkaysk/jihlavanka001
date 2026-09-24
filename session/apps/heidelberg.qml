@@ -133,6 +133,8 @@ ShellRoot {
     }
 
     FloatingWindow {
+
+        onClosed: Qt.quit()              // zavretie z kompozitora (✕ v titulku, Super+Q) ukončí aj proces
         title: (app.path ? app.path.split("/").pop() : "Nový dokument") + (app.dirty ? " •" : "") + " — Heidelberg"
         implicitWidth: 1280; implicitHeight: 800
         color: theme.surface

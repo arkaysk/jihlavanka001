@@ -76,6 +76,8 @@ ShellRoot {
     Timer { id: tick; interval: 1000; repeat: true; onTriggered: { app.countdown--; if (app.countdown <= 0) app.revert(); } }
 
     FloatingWindow {
+
+        onClosed: Qt.quit()              // zavretie z kompozitora (✕ v titulku, Super+Q) ukončí aj proces
         id: win
         title: "Správca zariadení — LatteOS"
         implicitWidth: 1220; implicitHeight: 780

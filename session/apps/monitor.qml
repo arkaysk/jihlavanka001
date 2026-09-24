@@ -122,6 +122,7 @@ ShellRoot {
 
     // ── okno ─────────────────────────────────────────────────────────────────────
     FloatingWindow {
+        onClosed: Qt.quit()              // zavretie z kompozitora (✕ v titulku, Super+Q) ukončí aj proces
         title: "Monitor — LatteOS"
         implicitWidth: 1220; implicitHeight: 760
         color: theme.surface

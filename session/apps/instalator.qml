@@ -24,6 +24,8 @@ ShellRoot {
     property bool showLog: false
     property string sizeInfo: ""
     property string error: ""
+    property bool quitWhenDone: false
+    Process { id: tell }
 
     readonly property string heading: title || (action === "upgrade" ? "Aktualizácia systému" : (action === "remove" ? "Odstránenie" : "Inštalácia") + " · " + pkgs.join(", "))
 
@@ -51,6 +53,11 @@ ShellRoot {
                 app.phase = "chyba";
                 app.error = /incorrect password|nesprávne heslo|Sorry, try again|3 incorrect/i.test(app.log) ? "Nesprávne heslo správcu." : "Nepodarilo sa (kód " + code + "). Pozri Podrobnosti.";
             }
+            if (app.quitWhenDone) {
+                tell.command = ["notify-send", "-a", "LatteOS", "Inštalátor · " + app.heading, code === 0 ? "Hotovo" : app.error];
+                tell.startDetached();
+                Qt.quit();
+            }
         }
     }
     function parse(l) {
@@ -74,6 +81,8 @@ ShellRoot {
     }
 
     FloatingWindow {
+
+        onClosed: if (app.phase === "bezi") app.quitWhenDone = true; else Qt.quit()   // dnf sa neprerušuje: dobehne, oznámi, skončí
         title: "Inštalátor — LatteOS"
         implicitWidth: 620; implicitHeight: app.showLog ? 620 : 360
         color: theme.surface
