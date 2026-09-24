@@ -36,6 +36,10 @@ ShellRoot {
     property var notif: ({})          // prepisy [notification]
     property var access: ({})         // prepisy [accessibility]
     property string fullName: ""
+    property var backup: ({})        // latte-backup status
+    property var backupDrives: []
+    property var backupList: []
+    property int backupPct: -1
     property var locales: []          // nainštalované (locale -a)
     property var localeConf: ({})     // ~/.config/latteos/locale
     property var avatarChoices: []
@@ -73,7 +77,7 @@ ShellRoot {
           pages: [
             { key: "subory", label: "Súbory a priečinky", glyph: "folder", status: "ready" },
             { key: "ulozisko", label: "Úložisko", glyph: "database", status: "partial" },
-            { key: "zalohy", label: "Zálohovanie a obnova", glyph: "history", status: "planned" },
+            { key: "zalohy", label: "Zálohovanie a obnova", glyph: "history", status: "ready" },
             { key: "synchronizacia", label: "Synchronizácia", glyph: "cloud", status: "planned" } ] },
         { key: "hardver", title: "Hardvér", glyph: "cpu", summary: (mode.renderer || "?") + " · stupeň " + (mode.tier || "?"), owner: "Device Manager",
           pages: [
@@ -126,6 +130,7 @@ ShellRoot {
         if (key === "oznamenia") dndProc.running = true;
         if (key === "mojucet") accountProc.running = true;
         if (key === "jazyk") localeProc.running = true;
+        if (key === "zalohy" || key === "domov") backupProc.running = true;
         if (key === "ulozisko" || key === "domov") storageProc.running = true;
     }
     Component.onCompleted: { go(section); aiStatus.running = true; }
@@ -265,6 +270,22 @@ ShellRoot {
         avatarTick.restart();
     }
     Timer { id: avatarTick; interval: 500; onTriggered: app.avatarRev++ }
+    Cmd {
+        id: backupProc; command: ["latte-backup", "status"]
+        onDone: (out) => {
+            const b = {}, dr = [];
+            for (const l of out.split("\n")) { const i = l.indexOf("="); if (i < 0) continue; const k = l.slice(0, i), v = l.slice(i + 1); if (k === "drive") dr.push(v.split("|")); else b[k] = v; }
+            app.backup = b; app.backupDrives = dr;
+            if (b.target) backupListProc.running = true;
+        }
+    }
+    Cmd { id: backupListProc; command: ["latte-backup", "list"]; onDone: (out) => app.backupList = out.split("\n").filter(l => l !== "") }
+    Process {
+        id: backupRun
+        command: ["latte-backup", "run"]
+        stdout: SplitParser { onRead: (line) => { const m = line.match(/^pct=(\d+)/); if (m) app.backupPct = parseInt(m[1]); const e = line.match(/^error=(.*)/); if (e) app.status = e[1]; } }
+        onExited: (code) => { app.backupPct = -1; if (code === 0) app.status = "Záloha hotová"; backupProc.running = true; }
+    }
     Cmd { id: localeProc; command: ["sh", "-c", "locale -a"]; onDone: (out) => app.locales = out.split("\n").map(l => l.toLowerCase()) }
     FileView {
         id: localeFile
@@ -409,6 +430,7 @@ ShellRoot {
             start: "Režim NORMAL (Hyprland) alebo SAFE (labwc bez GPU). SAFE naskočí sám po dvoch pádoch za sebou.",
             cas: "Poloha určuje východ a západ slnka pre automatický svetlý/tmavý režim a nočné svetlo. Ďalšie časové pásma ukáže panel Čas.",
             o: "Verzie častí systému, z ktorých sa LatteOS skladá.",
+            zalohy: "Záloha domovského priečinka na USB disk alebo do priečinka. Každá záloha vyzerá ako celá kópia, nezmenené súbory zaberajú miesto iba raz.",
             jazyk: "Jazyk aplikácií a formáty dátumu, času, čísel a mien. Aplikácie LatteOS sú po slovensky; shell Noctalia zatiaľ nemá slovenský preklad (anglicky).",
             mojucet: "Meno, heslo a obrázok, ktorý ukáže obrazovka prihlásenia.",
             uzamknutie: "Čo sa stane, keď počítač chvíľu nepoužívaš. Pred akciou obrazovka 2 s pomaly stmavne — pohyb myšou to zruší.",
@@ -423,7 +445,6 @@ ShellRoot {
         aktualizacie: ["systém (Atomic: celý obraz naraz s návratom)", "aplikácie", "firmware (fwupd)", "„Aktualizovať všetko“"],
         spustanie: ["aplikácie pri prihlásení", "služby na pozadí", "Latte System Monitor: autorun položky s pôvodom"],
         sukromie: ["tlačidlo NET pre každú aplikáciu", "dôveryhodné / nedôveryhodné aplikácie", "kamera, mikrofón, poloha"],
-        zalohy: ["zálohy domovského priečinka (restic/btrfs snapshoty)", "obnova súboru z minulosti"],
         synchronizacia: ["priečinky v cloude", "dáta aplikácií medzi PC", "prenos profilu cez USB"],
         obrazovky: ["rozlíšenie, frekvencia, mierka, otočenie", "potvrdenie do 15 s, inak návrat", "HDR a VRR na reálnom HW"],
         zvuk: ["výstup a vstup", "hlasitosť aplikácií", "Bluetooth slúchadlá"],
@@ -443,6 +464,7 @@ ShellRoot {
         if (k === "prihlasovanie") return "Greeter: " + greeter + " · panel " + greeterConf.panel;
         if (k === "lista") return "Hrúbka " + (bar.thickness || 56) + " · okraje " + (bar.margin_ends || 12) + " · spodok " + (bar.margin_edge || 10);
         if (k === "cas") return "Poloha " + (location.latitude || "48.74") + ", " + (location.longitude || "19.15") + (clockZones.length ? "\nPásma: " + clockZones.join(", ") : "");
+        if (k === "zalohy") return backup.target ? ("Cieľ: " + backup.target + "\nPosledná: " + (backup.last || "zatiaľ žiadna") + "\nSnímok: " + (backup.count || 0) + (backup.free ? " · voľné " + backup.free : "") + (backup.schedule === "on" ? "\nDenne automaticky" : "")) : "Cieľ zálohy nie je nastavený";
         if (k === "jazyk") return "Jazyk: " + (localeConf.LANG || "systémový (sk_SK.UTF-8)") + (localeConf.LC_TIME ? "\nFormáty: " + localeConf.LC_TIME : "");
         if (k === "mojucet") return (fullName || user) + " (" + user + ")";
         if (k === "uzamknutie") return "Zamknúť: " + (idleMin(idle.lock) ? idleMin(idle.lock) + " min" : "nikdy") + "\nObrazovka: " + (idleMin(idle.screen) ? idleMin(idle.screen) + " min" : "nikdy") + "\nUspať: " + (idleMin(idle.suspend) ? idleMin(idle.suspend) + " min" : "nikdy");
@@ -463,6 +485,7 @@ ShellRoot {
             oznamenia: "~/.local/state/noctalia/settings.toml [notification]",
             uzamknutie: "~/.local/state/noctalia/settings.toml [idle.behavior.*]",
             mojucet: "/var/lib/latteos/greeter/avatars/<meno>.png\n~/.face",
+            zalohy: "~/.config/latteos/backup.conf\n<cieľ>/LatteOS-zaloha-<meno>/<dátum>\n~/.config/systemd/user/latte-backup.timer",
             jazyk: "~/.config/latteos/locale (načíta latte-session)\n/etc/locale.conf (systém)",
             pristupnost: "~/.local/state/noctalia/settings.toml [accessibility]\n~/.config/latteos/no-animations, cursor-size",
             klavesnica: "/usr/share/latteos/hypr/hyprland.lua\n~/.config/latteos/hyprland.lua"
@@ -583,7 +606,7 @@ ShellRoot {
         return ({ domov: pDomov, ai: pAi, subory: pSubory, ulozisko: pUlozisko, vykon: pVykon, diagnostika: pDiag,
                   prihlasovanie: pGreeter, motiv: pMotiv, pozadie: pPozadie, okna: pOkna, lista: pLista, efekty: pEfekty,
                   start: pStart, cas: pCas, o: pO, klavesnica: pKlavesy, oznamenia: pOznamenia, pristupnost: pPristupnost,
-                  uzamknutie: pUzamknutie, mojucet: pUcet, jazyk: pJazyk })[k] || pPlan;
+                  uzamknutie: pUzamknutie, mojucet: pUcet, jazyk: pJazyk, zalohy: pZalohy })[k] || pPlan;
     }
 
     // ── stránky ──────────────────────────────────────────────────────────────────
@@ -1013,6 +1036,54 @@ ShellRoot {
                     Text { text: modelData.split("|")[1] || "—"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.DemiBold } }
                 }
             }
+        }
+    }
+    Component {
+        id: pZalohy
+        Column {
+            spacing: 14
+            Heading { text: "KAM ZÁLOHOVAŤ" }
+            Text { visible: app.backupDrives.length === 0; width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 }
+                   text: "Pripoj USB disk (objaví sa tu), alebo zadaj priečinok nižšie." }
+            Flow {
+                width: parent.width; spacing: 10
+                Repeater {
+                    model: app.backupDrives
+                    Card {
+                        required property var modelData
+                        width: 240; glyph: "usb"; title: modelData[0].split("/").pop(); sub: modelData[1] + " voľné"; selected: app.backup.target === modelData[0]
+                        onClicked: { app.run(["latte-backup", "set-target", modelData[0]], "Cieľ zálohy: " + modelData[0]); backupRefresh.restart(); }
+                    }
+                }
+            }
+            Field { placeholder: "alebo priečinok, napr. /run/media/" + app.user + "/Zaloha"; text: app.backup.target || ""
+                    onCommitted: (t) => { if (t !== "" && t !== app.backup.target) { app.run(["latte-backup", "set-target", t], "Cieľ zálohy: " + t); backupRefresh.restart(); } } }
+            Timer { id: backupRefresh; interval: 500; onTriggered: backupProc.running = true }
+            Row {
+                spacing: 10
+                Button { label: app.backupPct >= 0 ? "Zálohujem… " + app.backupPct + " %" : "Zálohovať teraz"; glyph: "history"; primaryStyle: true
+                         onClicked: if (app.backupPct < 0 && app.backup.target) { app.backupPct = 0; backupRun.running = true; } }
+                Button { label: app.backup.schedule === "on" ? "Denne: zapnuté" : "Denne: vypnuté"; glyph: "clock"
+                         onClicked: { app.run(["latte-backup", "schedule", app.backup.schedule === "on" ? "off" : "on"], "Denná záloha " + (app.backup.schedule === "on" ? "vypnutá" : "zapnutá")); backupRefresh.restart(); } }
+            }
+            Rectangle { visible: app.backupPct >= 0; width: parent.width; height: 6; radius: 3; color: theme.field
+                        Rectangle { width: parent.width * app.backupPct / 100; height: 6; radius: 3; color: theme.primary } }
+            Heading { text: "ZÁLOHY (obnova: otvor zálohu v Súboroch a skopíruj súbor späť, F5)" }
+            Text { visible: app.backupList.length === 0; text: "Zatiaľ žiadne."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 } }
+            Repeater {
+                model: app.backupList.slice(0, 10)
+                Rectangle {
+                    required property string modelData
+                    width: Math.min(parent.width, 560); height: 44; radius: 10; color: theme.field
+                    Text { x: 14; anchors.verticalCenter: parent.verticalCenter
+                           text: modelData.replace(/^(\d{4})-(\d\d)-(\d\d)_(\d\d)(\d\d)(\d\d)?$/, (m, y, mo, d, h, mi) => parseInt(d) + ". " + parseInt(mo) + ". " + y + "  " + h + ":" + mi)
+                           color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.DemiBold } }
+                    Button { anchors { right: parent.right; rightMargin: 6; verticalCenter: parent.verticalCenter } label: "Otvoriť"; glyph: "folder"
+                             onClicked: app.run(["latte-app", "subory", app.backup.target + "/LatteOS-zaloha-" + app.user + "/" + parent.modelData]) }
+                }
+            }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Nezálohuje sa: vyrovnávacia pamäť, kôš, Steam a Flatpak aplikácie (dajú sa stiahnuť znova). Ponecháva sa 14 najnovších záloh." }
         }
     }
     Component {

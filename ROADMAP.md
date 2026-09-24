@@ -296,6 +296,11 @@ flowchart TD
 - [ ] Heidelberg: rtf, odt, docx, epub (pandoc), export do PDF, kontrola pravopisu (hunspell sk).
 - [x] Súbory: Kôš v Obľúbených (obnoviť, odstrániť natrvalo, vysypať), kopírovanie s priebehom (rsync).
 
+- [x] **Zálohovanie** (`latte-backup`, Nastavenia › Dáta): snímky domova cez rsync --link-dest na USB disk alebo do priečinka,
+  denný systemd --user časovač, 14 najnovších, obnova cez Súbory. Overené (pevné odkazy, vynechaná .cache).
+- [x] Nastavenia: Jazyk a región, Môj účet (obrázok aj v greeteri), Oznámenia, Prístupnosť, Uzamknutie, Klávesnica a skratky.
+- [x] **Barista** — sprievodca prvým spustením (vzhľad, okná, maskot, AI, aplikácie).
+
 ### F5 — Stabilita a pamäť
 - [x] OOM politika podľa Ubuntu 26.10 ([session/oom](session/oom/README.md)): `user@` −500 a `ManagedOOMMemoryPressure=auto`,
   služby správcu +100, dbus/PipeWire/portály/gvfs −500, okná aplikácií +300 (Lua `window.open` → `choom`).

@@ -34,6 +34,20 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 09:15: Barista, Jazyk a región, Zálohovanie ✅
+- **Barista**, sprievodca prvým spustením. Kroky: Vitaj → Vzhľad (všetkých 14 tém + svetlá/tmavá/podľa
+  slnka) → Okná → Lišta a maskot → AI → Aplikácie (inštalujú sa z Flathubu na pozadí) → skratky.
+  **Pri tvojom ďalšom prihlásení sa raz ukáže**; kedykoľvek ho spustíš znova z Text Baru („Barista“).
+- **Nastavenia › Systém › Jazyk a región:** jazyk a formáty (dátum, čísla, meny) pre tvoj účet. Chýbajúci
+  jazyk sa doinštaluje v termináli. Pozor: shell Noctalia nemá slovenský preklad (texty lišty od
+  Noctalie sú anglicky), naše pluginy a aplikácie sú po slovensky.
+- **Nastavenia › Dáta › Zálohovanie a obnova** (`latte-backup`):
+  - Záloha domova na USB disk (objaví sa sám) alebo do priečinka, „Zálohovať teraz“ s priebehom,
+    voliteľne denne automaticky.
+  - Každá záloha vyzerá ako celá kópia, nezmenené súbory sa ukladajú iba raz (overené), drží sa 14
+    najnovších.
+  - Obnova: tlačidlo Otvoriť ukáže zálohu v Súboroch.
+
 ### 24. 9. 2026, 09:00: Môj účet, Kôš, Heidelberg ✅
 - **Nastavenia › Účet › Môj účet:** meno, zmena hesla a **obrázok účtu**. Vyberieš si maskota LatteOS
   alebo obrázok z priečinka Obrázky. Obrázok sa ukáže aj na **obrazovke prihlásenia** v karte
