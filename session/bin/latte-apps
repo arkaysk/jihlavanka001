@@ -10,6 +10,13 @@
   latte-apps install flatpak ID      inštalácia z Flathubu pre používateľa (bez roota)
   latte-apps remove flatpak ID       odinštalovanie Flatpaku používateľa
 
+  latte-apps store home              JSON: obchod — trendy, obľúbené, nové, aktualizované (Flathub API, cache 6 h)
+  latte-apps store category KAT      JSON: aplikácie kategórie (game, audiovideo, graphics, network, office, …)
+  latte-apps store search TEXT       JSON: vyhľadávanie vo Flathube (a balíky Fedory)
+  latte-apps store app ID            JSON: detail — popis, snímky obrazovky, vývojár, licencia, veľkosť, inštalácie, verzie
+  latte-apps latteos                 JSON: súčasti LatteOS — nainštalovaná verzia (commit) a čo je nové v repozitári
+  latte-apps drivers                 JSON: ovládače a firmvér — fwupd, grafika (NVIDIA/AMD/Intel), odporúčania
+
 RPM (systém) inštaluje a odinštaluje grafický Inštalátor (latte-app instalator) cez sudo dnf.
 """
 import glob, json, os, re, shutil, subprocess, sys
@@ -221,6 +228,180 @@ def check(path):
     return v
 
 
+# ── obchod: Flathub API v2 ───────────────────────────────────────────────────
+FLATHUB = "https://flathub.org/api/v2"
+CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME", HOME + "/.cache"), "latteos", "flathub")
+
+
+def fh(path, ttl=6 * 3600, post=None):
+    import hashlib, time, urllib.request
+    os.makedirs(CACHE, exist_ok=True)
+    key = hashlib.md5((path + json.dumps(post or "")).encode()).hexdigest()
+    f = os.path.join(CACHE, key + ".json")
+    if os.path.exists(f) and time.time() - os.path.getmtime(f) < ttl:
+        try:
+            return json.load(open(f))
+        except ValueError:
+            pass
+    try:
+        req = urllib.request.Request(FLATHUB + path, data=json.dumps(post).encode() if post is not None else None,
+                                     headers={"Content-Type": "application/json", "User-Agent": "LatteOS-AppManager/0.1"})
+        data = json.load(urllib.request.urlopen(req, timeout=15))
+        json.dump(data, open(f, "w"))
+        return data
+    except Exception:
+        if os.path.exists(f):                 # bez internetu: posledná známa ponuka
+            return json.load(open(f))
+        return None
+
+
+def flatpak_installed():
+    rc, text, _ = sh(["flatpak", "list", "--app", "--columns=application"], timeout=20)
+    return set(l.strip() for l in text.splitlines() if l.strip())
+
+
+def card(h, inst):
+    aid = h.get("app_id") or h.get("id", "").replace("_", ".")
+    return {"id": aid, "name": h.get("name", aid), "summary": h.get("summary", ""), "icon": h.get("icon") or "",
+            "developer": h.get("developer_name") or "", "verified": bool(h.get("verification_verified")),
+            "installs": h.get("installs_last_month") or 0, "category": h.get("main_categories") or "",
+            "free": h.get("is_free_license", True), "installed": aid in inst}
+
+
+def store(a):
+    inst = flatpak_installed()
+    if a[0] == "home":
+        out = {}
+        for key, path in (("trendy", "/collection/trending"), ("oblubene", "/collection/popular"),
+                          ("nove", "/collection/recently-added"), ("aktualizovane", "/collection/recently-updated")):
+            d = fh(path + "?page=1&per_page=16") or {}
+            out[key] = [card(h, inst) for h in d.get("hits", []) if h.get("type", "desktop-application") == "desktop-application"]
+        # úvodný banner: prvá trendová aplikácia so snímkou obrazovky
+        for c in out.get("trendy", [])[:6]:
+            det = fh("/appstream/" + c["id"], ttl=24 * 3600) or {}
+            shot = shots(det)
+            if shot:
+                out["banner"] = dict(c, screenshot=shot[0], description=plain(det.get("description", ""))[:260])
+                break
+        return out
+    if a[0] == "category" and len(a) > 1:
+        page = a[2] if len(a) > 2 else "1"
+        d = fh("/collection/category/%s?page=%s&per_page=48" % (a[1], page)) or {}
+        return {"apps": [card(h, inst) for h in d.get("hits", [])], "pages": d.get("totalPages", 1)}
+    if a[0] == "search" and len(a) > 1:
+        q = " ".join(a[1:])
+        d = fh("/search", ttl=3600, post={"query": q}) or {}
+        apps = [card(h, inst) for h in d.get("hits", [])[:40] if h.get("type", "desktop-application") in ("desktop-application", "console-application")]
+        rpm = [x for x in search(q) if x["source"] == "rpm"][:8] if a[0] == "search" else []
+        return {"apps": apps, "rpm": rpm}
+    if a[0] == "app" and len(a) > 1:
+        aid = a[1]
+        det = fh("/appstream/" + aid, ttl=24 * 3600) or {}
+        summ = fh("/summary/" + aid, ttl=24 * 3600) or {}
+        stats = fh("/stats/" + aid, ttl=24 * 3600) or {}
+        ver = fh("/verification/%s/status" % aid, ttl=24 * 3600) or {}
+        rel = [{"version": r.get("version", ""), "date": r.get("timestamp", ""), "text": plain(r.get("description") or "")[:400]}
+               for r in (det.get("releases") or [])[:4]]
+        urls = det.get("urls") or {}
+        return {"id": aid, "name": det.get("name", aid), "summary": det.get("summary", ""), "developer": det.get("developer_name", ""),
+                "description": plain(det.get("description", "")), "icon": det.get("icon") or "", "screenshots": shots(det),
+                "license": det.get("project_license", ""), "free": det.get("is_free_license", True),
+                "downloadSize": summ.get("download_size") or 0, "installedSize": summ.get("installed_size") or 0,
+                "installsTotal": stats.get("installs_total") or 0, "verified": bool(ver.get("verified")),
+                "verifiedBy": ver.get("website") or ver.get("login_name") or "", "releases": rel,
+                "homepage": urls.get("homepage", ""), "help": urls.get("help", ""), "categories": det.get("categories") or [],
+                "installed": aid in inst}
+    return None
+
+
+def shots(det):
+    out = []
+    for sc in det.get("screenshots") or []:
+        sizes = sc.get("sizes") or []
+        best = None
+        for z in sizes:                        # snímka ~752 px široká (rýchla, ostrá v okne)
+            w = int(z.get("width") or 0)
+            if 600 <= w <= 1300 and (best is None or abs(w - 900) < abs(int(best["width"]) - 900)):
+                best = z
+        if best or sizes:
+            out.append((best or sizes[0])["src"])
+    return out[:6]
+
+
+def plain(html):
+    t = re.sub(r"\s*\n\s*", " ", html or "")            # zalomenia v zdrojovom XML nie sú odseky
+    t = re.sub(r"<li>\s*", "\n• ", t)
+    t = re.sub(r"</p>\s*", "\n\n", t)
+    t = re.sub(r"<[^>]+>", "", t)
+    t = re.sub(r"[ \t]+", " ", t)
+    return re.sub(r"\n\s*\n\s*\n+", "\n\n", t).strip()
+
+
+# ── súčasti LatteOS: nainštalovaná verzia vs. repozitár ──────────────────────
+def latteos():
+    info = {}
+    for line in open("/usr/share/latteos/VERSION").read().splitlines() if os.path.exists("/usr/share/latteos/VERSION") else []:
+        k, _, v = line.partition("=")
+        info[k.strip()] = v.strip()
+    src = info.get("source", "")
+    out = {"installed": info.get("commit", ""), "date": info.get("date", ""), "branch": info.get("branch", ""), "source": src,
+           "behind": 0, "log": [], "error": ""}
+    if not src or not os.path.isdir(os.path.join(src, ".git")):
+        out["error"] = "Súčasti LatteOS neboli nainštalované z repozitára (chýba /usr/share/latteos/VERSION)."
+        return out
+    rc, _, err = sh(["git", "-C", src, "fetch", "-q", "origin", out["branch"] or "HEAD"], timeout=30)
+    if rc != 0:
+        out["error"] = "Repozitár sa nepodarilo overiť: " + (err.strip().splitlines() or ["bez spojenia"])[-1][:160]
+    # novšie ako nainštalované: z GitHubu (origin/vetva) alebo lokálne v repozitári (vývoj) — čo je ďalej
+    text = ""
+    for ref in (("origin/" + out["branch"]) if out["branch"] else "FETCH_HEAD", "HEAD"):
+        rc, t, _ = sh(["git", "-C", src, "log", "--format=%h\t%cs\t%s", out["installed"] + ".." + ref], timeout=20)
+        if rc == 0 and len(t.splitlines()) > len(text.splitlines()):
+            text = t
+    out["log"] = [dict(zip(("commit", "date", "subject"), l.split("\t", 2))) for l in text.splitlines()][:30]
+    out["behind"] = len(text.splitlines())
+    rc, text, _ = sh(["git", "-C", src, "log", "--format=%h\t%cs\t%s", "-n", "8", out["installed"]], timeout=20)
+    out["recent"] = [dict(zip(("commit", "date", "subject"), l.split("\t", 2))) for l in text.splitlines()]
+    return out
+
+
+# ── ovládače a firmvér (Správca zariadení) ───────────────────────────────────
+def drivers():
+    out = {"firmware": [], "gpu": [], "notes": [], "fwupd": bool(shutil.which("fwupdmgr"))}
+    if out["fwupd"]:
+        rc, text, _ = sh(["fwupdmgr", "get-updates", "--json"], timeout=40)
+        try:
+            for d in json.loads(text).get("Devices", []):
+                rel = (d.get("Releases") or [{}])[0]
+                out["firmware"].append({"device": d.get("Name", ""), "vendor": d.get("Vendor", ""), "current": d.get("Version", ""),
+                                        "new": rel.get("Version", ""), "summary": rel.get("Summary", ""), "id": d.get("DeviceId", "")})
+        except ValueError:
+            pass
+    rc, text, _ = sh(["lspci", "-nnk"], timeout=10)
+    blocks = re.split(r"\n(?=\S)", text)
+    for b in blocks:
+        if re.search(r"VGA|3D controller|Display controller", b):
+            name = b.splitlines()[0].split(": ", 1)[-1]
+            m = re.search(r"Kernel driver in use: (\S+)", b)
+            drv = m.group(1) if m else ""
+            g = {"name": name, "driver": drv, "status": "ok", "advice": ""}
+            if "NVIDIA" in name:
+                rc2, _, _ = sh(["rpm", "-q", "akmod-nvidia"], timeout=10)
+                if drv != "nvidia":
+                    g.update(status="odporucane", advice="Pre hry nainštaluj ovládač NVIDIA (akmod-nvidia z RPM Fusion) — namiesto nouveau.",
+                             package="akmod-nvidia")
+            elif re.search(r"AMD|ATI", name):
+                g["advice"] = "AMD: ovládač amdgpu je súčasťou jadra, aktualizuje sa so systémom (Mesa)."
+            elif "Intel" in name:
+                g["advice"] = "Intel: ovládač i915/xe je súčasťou jadra, aktualizuje sa so systémom (Mesa)."
+            elif re.search(r"VMware|VirtualBox|QXL|Virtio", name):
+                g["advice"] = "Virtuálny počítač: ovládač poskytuje hypervízor, nič netreba inštalovať."
+            out["gpu"].append(g)
+    if not out["fwupd"]:
+        out["notes"].append("Firmvér (BIOS, SSD, dokovacie stanice) aktualizuje fwupd — nie je nainštalovaný.")
+    return out
+
+
 def main(a):
     if not a:
         print(__doc__.strip(), file=sys.stderr)
@@ -236,6 +417,12 @@ def main(a):
         print(json.dumps(permissions(a[1]), ensure_ascii=False))
     elif cmd == "net" and len(a) == 3:
         return subprocess.call(["latte-net", "on" if a[2] == "on" else "off", a[1]])   # Flatpak aj natívne (bubblewrap)
+    elif cmd == "store" and len(a) > 1:
+        print(json.dumps(store(a[1:]), ensure_ascii=False))
+    elif cmd == "latteos":
+        print(json.dumps(latteos(), ensure_ascii=False))
+    elif cmd == "drivers":
+        print(json.dumps(drivers(), ensure_ascii=False))
     elif cmd == "check" and len(a) == 2:
         print(json.dumps(check(a[1]), ensure_ascii=False))
     elif cmd in ("install", "remove") and len(a) == 3 and a[1] == "flatpak":

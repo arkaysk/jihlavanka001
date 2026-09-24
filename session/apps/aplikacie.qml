@@ -29,6 +29,21 @@ ShellRoot {
     property var verdict: null
     property var downloads: []
     property string busyId: ""
+    // obchod (Flathub API cez latte-apps store)
+    property var store: null
+    property string category: ""
+    property string categoryName: ""
+    property var categoryApps: []
+    property int categoryPage: 1
+    property var appPage: null              // detail aplikácie v obchode
+    property string appPageId: ""
+    property var searchRpm: []
+    // aktualizácie: súčasti LatteOS, ovládače a firmvér
+    property var latte: null
+    property var drv: null
+    readonly property var categories: [["game", "Hry"], ["network", "Internet"], ["audiovideo", "Hudba a video"], ["graphics", "Grafika"],
+                                       ["office", "Kancelária"], ["development", "Vývoj"], ["education", "Vzdelávanie"], ["science", "Veda"],
+                                       ["system", "Systém"], ["utility", "Nástroje"]]
 
     readonly property var sel: installedApps.find(a => a.id === selId) || null
 
@@ -64,21 +79,28 @@ ShellRoot {
           onDone: (out) => { try { app.installedApps = JSON.parse(out); } catch (e) {} } }
     Cmd { id: updProc; command: ["latte-apps", "updates"]
           onDone: (out) => { app.updatesLoading = false; try { app.updatesList = JSON.parse(out); } catch (e) {} } }
-    Cmd { id: searchProc; onDone: (out) => { app.searching = false; try { app.results = JSON.parse(out); } catch (e) { app.results = []; } } }
+    Cmd { id: searchProc; onDone: (out) => { app.searching = false; try { const r = JSON.parse(out); app.results = r.apps || []; app.searchRpm = r.rpm || []; } catch (e) { app.results = []; app.searchRpm = []; } } }
+    Cmd { id: storeProc; command: ["latte-apps", "store", "home"]; onDone: (out) => { try { app.store = JSON.parse(out); } catch (e) { app.store = { error: true }; } } }
+    Cmd { id: catProc; onDone: (out) => { try { const r = JSON.parse(out); app.categoryApps = app.categoryPage > 1 ? app.categoryApps.concat(r.apps) : r.apps; } catch (e) {} } }
+    Cmd { id: appProc; onDone: (out) => { try { const r = JSON.parse(out); if (r && r.id === app.appPageId) app.appPage = r; } catch (e) {} } }
+    Cmd { id: latteProc; command: ["latte-apps", "latteos"]; onDone: (out) => { try { app.latte = JSON.parse(out); } catch (e) {} } }
+    Cmd { id: drvProc; command: ["latte-apps", "drivers"]; onDone: (out) => { try { app.drv = JSON.parse(out); } catch (e) {} } }
     Cmd { id: permProc; onDone: (out) => { try { app.perms = JSON.parse(out); } catch (e) { app.perms = {}; } } }
     Cmd { id: checkProc; onDone: (out) => { try { app.verdict = JSON.parse(out); } catch (e) { app.verdict = null; } } }
     Cmd { id: dlProc
           command: ["sh", "-c", "ls -t \"$HOME\"/Stiahnuté/* \"$HOME\"/Downloads/* 2>/dev/null | grep -iE '\\.(rpm|flatpakref|flatpak|appimage|exe|msi|apk|deb|sh|run)$' | head -12"]
           onDone: (out) => app.downloads = out.split("\n").filter(l => l !== "") }
     Cmd { id: installProc
-          onDone: (out, code) => { app.status = code === 0 ? "Hotovo: " + app.busyId : "Nepodarilo sa: " + app.busyId + " (kód " + code + ")"; app.busyId = ""; listProc.running = true; } }
+          onDone: (out, code) => { app.status = code === 0 ? "Hotovo: " + app.busyId : "Nepodarilo sa: " + app.busyId + " (kód " + code + ")"; app.busyId = ""; listProc.running = true;
+                                   if (app.appPageId !== "") { appProc.command = ["latte-apps", "store", "app", app.appPageId]; appProc.running = true; } } }
     Process { id: runner }
     function run(cmd, msg) { runner.command = cmd; runner.running = true; if (msg) app.status = msg; }
 
     Timer { id: debounce; interval: 600; onTriggered: app.doSearch() }
     function doSearch() {
         if (query.trim().length < 2) { results = []; return; }
-        searching = true; searchProc.command = ["latte-apps", "search", query.trim()]; searchProc.running = true;
+        appPage = null; category = "";
+        searching = true; searchProc.command = ["latte-apps", "store", "search", query.trim()]; searchProc.running = true;
     }
     function install(src, id, name) {
         if (src === "flatpak") {
@@ -96,10 +118,25 @@ ShellRoot {
         const ex = (a.exec || "").replace(/%[fFuUdDnNickvm]/g, "").trim();
         if (ex) run(["sh", "-c", "setsid " + ex + " >/dev/null 2>&1 &"], "Spúšťam " + a.name);
     }
+    function openApp(id) {
+        appPageId = id; appPage = null; section = "objavovat";
+        appProc.command = ["latte-apps", "store", "app", id]; appProc.running = true;
+        content.contentY = 0;
+    }
+    function openCategory(key, name, page) {
+        category = key; categoryName = name; categoryPage = page || 1; appPage = null; if (categoryPage === 1) categoryApps = [];
+        catProc.command = ["latte-apps", "store", "category", key, String(categoryPage)]; catProc.running = true;
+        if (categoryPage === 1) content.contentY = 0;
+    }
+    function storeHome() { appPage = null; appPageId = ""; category = ""; header.searchText = ""; content.contentY = 0; }
+    function fmtCount(n) { return n >= 1000000 ? (n / 1000000).toFixed(1).replace(".", ",") + " mil." : (n >= 1000 ? Math.round(n / 1000) + " tis." : String(n)); }
+    function runFlatpak(id) { run(["sh", "-c", "setsid flatpak run \"$1\" >/dev/null 2>&1 &", "sh", id], "Spúšťam " + id); }
     function check(p) { checkPath = p; verdict = null; checkProc.command = ["latte-apps", "check", p]; checkProc.running = true; }
     function go(k) {
         section = k;
         if (k === "aktualizacie" && updatesList.length === 0) { updatesLoading = true; updProc.running = true; }
+        if (k === "aktualizacie") { latteProc.running = true; drvProc.running = true; }
+        if (k === "objavovat" && !store && !storeProc.running) storeProc.running = true;
         if (k === "check") { dlProc.running = true; if (checkPath !== "") check(checkPath); }
         if (k === "nainstalovane" || k === "opravnenia") listProc.running = true;
     }
@@ -128,7 +165,7 @@ ShellRoot {
                 current: app.section
                 model: [
                     { title: "App Manager", items: [
-                        { key: "objavovat", glyph: "search", label: "Objavovať", sub: "Flathub a Fedora" },
+                        { key: "objavovat", glyph: "search", label: "Obchod", sub: "Flathub, Fedora, výber LatteOS" },
                         { key: "aktualizacie", glyph: "refresh", label: "Aktualizácie", sub: app.updatesLoading ? "zisťujem…" : (app.updatesList.length ? app.updatesList.length + " dostupných" : "skontrolovať") },
                         { key: "nainstalovane", glyph: "apps", label: "Nainštalované", sub: app.installedApps.length + " aplikácií" },
                         { key: "opravnenia", glyph: "shield", label: "Oprávnenia a NET", sub: "internet, súbory, zariadenia" }
@@ -145,7 +182,7 @@ ShellRoot {
                 theme: theme
                 appId: "latteos-aplikacie"
                 anchors { left: side.right; right: parent.right; top: parent.top }
-                title: ({ objavovat: "Objavovať", aktualizacie: "Aktualizácie", nainstalovane: "Nainštalované", opravnenia: "Oprávnenia a NET", check: "Bude to fungovať?" })[app.section] || ""
+                title: ({ objavovat: app.appPage ? app.appPage.name : (app.category ? app.categoryName : "Obchod"), aktualizacie: "Aktualizácie", nainstalovane: "Nainštalované", opravnenia: "Oprávnenia a NET", check: "Bude to fungovať?" })[app.section] || ""
                 searchPlaceholder: "Hľadať aplikáciu"
                 onSearchChanged: (t) => { app.query = t; if (t !== "" && app.section !== "nainstalovane") app.section = "objavovat"; debounce.restart(); }
                 onCloseRequested: Qt.quit()
@@ -153,7 +190,7 @@ ShellRoot {
 
             Flickable {
                 id: content
-                anchors { left: side.right; top: header.bottom; bottom: statusBar.top; right: detail.left; margins: 20 }
+                anchors { left: side.right; top: header.bottom; bottom: statusBar.top; right: detail.visible ? detail.left : parent.right; margins: 20 }
                 contentHeight: body.implicitHeight + 20; clip: true
                 Loader {
                     id: body
@@ -165,6 +202,7 @@ ShellRoot {
             // detail vybranej aplikácie
             Rectangle {
                 id: detail
+                visible: app.section === "nainstalovane" || app.section === "opravnenia"
                 anchors { right: parent.right; top: header.bottom; bottom: statusBar.top; margins: 14 }
                 width: 280; radius: theme.radius
                 color: Qt.rgba(0, 0, 0, theme.mode === "dark" ? 0.16 : 0.04); border { color: theme.line; width: 1 }
@@ -212,7 +250,7 @@ ShellRoot {
                 anchors { left: side.right; right: parent.right; bottom: parent.bottom }
                 height: 30; color: "transparent"
                 Rectangle { width: parent.width; height: 1; color: theme.line }
-                Text { x: 14; anchors.verticalCenter: parent.verticalCenter; text: app.status || (app.busyId ? "Pracujem…" : "Flatpak: pre tvoj účet bez hesla · RPM: v termináli so sudo")
+                Text { x: 14; anchors.verticalCenter: parent.verticalCenter; text: app.status || (app.busyId ? "Pracujem…" : "Flatpak: pre tvoj účet bez hesla · RPM a systém: Inštalátor s heslom správcu")
                        color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
             }
             ContextMenu { id: ctx; theme: theme }
@@ -255,69 +293,297 @@ ShellRoot {
     }
 
     // ── stránky ──────────────────────────────────────────────────────────────────
+    // karta aplikácie z obchodu (ikona, názov, zhrnutie, overený vývojár, inštalácie)
+    component AppCard: Rectangle {
+        id: cardItem
+        required property var info
+        width: 232; height: 104; radius: 16
+        color: cm.containsMouse ? theme.hover : theme.field
+        border { color: cm.containsMouse ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.5) : "transparent"; width: 1 }
+        Rectangle {
+            id: icBox; x: 12; y: 12; width: 56; height: 56; radius: 14; color: "transparent"; clip: true
+            Image { id: icImg; anchors.fill: parent; source: cardItem.info.icon || ""; asynchronous: true; fillMode: Image.PreserveAspectFit; sourceSize { width: 112; height: 112 } }
+            Glyph { anchors.centerIn: parent; visible: icImg.status !== Image.Ready; name: "package"; size: 30; color: theme.primary }
+        }
+        Column {
+            x: 80; y: 12; width: parent.width - 92; spacing: 2
+            Text { width: parent.width; elide: Text.ElideRight; text: cardItem.info.name; color: theme.fg; font { family: theme.fontUi; pixelSize: 14; weight: Font.Bold } }
+            Text { width: parent.width; wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight; text: cardItem.info.summary || ""
+                   color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } }
+        }
+        Row {
+            x: 80; anchors { bottom: parent.bottom; bottomMargin: 10 } spacing: 8
+            Text { visible: cardItem.info.installed; text: "✓ nainštalované"; color: theme.primary; font { family: theme.fontUi; pixelSize: 10; weight: Font.Bold } }
+            Text { visible: !cardItem.info.installed && !!cardItem.info.verified; text: "✔ overený"; color: theme.primary; font { family: theme.fontUi; pixelSize: 10; weight: Font.Bold } }
+            Text { visible: !cardItem.info.installed && (cardItem.info.installs || 0) > 0; text: "↓ " + app.fmtCount(cardItem.info.installs) + "/mes."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 10 } }
+        }
+        MouseArea { id: cm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: app.openApp(cardItem.info.id) }
+    }
+    component Shelf: Column {
+        id: shelf
+        property string title; property var items: []
+        width: parent ? parent.width : 600; spacing: 8; visible: items.length > 0
+        Heading { text: shelf.title.toUpperCase(); topPadding: 6 }
+        ListView {
+            width: parent.width; height: 104; orientation: ListView.Horizontal; spacing: 10; clip: true
+            model: shelf.items; boundsBehavior: Flickable.StopAtBounds
+            delegate: AppCard { required property var modelData; info: modelData }
+        }
+    }
+
     Component {
         id: pDiscover
         Column {
-            spacing: 10
-            Text { visible: app.query === ""; width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 }
-                   text: "Hľadaj hore, alebo vyber z odporúčaných. Flathub aplikácie bežia v izolácii a inštalujú sa pre tvoj účet bez hesla." }
-            Text { visible: app.searching; text: "Hľadám „" + app.query + "“…"; color: theme.primary; font { family: theme.fontUi; pixelSize: 13 } }
-            Repeater {
-                model: app.query === "" ? app.picks : []
-                Column {
-                    id: grp
-                    required property var modelData
-                    width: parent.width; spacing: 6
-                    Heading { text: grp.modelData.title.toUpperCase(); topPadding: 6 }
+            spacing: 14
+            width: parent ? parent.width : 800
+
+            // ── detail aplikácie ────────────────────────────────────────────────
+            Column {
+                visible: app.appPageId !== ""
+                width: parent.width; spacing: 14
+                readonly property var d: app.appPage
+                Pill { label: "‹ Späť do obchodu"; onClicked: { app.appPageId = ""; app.appPage = null; } }
+                Text { visible: !parent.d; text: "Načítavam z Flathubu…"; color: theme.primary; font { family: theme.fontUi; pixelSize: 13 } }
+                Row {
+                    visible: !!parent.d; spacing: 18; width: parent.width
+                    Rectangle {
+                        width: 104; height: 104; radius: 24; color: theme.field
+                        Image { anchors { fill: parent; margins: 8 } source: parent.parent.parent.d ? parent.parent.parent.d.icon : ""; fillMode: Image.PreserveAspectFit; asynchronous: true
+                                sourceSize { width: 192; height: 192 } }
+                    }
+                    Column {
+                        width: parent.width - 122; spacing: 6
+                        readonly property var d: parent.parent.d
+                        Text { text: parent.d ? parent.d.name : ""; color: theme.fg; font { family: theme.fontDisplay; pixelSize: 28; weight: Font.DemiBold } }
+                        Text { text: parent.d ? parent.d.developer + (parent.d.verified ? "  ✔ overený" + (parent.d.verifiedBy ? " (" + parent.d.verifiedBy + ")" : "") : "") : ""
+                               color: parent.d && parent.d.verified ? theme.primary : theme.fgDim; font { family: theme.fontUi; pixelSize: 13; weight: Font.DemiBold } }
+                        Text { width: parent.width; wrapMode: Text.WordWrap; text: parent.d ? parent.d.summary : ""; color: theme.fg; font { family: theme.fontUi; pixelSize: 14 } }
+                        Row {
+                            spacing: 10; topPadding: 6
+                            readonly property var d: parent.d
+                            Pill { visible: !!parent.d && !parent.d.installed; primaryStyle: true; on: app.busyId === ""
+                                   label: parent.d && app.busyId === parent.d.id ? "Inštalujem…" : "Inštalovať"
+                                   onClicked: app.install("flatpak", parent.d.id, parent.d.name) }
+                            Pill { visible: !!parent.d && parent.d.installed; primaryStyle: true; label: "Otvoriť"; onClicked: app.runFlatpak(parent.d.id) }
+                            Pill { visible: !!parent.d && parent.d.installed; label: app.busyId !== "" ? "Pracujem…" : "Odinštalovať"; on: app.busyId === ""
+                                   onClicked: { app.busyId = parent.d.id; app.status = "Odinštalujem " + parent.d.name + "…"; installProc.command = ["latte-apps", "remove", "flatpak", parent.d.id]; installProc.running = true; } }
+                            Pill { visible: !!parent.d && parent.d.homepage !== ""; label: "Web ↗"; onClicked: Qt.openUrlExternally(parent.d.homepage) }
+                        }
+                    }
+                }
+                // štatistiky
+                Flow {
+                    visible: !!parent.d; width: parent.width; spacing: 10
+                    readonly property var d: parent.d
                     Repeater {
-                        model: grp.modelData.items
-                        AppRow {
+                        model: parent.d ? [["Na stiahnutie", app.human(parent.d.downloadSize) || "—"], ["Po inštalácii", app.human(parent.d.installedSize) || "—"],
+                                           ["Inštalácie", app.fmtCount(parent.d.installsTotal)], ["Verzia", (parent.d.releases[0] || {}).version || "—"],
+                                           ["Licencia", parent.d.free ? "slobodná" : "vlastnícka"], ["Zdroj", "Flathub · izolácia"]] : []
+                        Rectangle {
                             required property var modelData
-                            width: grp.width; title: modelData[1]; sub: modelData[2]; badge: "Flathub"
-                            readonly property bool has: app.isInstalled(modelData[0])
-                            actionLabel: app.busyId === modelData[0] ? "Inštalujem…" : (has ? "Nainštalované" : "Inštalovať")
-                            actionPrimary: !has; actionOn: !has && app.busyId === ""
-                            onAction: app.install("flatpak", modelData[0], modelData[1])
+                            width: 150; height: 58; radius: 12; color: theme.field
+                            Text { x: 12; y: 9; text: modelData[0].toUpperCase(); color: theme.fgDim; font { family: theme.fontUi; pixelSize: 10; weight: Font.Bold } }
+                            Text { x: 12; y: 27; width: parent.width - 24; elide: Text.ElideRight; text: modelData[1]; color: theme.fg; font { family: theme.fontUi; pixelSize: 15; weight: Font.Bold } }
+                        }
+                    }
+                }
+                // snímky obrazovky
+                ListView {
+                    visible: !!parent.d && parent.d.screenshots.length > 0
+                    width: parent.width; height: 300; orientation: ListView.Horizontal; spacing: 12; clip: true
+                    model: parent.d ? parent.d.screenshots : []
+                    delegate: Rectangle {
+                        required property string modelData
+                        width: shot.status === Image.Ready ? Math.min(560, shot.implicitWidth * 300 / Math.max(1, shot.implicitHeight)) : 480; height: 300; radius: 14
+                        color: theme.field; clip: true
+                        Image { id: shot; anchors.fill: parent; source: modelData; fillMode: Image.PreserveAspectFit; asynchronous: true; sourceSize.height: 600 }
+                        Text { anchors.centerIn: parent; visible: shot.status !== Image.Ready; text: "…"; color: theme.fgDim; font.pixelSize: 22 }
+                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Qt.openUrlExternally(modelData) }
+                    }
+                }
+                Heading { visible: !!parent.d; text: "O APLIKÁCII" }
+                Text { visible: !!parent.d; width: parent.width; wrapMode: Text.WordWrap; text: parent.d ? parent.d.description : ""
+                       color: theme.fg; lineHeight: 1.25; font { family: theme.fontUi; pixelSize: 13 } }
+                Heading { visible: !!parent.d && parent.d.releases.length > 0; text: "VERZIE" }
+                Repeater {
+                    model: parent.d ? parent.d.releases : []
+                    Column {
+                        required property var modelData
+                        width: parent.width; spacing: 2
+                        Text { text: modelData.version + (modelData.date ? "  ·  " + Qt.formatDate(new Date(parseInt(modelData.date) * 1000), "d. M. yyyy") : "")
+                               color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.Bold } }
+                        Text { visible: modelData.text !== ""; width: parent.width; wrapMode: Text.WordWrap; maximumLineCount: 4; elide: Text.ElideRight
+                               text: modelData.text; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+                    }
+                }
+                Text { visible: !!parent.d; width: parent.width; wrapMode: Text.WordWrap; topPadding: 6; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 }
+                       text: "Popisy sú z Flathubu (väčšinou po anglicky). Flatpak beží v izolácii; prístup k súborom, sieti a zariadeniam upravíš v Oprávnenia a NET." }
+            }
+
+            // ── vyhľadávanie ────────────────────────────────────────────────────
+            Column {
+                visible: app.appPageId === "" && app.query !== ""
+                width: parent.width; spacing: 10
+                Text { visible: app.searching; text: "Hľadám „" + app.query + "“…"; color: theme.primary; font { family: theme.fontUi; pixelSize: 13 } }
+                Heading { visible: app.results.length > 0; text: "FLATHUB  ·  " + app.results.length }
+                Flow { width: parent.width; spacing: 10; Repeater { model: app.results; AppCard { required property var modelData; info: modelData } } }
+                Heading { visible: app.searchRpm.length > 0; text: "SYSTÉMOVÉ BALÍKY FEDORY" }
+                Repeater {
+                    model: app.searchRpm
+                    AppRow {
+                        required property var modelData
+                        width: parent.width; title: modelData.name; sub: modelData.comment; badge: "Fedora"; glyph: "box"
+                        readonly property bool has: app.isInstalled(modelData.id)
+                        actionLabel: has ? "Nainštalované" : "Inštalovať (heslo)"; actionPrimary: !has; actionOn: !has
+                        onAction: app.install("rpm", modelData.id, modelData.name)
+                    }
+                }
+                Text { visible: !app.searching && app.results.length === 0 && app.searchRpm.length === 0; text: "Nič sa nenašlo."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 } }
+            }
+
+            // ── kategória ──────────────────────────────────────────────────────
+            Column {
+                visible: app.appPageId === "" && app.query === "" && app.category !== ""
+                width: parent.width; spacing: 10
+                Pill { label: "‹ Obchod"; onClicked: app.storeHome() }
+                Flow { width: parent.width; spacing: 10; Repeater { model: app.categoryApps; AppCard { required property var modelData; info: modelData } } }
+                Text { visible: app.categoryApps.length === 0; text: "Načítavam…"; color: theme.primary; font { family: theme.fontUi; pixelSize: 13 } }
+                Pill { visible: app.categoryApps.length >= 48 * app.categoryPage; label: "Ďalšie"; onClicked: app.openCategory(app.category, app.categoryName, app.categoryPage + 1) }
+            }
+
+            // ── úvod obchodu ────────────────────────────────────────────────────
+            Column {
+                visible: app.appPageId === "" && app.query === "" && app.category === ""
+                width: parent.width; spacing: 16
+                Text { visible: !app.store; text: "Načítavam obchod z Flathubu…"; color: theme.primary; font { family: theme.fontUi; pixelSize: 13 } }
+                Text { visible: !!app.store && !!app.store.error; text: "Obchod sa nenačítal (bez internetu?). Výber LatteOS nižšie funguje."; color: theme.error; font { family: theme.fontUi; pixelSize: 13 } }
+                // banner: trendová aplikácia so snímkou
+                Rectangle {
+                    readonly property var b: app.store ? app.store.banner : null
+                    visible: !!b; width: parent.width; height: 230; radius: 20; clip: true; color: theme.field
+                    Image { anchors.fill: parent; source: parent.b ? parent.b.screenshot : ""; fillMode: Image.PreserveAspectCrop; asynchronous: true; opacity: 0.9 }
+                    Rectangle { anchors.fill: parent; gradient: Gradient { orientation: Gradient.Horizontal
+                        GradientStop { position: 0.0; color: Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, 0.97) }
+                        GradientStop { position: 0.55; color: Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, 0.75) }
+                        GradientStop { position: 1.0; color: "transparent" } } }
+                    Column {
+                        x: 26; anchors.verticalCenter: parent.verticalCenter; width: parent.width * 0.5; spacing: 8
+                        Text { text: "TRENDY TENTO TÝŽDEŇ"; color: theme.primary; font { family: theme.fontUi; pixelSize: 11; weight: Font.Bold; letterSpacing: 1 } }
+                        Text { text: parent.parent.b ? parent.parent.b.name : ""; color: theme.fg; font { family: theme.fontDisplay; pixelSize: 30; weight: Font.DemiBold } }
+                        Text { width: parent.width; wrapMode: Text.WordWrap; maximumLineCount: 3; elide: Text.ElideRight
+                               text: parent.parent.b ? parent.parent.b.summary : ""; color: theme.fg; font { family: theme.fontUi; pixelSize: 14 } }
+                        Pill { label: "Zobraziť"; primaryStyle: true; onClicked: app.openApp(parent.parent.b.id) }
+                    }
+                }
+                // kategórie
+                Flow {
+                    width: parent.width; spacing: 8
+                    Repeater {
+                        model: app.categories
+                        Pill { required property var modelData; label: modelData[1]; onClicked: app.openCategory(modelData[0], modelData[1], 1) }
+                    }
+                }
+                Shelf { title: "Trendy"; items: app.store && app.store.trendy ? app.store.trendy : [] }
+                Shelf { title: "Obľúbené"; items: app.store && app.store.oblubene ? app.store.oblubene : [] }
+                Shelf { title: "Nové na Flathube"; items: app.store && app.store.nove ? app.store.nove : [] }
+                Shelf { title: "Nedávno aktualizované"; items: app.store && app.store.aktualizovane ? app.store.aktualizovane : [] }
+                // výber LatteOS
+                Repeater {
+                    model: app.picks
+                    Column {
+                        id: grp
+                        required property var modelData
+                        width: parent.width; spacing: 6
+                        Heading { text: "VÝBER LATTEOS · " + grp.modelData.title.toUpperCase(); topPadding: 6 }
+                        Repeater {
+                            model: grp.modelData.items
+                            AppRow {
+                                required property var modelData
+                                width: grp.width; title: modelData[1]; sub: modelData[2]; badge: "Flathub"
+                                readonly property bool has: app.isInstalled(modelData[0])
+                                actionLabel: app.busyId === modelData[0] ? "Inštalujem…" : (has ? "Nainštalované" : "Inštalovať")
+                                actionPrimary: !has; actionOn: !has && app.busyId === ""
+                                onAction: app.install("flatpak", modelData[0], modelData[1])
+                                MouseArea { anchors { fill: parent; rightMargin: 160 } onClicked: app.openApp(modelData[0]) }
+                            }
                         }
                     }
                 }
             }
-            Repeater {
-                model: app.query !== "" ? app.results : []
-                AppRow {
-                    required property var modelData
-                    width: parent.width; title: modelData.name; sub: modelData.comment + "  ·  " + modelData.note
-                    badge: modelData.source === "flatpak" ? "Flathub" : "Fedora"; glyph: modelData.source === "flatpak" ? "package" : "box"
-                    readonly property bool has: app.isInstalled(modelData.id)
-                    actionLabel: app.busyId === modelData.id ? "Inštalujem…" : (has ? "Nainštalované" : (modelData.source === "rpm" ? "Inštalovať (heslo)" : "Inštalovať"))
-                    actionPrimary: !has; actionOn: !has && app.busyId === ""
-                    onAction: app.install(modelData.source, modelData.id, modelData.name)
-                }
-            }
-            Text { visible: app.query !== "" && !app.searching && app.results.length === 0; text: "Nič sa nenašlo."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 } }
         }
     }
     Component {
         id: pUpdates
         Column {
-            spacing: 8
+            id: upd
+            spacing: 12
+            width: parent ? parent.width : 800
+            readonly property var rpms: app.updatesList.filter(u => u.source === "rpm")
+            readonly property var flats: app.updatesList.filter(u => u.source === "flatpak")
             Row {
                 spacing: 10
                 Pill { label: "Aktualizovať všetko"; primaryStyle: true; on: app.updatesList.length > 0
-                       onClicked: { app.run(["sh", "-c", "flatpak update --user -y --noninteractive >/dev/null 2>&1; latte-app instalator upgrade"], "Aktualizácia: aplikácie (Flatpak) a potom systém"); } }
+                       onClicked: app.run(["sh", "-c", "flatpak update --user -y --noninteractive >/dev/null 2>&1; latte-app instalator upgrade"], "Aktualizácia: aplikácie (Flatpak) a potom systém") }
                 Pill { label: app.updatesLoading ? "Zisťujem…" : "Skontrolovať znova"; on: !app.updatesLoading
-                       onClicked: { app.updatesLoading = true; updProc.running = true; } }
+                       onClicked: { app.updatesLoading = true; updProc.running = true; latteProc.running = true; drvProc.running = true; } }
             }
-            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
-                   text: "Systém (Fedora) aj aplikácie (Flatpak) na jednom mieste. Na Fedora Atomic sa systém bude aktualizovať celý naraz s možnosťou vrátiť včerajší." }
-            Text { visible: !app.updatesLoading && app.updatesList.length === 0; text: "Všetko je aktuálne (podľa poslednej kontroly dnf)."; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 } }
-            Repeater {
-                model: app.updatesList.slice(0, 80)
-                AppRow {
-                    required property var modelData
-                    width: parent.width; height: 48; title: modelData.id; sub: modelData.version + "  ·  " + modelData.repo
-                    badge: modelData.source === "flatpak" ? "Flatpak" : "Fedora"; glyph: "refresh"
+            component Block: Rectangle {
+                id: blk
+                property string title; property string glyph; property string sub; property string actionLabel: ""; property bool actionOn: true
+                default property alias rows: bcol.data
+                signal action()
+                width: parent ? parent.width : 700; height: bhead.height + bcol.implicitHeight + 28; radius: 16; color: theme.field
+                Row {
+                    id: bhead; x: 16; y: 14; width: parent.width - 32; spacing: 12
+                    Glyph { name: blk.glyph; size: 24; color: theme.primary; anchors.verticalCenter: parent.verticalCenter }
+                    Column {
+                        width: parent.width - 36 - (bb.visible ? bb.width + 12 : 0); anchors.verticalCenter: parent.verticalCenter
+                        Text { text: blk.title; color: theme.fg; font { family: theme.fontUi; pixelSize: 15; weight: Font.Bold } }
+                        Text { width: parent.width; wrapMode: Text.WordWrap; text: blk.sub; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+                    }
+                    Pill { id: bb; visible: blk.actionLabel !== ""; label: blk.actionLabel; primaryStyle: true; on: blk.actionOn; anchors.verticalCenter: parent.verticalCenter; onClicked: blk.action() }
                 }
+                Column { id: bcol; x: 16; anchors { top: bhead.bottom; topMargin: 8 } width: parent.width - 32; spacing: 4 }
+            }
+            component Line: Text { width: parent ? parent.width : 600; elide: Text.ElideRight; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+            Block {
+                title: "Systém (Fedora)"; glyph: "server"
+                sub: app.updatesLoading ? "zisťujem…" : (upd.rpms.length ? upd.rpms.length + " balíkov na aktualizáciu" : "aktuálny (podľa poslednej kontroly dnf)")
+                actionLabel: upd.rpms.length ? "Aktualizovať systém" : ""
+                onAction: app.run(["latte-app", "instalator", "upgrade"], "Aktualizácia systému")
+                Repeater { model: upd.rpms.slice(0, 12); Line { required property var modelData; text: modelData.id + "  " + modelData.version } }
+                Line { visible: upd.rpms.length > 12; text: "… a ďalších " + (upd.rpms.length - 12) }
+            }
+            Block {
+                title: "Aplikácie (Flatpak)"; glyph: "apps"
+                sub: upd.flats.length ? upd.flats.length + " aplikácií má novú verziu" : "všetky aktuálne"
+                actionLabel: upd.flats.length ? "Aktualizovať aplikácie" : ""; actionOn: app.busyId === ""
+                onAction: { app.busyId = "aktualizácia aplikácií"; app.status = "Aktualizujem aplikácie (Flatpak)…"; installProc.command = ["flatpak", "update", "--user", "-y", "--noninteractive"]; installProc.running = true; }
+                Repeater { model: parent.upd.flats; Line { required property var modelData; text: modelData.id + "  " + modelData.version } }
+            }
+            Block {
+                id: blkLatte
+                title: "Súčasti LatteOS"; glyph: "coffee"
+                readonly property var l: app.latte
+                sub: !l ? "zisťujem…" : (l.error ? l.error : (l.behind > 0 ? l.behind + " nových zmien (nainštalované " + l.installed + " z " + l.date + ")"
+                                                                            : "aktuálne · " + l.installed + " z " + l.date + " (vetva " + l.branch + ")"))
+                actionLabel: l && l.behind > 0 ? "Aktualizovať LatteOS" : ""
+                onAction: app.run(["latte-app", "instalator", "latteos"], "Aktualizácia súčastí LatteOS")
+                Repeater { model: blkLatte.l ? blkLatte.l.log.slice(0, 10) : []; Line { required property var modelData; text: "• " + modelData.date + "  " + modelData.subject } }
+                Line { visible: !!blkLatte.l && blkLatte.l.behind === 0 && (blkLatte.l.recent || []).length > 0; text: "Posledné zmeny:" }
+                Repeater { model: blkLatte.l && blkLatte.l.behind === 0 ? (blkLatte.l.recent || []).slice(0, 4) : []; Line { required property var modelData; text: "  " + modelData.date + "  " + modelData.subject } }
+            }
+            Block {
+                id: blkDrv
+                title: "Ovládače a firmvér (Správca zariadení)"; glyph: "cpu"
+                readonly property var d: app.drv
+                sub: !d ? "zisťujem…" : ((d.firmware.length ? d.firmware.length + " aktualizácií firmvéru" : "firmvér aktuálny (fwupd)") + " · grafika: " + d.gpu.map(g => g.driver || "?").join(", "))
+                actionLabel: d && d.firmware.length ? "Aktualizovať firmvér" : ""
+                onAction: app.run(["sh", "-c", "fwupdmgr update -y --no-reboot-check >/dev/null 2>&1 && notify-send -a LatteOS 'Firmvér aktualizovaný' 'Niektoré zmeny sa prejavia po reštarte.' || notify-send -a LatteOS 'Firmvér' 'Aktualizácia sa nepodarila.'"], "Aktualizujem firmvér…")
+                Repeater { model: blkDrv.d ? blkDrv.d.gpu : []; Line { required property var modelData; wrapMode: Text.WordWrap; elide: Text.ElideNone
+                           text: "• " + modelData.name.replace(/\s*\[[0-9a-f:]+\]/g, "") + (modelData.driver ? " · ovládač " + modelData.driver : "") + (modelData.advice ? " — " + modelData.advice : "") } }
+                Repeater { model: blkDrv.d ? blkDrv.d.firmware : []; Line { required property var modelData; text: "• " + modelData.device + ": " + modelData.current + " → " + modelData.new } }
+                Repeater { model: blkDrv.d ? blkDrv.d.notes : []; Line { required property var modelData; text: modelData } }
             }
         }
     }

@@ -1,5 +1,7 @@
 // LatteOS — Inštalátor: grafická inštalácia a aktualizácia systémových balíkov (namiesto terminálu).
-// Použitie: latte-app instalator install <balík…> | remove <balík…> | upgrade
+// Použitie: latte-app instalator install <balík…> | remove <balík…> | upgrade | latteos
+//   latteos = aktualizovať súčasti LatteOS: git pull v repozitári inštalácie + setup/f1/install-session.sh
+//             (heslo ide do dočasného askpass v $XDG_RUNTIME_DIR s právami 0600/0700, po skončení sa zmaže)
 //           (voliteľne prvý argument „--nazov=Pekný názov“ pre nadpis)
 // Heslo správcu sa zadá v okne a ide iba cez stdin do sudo (-S), nikam sa neukladá. Priebeh z výstupu dnf.
 import QtQuick
@@ -27,7 +29,7 @@ ShellRoot {
     property bool quitWhenDone: false
     Process { id: tell }
 
-    readonly property string heading: title || (action === "upgrade" ? "Aktualizácia systému" : (action === "remove" ? "Odstránenie" : "Inštalácia") + " · " + pkgs.join(", "))
+    readonly property string heading: title || (action === "latteos" ? "Aktualizácia súčastí LatteOS" : action === "upgrade" ? "Aktualizácia systému" : (action === "remove" ? "Odstránenie" : "Inštalácia") + " · " + pkgs.join(", "))
 
     // veľkosť a zoznam z dnf (bez práv správcu, z cache)
     Process {
@@ -68,11 +70,26 @@ ShellRoot {
             progress = 0.1 + 0.9 * n / tot;
             const what = m[3];
             stepText = /Downloading|Sťahuje/i.test(what) ? "Sťahujem " + what.replace(/^\S+\s+/, "") : (/Install|Upgrad|Inštal|Aktual/i.test(what) ? "Inštalujem " + what.replace(/^\S+\s+/, "").split(" ")[0] : what);
+        } else if (action === "latteos" && /^== /.test(l)) {          // kroky install-session.sh (~17)
+            stepText = l.slice(3); progress = Math.min(0.97, progress + 0.055);
         } else if (/Downloading|Sťahovanie|Repositories loaded|Načítavanie/i.test(l)) { stepText = "Príprava a sťahovanie…"; progress = Math.max(progress, 0.05); }
         else if (/Nothing to do|Nie je čo robiť/i.test(l)) stepText = "Už je nainštalované / nie je čo robiť";
     }
     function start(pw) {
         phase = "bezi"; progress = 0.02; stepText = "Overujem heslo…"; log = "";
+        if (action === "latteos") {
+            // git pull ako používateľ, inštalácia s sudo -A (install-session.sh to podporuje); heslo iba cez stdin do súboru 0600
+            dnf.command = ["sh", "-c",
+                'umask 077; d="${XDG_RUNTIME_DIR:-/tmp}"; f=$(mktemp -p "$d" latteos-heslo.XXXXXX); a="$f.sh"; trap \'rm -f "$f" "$a"\' EXIT; '
+                + 'IFS= read -r pw; printf "%s\\n" "$pw" > "$f"; unset pw; printf "#!/bin/sh\\ncat %s\\n" "$f" > "$a"; chmod 700 "$a"; '
+                + 'export SUDO_ASKPASS="$a"; sudo -A -v || { echo "Sorry, try again."; exit 3; }; '
+                + 'src=$(sed -n "s/^source=//p" /usr/share/latteos/VERSION); [ -d "$src/.git" ] || { echo "repozitár nenájdený"; exit 4; }; '
+                + 'cd "$src" && git pull --ff-only && ./setup/f1/install-session.sh', "sh"];
+            dnf.running = true;
+            dnf.write(pw + "\n");
+            dnf.stdinEnabled = false;
+            return;
+        }
         const cmd = action === "upgrade" ? ["upgrade", "-y"] : [action, "-y"].concat(pkgs);
         dnf.command = ["sudo", "-S", "-p", "", "dnf"].concat(cmd);
         dnf.running = true;
@@ -94,13 +111,13 @@ ShellRoot {
                 spacing: 14
                 Rectangle {
                     width: 56; height: 56; radius: 16; color: Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.16)
-                    Glyph { anchors.centerIn: parent; name: app.action === "remove" ? "trash" : (app.action === "upgrade" ? "refresh" : "package"); size: 30; color: theme.primary }
+                    Glyph { anchors.centerIn: parent; name: app.action === "remove" ? "trash" : (app.action === "upgrade" || app.action === "latteos" ? "refresh" : "package"); size: 30; color: theme.primary }
                 }
                 Column {
                     anchors.verticalCenter: parent.verticalCenter; width: 480
                     Text { width: parent.width; elide: Text.ElideRight; text: app.heading; color: theme.fg; font { family: theme.fontDisplay; pixelSize: 21; weight: Font.DemiBold } }
                     Text { width: parent.width; wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight
-                           text: app.sizeInfo || (app.action === "upgrade" ? "Systém a aplikácie z Fedory" : app.pkgs.join(" ")); color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+                           text: app.sizeInfo || (app.action === "latteos" ? "Lišta, aplikácie a nastavenia LatteOS z repozitára" : app.action === "upgrade" ? "Systém a aplikácie z Fedory" : app.pkgs.join(" ")); color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
                 }
             }
 
@@ -126,7 +143,7 @@ ShellRoot {
                     }
                     Rectangle {
                         width: bt.implicitWidth + 30; height: 42; radius: 10; color: theme.primary
-                        Text { id: bt; anchors.centerIn: parent; text: app.action === "remove" ? "Odstrániť" : (app.action === "upgrade" ? "Aktualizovať" : "Inštalovať"); color: theme.fgOnPrimary; font { family: theme.fontUi; pixelSize: 14; weight: Font.Bold } }
+                        Text { id: bt; anchors.centerIn: parent; text: app.action === "remove" ? "Odstrániť" : (app.action === "upgrade" || app.action === "latteos" ? "Aktualizovať" : "Inštalovať"); color: theme.fgOnPrimary; font { family: theme.fontUi; pixelSize: 14; weight: Font.Bold } }
                         MouseArea { anchors.fill: parent; onClicked: if (pw.text !== "") { app.start(pw.text); pw.text = ""; } }
                     }
                 }

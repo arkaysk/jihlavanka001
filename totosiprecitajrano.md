@@ -70,6 +70,27 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 19:50: plný App Manager — obchod a všetky aktualizácie ✅ (zadanie 24. 9. večer, časť 2)
+- **Obchod** (namiesto krátkeho zoznamu), ako GNOME Software alebo Bazaar, z Flathubu:
+  - úvodný banner s trendovou aplikáciou a jej snímkou;
+  - kategórie (Hry, Internet, Hudba a video, Grafika, Kancelária, Vývoj, Vzdelávanie, Veda, Systém, Nástroje);
+  - pásy Trendy, Obľúbené, Nové na Flathube, Nedávno aktualizované; na kartách je overený vývojár
+    a inštalácie za mesiac;
+  - **detail aplikácie:** snímky obrazovky, veľkosť na stiahnutie a po inštalácii, celkové inštalácie, verzia,
+    licencia, popis a história verzií, tlačidlá Inštalovať / Otvoriť / Odinštalovať / Web;
+  - hľadanie cez Flathub aj systémové balíky Fedory. Výber LatteOS ostal dole.
+  - Popisy sú z Flathubu po anglicky, slovenské preklady Flathub neposkytuje. Bez internetu sa ukáže
+    posledná známa ponuka (cache 6 h).
+- **Aktualizácie v jednom zozname:**
+  - **Systém** (dnf, teraz 373 balíkov);
+  - **Aplikácie** (Flatpak);
+  - **Súčasti LatteOS:** porovná nainštalovanú verziu s repozitárom a ukáže, čo je nové. Aktualizácia beží
+    v Inštalátore s heslom, ako `git pull` a inštalácia;
+  - **Ovládače a firmvér:** fwupd a grafika s odporúčaním (NVIDIA → akmod-nvidia, AMD/Intel sú v jadre,
+    vo VM netreba nič).
+- Pravý panel s detailom je iba pri Nainštalovaných a Oprávneniach, obchod má celú šírku.
+- Poznámka: maskot je znova Ktulu. Ak si to prepol ty (pravý klik na maskota), je to v poriadku, nechal som ho tak.
+
 ### 24. 9. 2026, 19:20: App Manager — rýchle spustenie z rohu ✅ (zadanie 24. 9. večer, časť 1)
 - **Klik na dlaždicu aplikácií** otvorí vyskakovacie okno nad ňou. Klik na aplikáciu ju spustí a okno zavrie,
   klik mimo alebo Esc ho zavrie. Písaním sa hľadá, Enter spustí prvý výsledok.

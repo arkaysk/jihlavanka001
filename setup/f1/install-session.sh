@@ -168,6 +168,10 @@ if [ -f "$copr" ] && ! grep -q '^excludepkgs=hyprland' "$copr"; then
     sudo sed -i '/^\[copr:copr.fedorainfracloud.org:lionheartp:Hyprland\]/a excludepkgs=hyprland,hyprland-devel,hyprland-uwsm,hyprland-debuginfo,hyprland-debugsource' "$copr"
 fi
 
+echo "== verzia súčastí LatteOS (App Manager › Aktualizácie porovnáva s repozitárom)"
+printf 'commit=%s\ndate=%s\nbranch=%s\nsource=%s\n' "$(git -C "$repo" rev-parse --short HEAD 2>/dev/null)" "$(git -C "$repo" log -1 --format=%cs 2>/dev/null)" \
+    "$(git -C "$repo" rev-parse --abbrev-ref HEAD 2>/dev/null)" "$repo" | sudo tee /usr/share/latteos/VERSION >/dev/null
+
 echo "== prvý výber režimu"
 sudo systemctl restart latte-boot.service || sudo latte-boot select
 latte-boot status | sed 's/^/   /'
