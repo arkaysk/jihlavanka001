@@ -34,6 +34,22 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 08:45: okná a Nastavenia doplnené ✅
+- **Super+Z = rozloženie okna** ako vo Windows 11: mini obrazovky (polovice, štvrtiny, tretiny, stred,
+  celá plocha). Klik presunie aktívne okno a lište nechá miesto. Overené na tvojej relácii.
+- **Gestá 4 prstami:** hore = prehľad pásky, dole = prázdna plocha.
+- **Tapeta podľa plochy** (voliteľné, Nastavenia › Pozadie). Predvolene je vypnutá, lebo každá zmena
+  tapety stojí CPU.
+- **Super+L** zamyká. Menu ho ukazovalo, ale skratka chýbala.
+- Nové stránky v **Nastaveniach**:
+  - **Klávesnica a skratky:** zoznam všetkých skratiek LatteOS.
+  - **Oznámenia:** Nerušiť, poloha, počet naraz, obsah, test.
+  - **Prístupnosť:** mierka rozhrania 100–150 %, vysoký kontrast, bez animácií (platí aj po hernom
+    režime), veľkosť kurzora.
+  - **Uzamknutie a nečinnosť:** zamknúť, vypnúť obrazovku a uspať po čase.
+- Opravené tlačidlá +/− v Nastaveniach (odkazovali samy na seba, preto boli bledé).
+- Pri teste som na chvíľu zapol animácie v tvojej relácii; `hyprctl reload` to hneď vrátil.
+
 ### 24. 9. 2026, 08:25: prehľad pásky, Kapsa, AI rozhovor ✅
 - **Super+Tab = prehľad pásky:** všetky okná po plochách v poradí pásky. **Píš a filtruje**, Enter
   zameria prvé nájdené okno, klik zameria okno. Prepínač Noctalie ostal na Super+Shift+Tab.
