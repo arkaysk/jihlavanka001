@@ -35,8 +35,15 @@ end
 -- ── prostredie ────────────────────────────────────────────────────────────────
 hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
 hl.env("XDG_SESSION_DESKTOP", "latteos")
-hl.env("XCURSOR_SIZE", "24")
-hl.env("HYPRCURSOR_SIZE", "24")
+-- veľkosť kurzora z Nastavení › Prístupnosť (~/.config/latteos/cursor-size), predvolene 24
+local cfgdir = (os.getenv("XDG_CONFIG_HOME") or ((os.getenv("HOME") or "") .. "/.config")) .. "/latteos"
+local cursor_size = "24"
+do
+    local f = io.open(cfgdir .. "/cursor-size", "r")
+    if f then cursor_size = (f:read("*l") or ""):match("^%d+$") or "24"; f:close() end
+end
+hl.env("XCURSOR_SIZE", cursor_size)
+hl.env("HYPRCURSOR_SIZE", cursor_size)
 
 -- ── vzhľad (spoločný pre všetky stupne) ───────────────────────────────────────
 hl.config({
@@ -73,7 +80,13 @@ end
 -- téma bez efektov (Úsporná, klasické) obmedzí aj efekty kompozitora
 local tier = mode.tier
 if theme.effects == "ziadne" and (tier == "plny" or tier == "standard" or tier == "usporny") then tier = "minimalny" end
-tiers.apply(tier, colors)
+-- Prístupnosť › Bez animácií (~/.config/latteos/no-animations) platí pri každom stupni aj po hernom režime
+local function apply_tier(t)
+    tiers.apply(t, colors)
+    local f = io.open(cfgdir .. "/no-animations", "r")
+    if f then f:close(); hl.config({ animations = { enabled = false } }) end
+end
+apply_tier(tier)
 windows.setup()
 
 -- herný režim (riadiace centrum Zariadenia / Text Bar): bez efektov a animácií, po vypnutí späť na stupeň.
@@ -81,7 +94,7 @@ windows.setup()
 local game_file = (os.getenv("XDG_STATE_HOME") or ((os.getenv("HOME") or "") .. "/.local/state")) .. "/latteos/game-mode"
 latte = latte or {}
 function latte.game(on)
-    tiers.apply(on and "minimalny" or tier, colors)
+    apply_tier(on and "minimalny" or tier)
     hl.config({ decoration = { rounding = on and 0 or 14 }, general = { gaps_in = on and 0 or 5, gaps_out = on and 0 or 10 } })
     local f = io.open(game_file, "w"); if f then f:write(on and "1\n" or "0\n"); f:close() end
     hl.exec_cmd("notify-send -a LatteOS 'Herný režim' '" .. (on and "zapnutý — bez efektov" or "vypnutý") .. "'")

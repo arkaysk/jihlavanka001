@@ -34,6 +34,10 @@ ShellRoot {
     property var bar: ({})            // prepisy [bar.main] z ~/.local/state/noctalia/settings.toml
     property var location: ({})       // prepisy [location]
     property var notif: ({})          // prepisy [notification]
+    property var access: ({})         // prepisy [accessibility]
+    property var shellAnim: ({})      // prepisy [shell.animation]
+    property bool noAnim: false
+    property string cursorSize: "24"
     property bool dnd: false
     property var greeterConf: ({ background: "/usr/share/backgrounds/latteos/latteos-wallpaper1.jpg", color: "#1B1410", dim: "0.55", panel: "log", panel_title: "", panel_text: "" })
     property string crashLog: ""
@@ -88,7 +92,7 @@ ShellRoot {
             { key: "lista", label: "Lišta a systémové menu", glyph: "layout-bottombar", status: "ready" },
             { key: "oznamenia", label: "Oznámenia", glyph: "bell", status: "ready" },
             { key: "efekty", label: "Animácie a efekty", glyph: "sparkles", status: "partial" },
-            { key: "pristupnost", label: "Prístupnosť", glyph: "accessible", status: "planned" } ] },
+            { key: "pristupnost", label: "Prístupnosť", glyph: "accessible", status: "ready" } ] },
         { key: "system", title: "Systém", glyph: "shield", summary: (mode.mode || "?").toUpperCase() + " · pády " + crashCount, owner: "LatteOS",
           pages: [
             { key: "start", label: "Štart a režim", glyph: "shield", status: "ready" },
@@ -166,7 +170,7 @@ ShellRoot {
                 const h = l.match(/^\s*\[([^\]]+)\]\s*$/); if (h) { sec = h[1]; continue; }
                 const r = l.match(/^\s*(\w+)\s*=\s*"?([^"]*)"?\s*$/); if (r) { (t[sec] = t[sec] || {})[r[1]] = r[2]; }
             }
-            app.bar = t["bar.main"] || {}; app.location = t["location"] || {}; app.notif = t["notification"] || {};
+            app.bar = t["bar.main"] || {}; app.location = t["location"] || {}; app.notif = t["notification"] || {}; app.access = t["accessibility"] || {}; app.shellAnim = t["shell.animation"] || {};
         }
     }
     FileView {
@@ -182,6 +186,16 @@ ShellRoot {
                onLoaded: app.barScene = text().trim() || "para"; onLoadFailed: app.barScene = "para" }
     FileView { path: app.cfgHome + "/latteos/wallpaper-per-workspace"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.wsWallpaper = true; onLoadFailed: app.wsWallpaper = false }
+    FileView { path: app.cfgHome + "/latteos/no-animations"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.noAnim = true; onLoadFailed: app.noAnim = false }
+    FileView { path: app.cfgHome + "/latteos/cursor-size"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.cursorSize = text().trim() || "24"; onLoadFailed: app.cursorSize = "24" }
+    function setNoAnim(on) {
+        app.noAnim = on;
+        app.writePref("no-animations", on ? "1" : "", on ? "Animácie vypnuté" : "Animácie podľa stupňa výkonu");
+        shellSet("shell.animation.enabled", on ? false : null);
+        run(["sh", "-c", "sleep 0.3; hyprctl reload"]);
+    }
     function writePref(name, value, msg) {
         if (value === "") run(["rm", "-f", app.cfgHome + "/latteos/" + name], msg);
         else run(["sh", "-c", "mkdir -p \"$(dirname \"$1\")\" && printf '%s\\n' \"$2\" > \"$1\"", "sh", app.cfgHome + "/latteos/" + name, value], msg);
@@ -352,6 +366,7 @@ ShellRoot {
             start: "Režim NORMAL (Hyprland) alebo SAFE (labwc bez GPU). SAFE naskočí sám po dvoch pádoch za sebou.",
             cas: "Poloha určuje východ a západ slnka pre automatický svetlý/tmavý režim a nočné svetlo. Ďalšie časové pásma ukáže panel Čas.",
             o: "Verzie častí systému, z ktorých sa LatteOS skladá.",
+            pristupnost: "Väčšie rozhranie, vyšší kontrast, žiadny pohyb, väčší kurzor.",
             oznamenia: "Kde a ako sa ukazujú oznámenia. História a Nerušiť sú aj v paneli Čas na lište.",
             klavesnica: "Rozloženia klávesnice sk a us, prepínanie Alt+Shift. Skratky LatteOS:"
         })[k] || (plans[k] ? "Pripravujeme. Čo tu bude:" : "");
@@ -372,7 +387,6 @@ ShellRoot {
         mojucet: ["meno, obrázok", "prihlásenie mobilom"],
         pouzivatelia: ["pridať a odstrániť účet", "rodičovská kontrola"],
         uzamknutie: ["automatické zamknutie", "obrazovka zámku (Noctalia)"],
-        pristupnost: ["veľké písmo a kontrast", "čítačka obrazovky", "bez animácií"],
         jazyk: ["jazyk systému", "formáty dátumu a čísel"]
     })
     function stateText(k) {
@@ -386,6 +400,7 @@ ShellRoot {
         if (k === "prihlasovanie") return "Greeter: " + greeter + " · panel " + greeterConf.panel;
         if (k === "lista") return "Hrúbka " + (bar.thickness || 56) + " · okraje " + (bar.margin_ends || 12) + " · spodok " + (bar.margin_edge || 10);
         if (k === "cas") return "Poloha " + (location.latitude || "48.74") + ", " + (location.longitude || "19.15") + (clockZones.length ? "\nPásma: " + clockZones.join(", ") : "");
+        if (k === "pristupnost") return "Mierka rozhrania " + Math.round((parseFloat(access.ui_scale) || 1) * 100) + " %" + (access.high_contrast === "true" ? " · vysoký kontrast" : "") + (noAnim ? " · bez animácií" : "") + "\nKurzor " + cursorSize + " px";
         if (k === "oznamenia") return (dnd ? "Nerušiť: zapnuté" : "Nerušiť: vypnuté") + "\nPoloha: " + ({ top_right: "vpravo hore", top_center: "hore v strede", top_left: "vľavo hore", bottom_right: "vpravo dole", bottom_left: "vľavo dole" })[notif.position || "top_right"];
         if (k === "klavesnica") return "Rozloženia sk, us (Alt+Shift)\nEditor skratiek: plán";
         if (plans[k]) return "Zatiaľ len plán";
@@ -400,6 +415,7 @@ ShellRoot {
             prihlasovanie: "/var/lib/latteos/greeter/greeter.conf", diagnostika: "/var/lib/latteos/greeter/last-crash.log\n/var/lib/latteos/crash-count",
             subory: "~/.config/latteos/subory.json\n~/.config/latteos/tags.json",
             oznamenia: "~/.local/state/noctalia/settings.toml [notification]",
+            pristupnost: "~/.local/state/noctalia/settings.toml [accessibility]\n~/.config/latteos/no-animations, cursor-size",
             klavesnica: "/usr/share/latteos/hypr/hyprland.lua\n~/.config/latteos/hyprland.lua"
         })[k] || "—";
     }
@@ -517,7 +533,7 @@ ShellRoot {
         if (managed[k]) return pManaged;
         return ({ domov: pDomov, ai: pAi, subory: pSubory, ulozisko: pUlozisko, vykon: pVykon, diagnostika: pDiag,
                   prihlasovanie: pGreeter, motiv: pMotiv, pozadie: pPozadie, okna: pOkna, lista: pLista, efekty: pEfekty,
-                  start: pStart, cas: pCas, o: pO, klavesnica: pKlavesy, oznamenia: pOznamenia })[k] || pPlan;
+                  start: pStart, cas: pCas, o: pO, klavesnica: pKlavesy, oznamenia: pOznamenia, pristupnost: pPristupnost })[k] || pPlan;
     }
 
     // ── stránky ──────────────────────────────────────────────────────────────────
@@ -947,6 +963,38 @@ ShellRoot {
                     Text { text: modelData.split("|")[1] || "—"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.DemiBold } }
                 }
             }
+        }
+    }
+    Component {
+        id: pPristupnost
+        Column {
+            spacing: 14
+            Heading { text: "VEĽKOSŤ ROZHRANIA (lišta, panely)" }
+            Segments {
+                options: [["1", "100 %"], ["1.15", "115 %"], ["1.3", "130 %"], ["1.5", "150 %"]]
+                value: String(parseFloat(app.access.ui_scale) || 1)
+                onPicked: (v) => app.shellSet("accessibility.ui_scale", v === "1" ? null : parseFloat(v), "Mierka rozhrania " + Math.round(parseFloat(v) * 100) + " %")
+            }
+            Heading { text: "KONTRAST" }
+            Segments {
+                options: [["false", "Bežný"], ["true", "Vysoký kontrast"]]
+                value: app.access.high_contrast === "true" ? "true" : "false"
+                onPicked: (v) => app.shellSet("accessibility.high_contrast", v === "true" ? true : null, v === "true" ? "Vysoký kontrast zapnutý" : "Bežný kontrast")
+            }
+            Heading { text: "POHYB" }
+            Segments {
+                options: [["false", "Animácie podľa výkonu"], ["true", "Bez animácií"]]
+                value: app.noAnim ? "true" : "false"
+                onPicked: (v) => app.setNoAnim(v === "true")
+            }
+            Heading { text: "KURZOR" }
+            Segments {
+                options: [["24", "Bežný"], ["32", "Väčší"], ["48", "Veľký"], ["64", "Najväčší"]]
+                value: app.cursorSize
+                onPicked: (v) => { app.writePref("cursor-size", v === "24" ? "" : v, "Kurzor " + v + " px"); app.cursorSize = v; app.run(["hyprctl", "setcursor", "default", v]); }
+            }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Veľkosť písma v aplikáciách a čítačku obrazovky pripravujeme. Zmeny lišty a panelov platia hneď, kurzor v nových oknách po prihlásení." }
         }
     }
     Component {
