@@ -239,9 +239,10 @@ NATIVE_ITEMS = [
     {"key": "socket:pulseaudio", "group": "Zvuk", "label": "Prehrávať zvuk a nahrávať z mikrofónu", "risk": 1},
     {"key": "device:camera", "group": "Zariadenia", "label": "Kamera, USB a ostatné zariadenia", "risk": 2},
     {"key": "device:dri", "group": "Zariadenia", "label": "Grafická karta (zrýchlené vykresľovanie)", "risk": 0},
+    {"key": "talk:session-bus", "group": "Systém", "label": "Celá zbernica relácie — vidieť a ovládať iné aplikácie (inak iba portály, oznámenia, tray)", "risk": 1},
     {"key": "socket:wayland", "group": "Okná", "label": "Zobrazovať okná", "risk": 0, "required": True},
 ]
-NATIVE_UNTRUSTED = ["shared:network", "fs:home", "socket:pulseaudio", "device:camera"]
+NATIVE_UNTRUSTED = ["shared:network", "fs:home", "socket:pulseaudio", "device:camera", "talk:session-bus"]
 SANDBOX_MARK = "X-LatteOS-Sandbox=on"
 NET_MARK = "X-LatteOS-NET=off"
 

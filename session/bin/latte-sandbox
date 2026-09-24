@@ -11,9 +11,11 @@ Zamietnuté položky plánu (kľúče ako v latte-apps plan):
   socket:pulseaudio  bez zvuku a mikrofónu (skryté sockety PipeWire/Pulse, /dev/snd)
   device:camera    bez kamery a ostatných zariadení (minimálny /dev, grafická karta ostáva)
   device:dri       bez grafickej karty (softvérové vykresľovanie)
+  talk:session-bus  zbernica relácie cez filter xdg-dbus-proxy: iba portály, oznámenia, tray, šetrič, prístupnosť,
+                   MPRIS a vlastný názov aplikácie (nevidí a neovláda ostatné aplikácie a služby)
 Okná (Wayland) ostávajú vždy. Bez zamietnutých položiek sa príkaz spustí priamo.
 """
-import json, os, shutil, subprocess, sys
+import json, os, re, shutil, subprocess, sys
 
 HOME = os.path.expanduser("~")
 CFG = os.environ.get("XDG_CONFIG_HOME") or HOME + "/.config"
@@ -76,6 +78,32 @@ def bwrap_args(app, deny):
     return a
 
 
+BUS_TALK = ["org.freedesktop.portal.Desktop", "org.freedesktop.portal.Documents", "org.freedesktop.Notifications", "org.kde.StatusNotifierWatcher",
+            "org.freedesktop.ScreenSaver", "org.a11y.Bus", "org.freedesktop.FileManager1"]
+
+
+def bus_proxy(app):
+    """Spustí filter zbernice; vráti (cesta k soketu, fd, ktorý musí ostať otvorený počas behu aplikácie)."""
+    addr = os.environ.get("DBUS_SESSION_BUS_ADDRESS") or "unix:path=" + RUN + "/bus"
+    d = os.path.join(RUN, "latteos", "sandbox")
+    os.makedirs(d, mode=0o700, exist_ok=True)
+    sock = os.path.join(d, "%s-%d.bus" % (app, os.getpid()))
+    r, w = os.pipe()
+    own = []
+    if re.match(r"^[A-Za-z_][\w-]*(\.[A-Za-z_][\w-]*)+$", app):     # vlastný názov (GApplication) iba pre platné id
+        own = ["--own=" + app, "--own=" + app + ".*"]
+    last = re.sub(r"[^\w-]", "_", app.split(".")[-1])
+    own.append("--own=org.mpris.MediaPlayer2." + (last if not last[0].isdigit() else "_" + last) + ".*")
+    args = ["xdg-dbus-proxy", "--fd=%d" % w, addr, sock, "--filter"] + ["--talk=" + n for n in BUS_TALK] + own
+    subprocess.Popen(args, pass_fds=(w,), start_new_session=True)
+    os.close(w)
+    if os.read(r, 1) == b"":                              # proxy sa nespustil
+        os.close(r)
+        return None, None
+    os.set_inheritable(r, True)                           # bwrap --sync-fd: proxy skončí, keď aplikácia skončí
+    return sock, r
+
+
 def main(argv):
     if len(argv) >= 2 and argv[0] == "args":
         print(" ".join(bwrap_args(argv[1], denied(argv[1]))))
@@ -91,7 +119,13 @@ def main(argv):
         if not shutil.which("bwrap"):
             print("latte-sandbox: chýba bubblewrap, spúšťam bez izolácie", file=sys.stderr)
             os.execvp(cmd[0], cmd)
-        os.execvp("bwrap", ["bwrap"] + bwrap_args(app, deny) + ["--"] + cmd)
+        extra = []
+        if "talk:session-bus" in deny and shutil.which("xdg-dbus-proxy"):
+            sock, fd = bus_proxy(app)
+            extra = ["--sync-fd", str(fd), "--bind", sock, RUN + "/bus"] if sock else ["--ro-bind", "/dev/null", RUN + "/bus"]
+        elif "talk:session-bus" in deny:
+            extra = ["--ro-bind", "/dev/null", RUN + "/bus"]         # bez filtra radšej bez zbernice
+        os.execvp("bwrap", ["bwrap"] + bwrap_args(app, deny) + extra + ["--"] + cmd)
     print(__doc__.strip(), file=sys.stderr)
     return 2
 

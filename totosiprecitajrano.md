@@ -89,7 +89,12 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
   - domov obsahoval iba Stiahnuté, pactl sa nepripojil a okno sa normálne otvorilo.
 
   Potom som všetko vrátil: plán, prekrytie aj súkromný priečinok som zmazal.
-- Chýba: filter D-Bus (xdg-dbus-proxy), teda natívna aplikácia stále vidí zbernicu relácie, a profily pre Windows aplikácie.
+- **Filter zbernice D-Bus** (21:55): položka „Celá zbernica relácie“, ktorú profil Nedôveryhodná vypne.
+  Aplikácia potom cez `xdg-dbus-proxy` vidí iba portály (Desktop, Documents), oznámenia, tray, šetrič
+  obrazovky, prístupnosť a vlastný názov, takže neovláda iné aplikácie ani služby.
+  Ak sa filter nespustí, aplikácia nedostane zbernicu vôbec (nie celú). Proxy skončí spolu s aplikáciou.
+  Otestované: `busctl` v sandboxe videl iba 9 povolených služieb, `notify-send` prešiel a Foot sa otvoril.
+- Chýbajú profily pre Windows aplikácie (Proton/Wine), ktoré prídu s inštaláciou hier.
 
 ### 24. 9. 2026, 21:45: indikátor mikrofónu a kamery na lište ✅ (ukáže sa po ďalšom prihlásení)
 - Kým niektorá aplikácia používa **mikrofón alebo kameru**, v ostrove zariadení svieti **červená kapsula**

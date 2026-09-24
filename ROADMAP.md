@@ -326,7 +326,8 @@ flowchart TD
 
 ### F6 — Bezpečnostný model *(hlavný diferenciátor)*
 - [x] Trusted/untrusted profily: Flatpak (override) aj natívne aplikácie (`latte-sandbox`, bubblewrap: bez siete, súkromný domov, bez zvuku, minimálny /dev); NET natívnych aplikácií je položka plánu.
-- [ ] Profily pre Windows aplikácie (Proton/Wine) a D-Bus filter (xdg-dbus-proxy) pre natívne aplikácie.
+- [x] D-Bus filter pre natívne aplikácie (xdg-dbus-proxy: portály, oznámenia, tray, vlastný názov; pri chybe bez zbernice).
+- [ ] Profily pre Windows aplikácie (Proton/Wine).
 - [x] Tlačidlo NET pre **Flatpak** aplikácie (App Manager › Oprávnenia a NET).
 - [x] Tlačidlo NET pre **natívne** aplikácie (`latte-net`): prekrytie .desktop spúšťa aplikáciu cez bubblewrap --unshare-net
   (bez práv správcu; Wayland a D-Bus fungujú, sieť nie — overené).
