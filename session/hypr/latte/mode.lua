@@ -40,6 +40,16 @@ function M.theme()
               or read_file("/usr/share/latteos/themes/latte.theme") or ""
     local t = { id = id }
     for k, v in body:gmatch("\n?([%w_]+) = ([^\n]*)") do t[k] = v end
+    -- farby okenného pruhu z palety v účinnom režime (theme-mode: tema | dark | light | auto)
+    local pref = ((read_file(cfg .. "/latteos/theme-mode") or "tema"):match("%a+")) or "tema"
+    local m = (pref == "dark" or pref == "light") and pref or (t.mode or "dark")
+    if pref == "auto" then local h = tonumber(os.date("%H")); m = (h >= 7 and h < 19) and "light" or "dark" end
+    t.effective_mode = m
+    local pal = read_file("/usr/share/latteos/noctalia/palettes/" .. (t.palette or "Latte") .. ".json") or ""
+    local sect = pal:match('"' .. m .. '"%s*:%s*(%b{})') or ""
+    local function col(key) local c = sect:match('"' .. key .. '"%s*:%s*"#(%x%x%x%x%x%x)') return c end
+    t.bar_bg = col("mSurfaceVariant") or col("mSurface")
+    t.bar_fg = col("mOnSurface")
     return t
 end
 

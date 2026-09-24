@@ -12,12 +12,22 @@ Rectangle {
     property bool canBack: false
     property bool canForward: false
     property string searchPlaceholder: "Hľadať"
-    property bool netVisible: true
+    property bool netVisible: true         // aplikácia môže NET úplne skryť (napr. editor bez siete)
+    property bool netUsed: false           // NET sa ukáže, až keď aplikácia naozaj otvorí sieťové spojenie
     property bool netOn: true
     property string appId: ""
     Process { id: netStatus; running: hb.appId !== ""; command: ["latte-net", "status", hb.appId]
               stdout: StdioCollector { onStreamFinished: hb.netOn = this.text.trim() !== "off" } }
     Process { id: netSet }
+    // má proces aplikácie (rodič tohto sh = qs) nadviazané TCP/UDP spojenie?
+    Process {
+        id: netProbe
+        command: ["sh", "-c", "ss -Htunp 2>/dev/null | grep -q \"pid=$PPID,\" && echo 1 || echo 0"]
+        stdout: StdioCollector { onStreamFinished: if (this.text.trim() === "1") hb.netUsed = true }
+    }
+    Timer { interval: 5000; repeat: true; running: hb.netVisible && !hb.netUsed; triggeredOnStart: true; onTriggered: netProbe.running = true }
+    Process { id: winCmd }
+    function winAction(code) { winCmd.command = ["hyprctl", "eval", code]; winCmd.running = true; }
     default property alias tools: toolRow.data
     signal back()
     signal forward()
@@ -79,7 +89,7 @@ Rectangle {
         }
         // NET: sieťový prístup aplikácie (bezpečnostný model F6) — zatiaľ iba zobrazenie
         Rectangle {
-            visible: hb.netVisible
+            visible: hb.netVisible && (hb.netUsed || !hb.netOn)      // vypnutý NET ostáva viditeľný, aby sa dal zapnúť
             width: netRow.implicitWidth + 16; height: 36; radius: 10
             color: hb.netOn ? Qt.rgba(hb.theme.primary.r, hb.theme.primary.g, hb.theme.primary.b, 0.14) : hb.theme.field
             Row {
@@ -95,7 +105,23 @@ Rectangle {
                 }
             }
         }
-        IconButton { theme: hb.theme; glyph: "x"; tip: "Zavrieť"; onClicked: hb.closeRequested() }
+        // okenné tlačidlá ako v lište kompozitora (latte/bars.lua): minimalizovať, zväčšiť, zavrieť
+        Row {
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 8
+            component WinBtn: Rectangle {
+                id: wb
+                property string icon; property color bg; property string tip
+                signal clicked()
+                width: 22; height: 22; radius: 11
+                color: wm.containsMouse ? Qt.lighter(bg, 1.15) : bg
+                Text { anchors.centerIn: parent; text: wb.icon; color: wb.bg === hb.theme.error ? "white" : hb.theme.fgOnPrimary; font { family: hb.theme.fontUi; pixelSize: 12; weight: Font.Bold } }
+                MouseArea { id: wm; anchors.fill: parent; hoverEnabled: true; onClicked: wb.clicked() }
+            }
+            WinBtn { icon: "–"; bg: hb.theme.primary; tip: "Minimalizovať"; onClicked: hb.winAction("latte.win.minimize()") }
+            WinBtn { icon: "□"; bg: hb.theme.primary; tip: "Zväčšiť"; onClicked: hb.winAction("latte.win.maximize()") }
+            WinBtn { icon: "✕"; bg: hb.theme.error; tip: "Zavrieť"; onClicked: hb.closeRequested() }
+        }
     }
     Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 2; color: hb.theme.primary; opacity: 0.55 }
 }

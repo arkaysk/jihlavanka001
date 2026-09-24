@@ -88,6 +88,9 @@ local function apply_tier(t)
 end
 apply_tier(tier)
 windows.setup()
+-- jednotné okenné tlačidlá (hyprbars): minimalizovať, zväčšiť, zavrieť
+local bars = require("latte.bars")
+bars.setup({ bar_bg = theme.bar_bg, bar_fg = theme.bar_fg, border_active = theme.border_active })
 
 -- herný režim (riadiace centrum Zariadenia / Text Bar): bez efektov a animácií, po vypnutí späť na stupeň.
 -- Stav ~/.local/state/latteos/game-mode (1/0). Volá sa: hyprctl eval 'latte.game(true)'
@@ -120,6 +123,8 @@ bind(mod .. " + I",      hl.dsp.exec_cmd("noctalia msg panel-toggle latteos/ai:c
 bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd("latte-app monitor"))                   -- Monitor (správca procesov)
 bind(mod .. " + L",      hl.dsp.exec_cmd("noctalia msg session lock"))              -- zamknúť obrazovku
 bind(mod .. " + Q",      hl.dsp.window.close())
+bind(mod .. " + N",      function() latte.win.minimize() end)                       -- minimalizovať
+bind(mod .. " + SHIFT + N", hl.dsp.workspace.toggle_special("minimized"))  -- ukázať minimalizované
 bind(mod .. " + F",      hl.dsp.window.fullscreen())
 bind(mod .. " + V",      hl.dsp.window.float({ action = "toggle" }))
 bind(mod .. " + W",      function() windows.cycle() end)                            -- páska → dlaždice → plávajúce
