@@ -6,6 +6,10 @@
   latte-devices display try NAME MODE SCALE   skúsi režim obrazovky (napr. 1920x1080@60 1.25) — bez uloženia
   latte-devices display keep NAME MODE SCALE  uloží do ~/.config/latteos/monitors.lua (Hyprland ho načíta pri štarte)
   latte-devices display revert NAME           vráti uložený (alebo predvolený) režim
+  latte-devices audio                         JSON: výstupy, vstupy, predvolené, aplikácie so zvukom (pactl)
+  latte-devices audio default sink|source MENO   predvolený výstup / vstup
+  latte-devices audio volume sink|app ID PCT     hlasitosť výstupu alebo aplikácie (0–150)
+  latte-devices audio mute sink|app ID           prepnúť stlmenie
 
 Zariadenie je v jednej skupine podľa toho, čo robí (USB klávesnica je Vstup, USB disk je Disk).
 Ukazuje zariadenia, nie ich obsah (súbory sú v Súboroch). Čo sa nedá zistiť, je v „problems“.
@@ -26,9 +30,9 @@ def read(p, d=""):
         return d
 
 
-def sh(argv, timeout=10):
+def sh(argv, timeout=10, env=None):
     try:
-        r = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+        r = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, env=env)
         return r.returncode, r.stdout
     except (OSError, subprocess.TimeoutExpired):
         return 127, ""
@@ -222,6 +226,44 @@ def inventory():
     return {"groups": [{"key": k, "title": t, "glyph": g, "items": data[k]} for k, t, g in GROUPS], "problems": problems}
 
 
+def pactl_blocks(kind):
+    """pactl list <kind> v textovom formáte (JSON výstup pactl 17 padá na nie-ASCII popisoch)."""
+    rc, out = sh(["pactl", "list", kind], env=dict(os.environ, LC_ALL="C"))   # anglické kľúče (Name, Volume, Mute…)
+    blocks, cur = [], None
+    for line in out.splitlines():
+        m = re.match(r"^\S.*#(\d+)$", line)
+        if m:
+            cur = {"id": m.group(1), "props": {}}
+            blocks.append(cur)
+            continue
+        if cur is None:
+            continue
+        t = line.strip()
+        pm = re.match(r'^([\w.]+) = "(.*)"$', t)
+        if pm:
+            cur["props"][pm.group(1)] = pm.group(2)
+        elif ":" in t and not t.startswith(("balance", "Formats")):
+            k, _, v = t.partition(":")
+            cur.setdefault(k.strip(), v.strip())
+    return blocks
+
+
+def audio_state():
+    def vol(b):
+        m = re.search(r"(\d+)%", b.get("Volume", ""))
+        return int(m.group(1)) if m else 0
+    rc, dsink = sh(["pactl", "get-default-sink"])
+    rc, dsrc = sh(["pactl", "get-default-source"])
+    sinks = [{"id": b["id"], "name": b.get("Name", ""), "desc": b.get("Description", b.get("Name", "")), "volume": vol(b),
+              "mute": b.get("Mute") == "yes", "default": b.get("Name") == dsink.strip()} for b in pactl_blocks("sinks")]
+    sources = [{"id": b["id"], "name": b.get("Name", ""), "desc": b.get("Description", b.get("Name", "")), "volume": vol(b),
+                "mute": b.get("Mute") == "yes", "default": b.get("Name") == dsrc.strip()}
+               for b in pactl_blocks("sources") if not b.get("Name", "").endswith(".monitor")]
+    apps = [{"id": b["id"], "name": b["props"].get("application.name") or b["props"].get("media.name", "?"),
+             "media": b["props"].get("media.name", ""), "volume": vol(b), "mute": b.get("Mute") == "yes"} for b in pactl_blocks("sink-inputs")]
+    return {"sinks": sinks, "sources": sources, "apps": apps}
+
+
 def hypr_monitor(name, mode, scale):
     code = 'hl.monitor({ output = "%s", mode = "%s", position = "auto", scale = %s })' % (name, mode, float(scale))
     return sh(["hyprctl", "eval", code])[0]
@@ -240,6 +282,18 @@ def main(a):
     if a[:1] == ["list"]:
         print(json.dumps(inventory(), ensure_ascii=False))
         return 0
+    if a[:1] == ["audio"]:
+        if len(a) == 1:
+            print(json.dumps(audio_state(), ensure_ascii=False))
+            return 0
+        if len(a) == 4 and a[1] == "default" and a[2] in ("sink", "source"):
+            return sh(["pactl", "set-default-" + a[2], a[3]])[0]
+        if len(a) == 5 and a[1] == "volume" and a[2] in ("sink", "app") and a[4].isdigit():
+            pct = str(min(150, int(a[4]))) + "%"
+            return sh(["pactl", "set-sink-volume" if a[2] == "sink" else "set-sink-input-volume", a[3], pct])[0]
+        if len(a) == 4 and a[1] == "mute" and a[2] in ("sink", "app"):
+            return sh(["pactl", "set-sink-mute" if a[2] == "sink" else "set-sink-input-mute", a[3], "toggle"])[0]
+        return 2
     if len(a) >= 3 and a[0] == "display":
         name = a[2]
         if not re.match(r"^[\w.-]+$", name):

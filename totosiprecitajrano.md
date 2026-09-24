@@ -34,6 +34,12 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 12:15: zvuk v Správcovi zariadení, strom procesov ✅
+- **Správca zariadení › Zvuk:** výber predvoleného výstupu a mikrofónu, hlasitosť −/+, stlmenie a
+  **hlasitosť jednotlivých aplikácií**, ktoré práve hrajú. Overené na tvojej relácii; hlasitosť som
+  nemenil (ostala 40 %).
+- **Monitor › Procesy › Strom:** procesy ako strom rodič → deti.
+
 ### 24. 9. 2026, 12:10: živá tapeta (pohyblivé textúry) ✅
 - Z tvojho zoznamu „pohyblivé textúry“: **živá tapeta** nad tapetou, pod oknami, bez shaderov (beží aj
   pri softvérovom kreslení).

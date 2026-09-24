@@ -21,6 +21,14 @@ ShellRoot {
     property real pickScale: 1
     property int countdown: 0
     property var trial: null          // { connector, mode, scale }
+    property var audio: ({ sinks: [], sources: [], apps: [] })
+    Process {
+        id: audioProc; command: ["latte-devices", "audio"]
+        stdout: StdioCollector { onStreamFinished: { try { app.audio = JSON.parse(this.text); } catch (e) {} } }
+    }
+    Timer { interval: 3000; repeat: true; running: !!app.sel && app.sel.group === "zvuk"; triggeredOnStart: true; onTriggered: audioProc.running = true }
+    function audioCmd(args) { runner.command = ["latte-devices", "audio"].concat(args); runner.running = true; audioLater.restart(); }
+    Timer { id: audioLater; interval: 300; onTriggered: audioProc.running = true }
 
     function count(n) { return n + (n === 1 ? " zariadenie" : (n >= 2 && n <= 4 ? " zariadenia" : " zariadení")); }
     readonly property var shownGroups: group === "vsetko" ? groups.filter(g => g.items.length > 0) : groups.filter(g => g.key === group)
@@ -28,7 +36,8 @@ ShellRoot {
     Process {
         id: listProc; running: true
         command: ["latte-devices", "list"]
-        stdout: StdioCollector { onStreamFinished: { try { const d = JSON.parse(this.text); app.groups = d.groups; app.problems = d.problems; app.refreshSel(); } catch (e) {} } }
+        stdout: StdioCollector { onStreamFinished: { try { const d = JSON.parse(this.text); app.groups = d.groups; app.problems = d.problems; app.refreshSel();
+                                                                   if (!app.sel && app.group !== "vsetko") { const g = d.groups.find(x => x.key === app.group); if (g && g.items.length) app.pick(g, g.items[0]); } } catch (e) {} } }
     }
     Timer { interval: 10000; repeat: true; running: app.countdown === 0; onTriggered: listProc.running = true }
     function refreshSel() {
@@ -269,7 +278,47 @@ ShellRoot {
                             MouseArea { id: lm; anchors.fill: parent; hoverEnabled: true; onClicked: lk.clicked() }
                         }
                         Link { visible: dcol.g === "siet"; glyph: "wifi"; label: "Pripojenia (nmtui)"; onClicked: app.run(["foot", "-e", "nmtui"]) }
-                        Link { visible: dcol.g === "zvuk"; glyph: "volume"; label: "Zvuk v riadiacom centre"; onClicked: app.run(["noctalia", "msg", "panel-open", "control-center", "audio"]) }
+                        // ── zvuk: výstupy, vstupy, aplikácie ──
+                        component B: Rectangle {
+                            id: bb; property string t; signal hit()
+                            width: 32; height: 32; radius: 8; color: bm.containsMouse ? theme.hover : theme.field
+                            Text { anchors.centerIn: parent; text: bb.t; color: theme.fg; font { family: theme.fontUi; pixelSize: 14; weight: Font.Bold } }
+                            MouseArea { id: bm; anchors.fill: parent; hoverEnabled: true; onClicked: bb.hit() }
+                        }
+                        component Vol: Row {
+                            id: vr
+                            property string label; property int value; property bool muted; property bool picked; property string kind; property string target
+                            signal pick()
+                            spacing: 6; width: dcol.width
+                            Rectangle {
+                                width: dcol.width - 110; height: 32; radius: 8
+                                color: vr.picked ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.18) : theme.field
+                                border { color: vr.picked ? theme.primary : "transparent"; width: 1 }
+                                Text { x: 10; width: parent.width - 20; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight
+                                       text: (vr.picked ? "● " : "") + vr.label + "  ·  " + (vr.muted ? "stlmené" : vr.value + " %"); color: theme.fg; font { family: theme.fontUi; pixelSize: 12 } }
+                                MouseArea { anchors.fill: parent; onClicked: vr.pick() }
+                            }
+                            B { visible: vr.kind !== "source"; t: "−"; onHit: app.audioCmd(["volume", vr.kind, vr.target, String(Math.max(0, vr.value - 10))]) }
+                            B { visible: vr.kind !== "source"; t: "+"; onHit: app.audioCmd(["volume", vr.kind, vr.target, String(Math.min(150, vr.value + 10))]) }
+                            B { visible: vr.kind !== "source"; t: vr.muted ? "🔇" : "🔈"; onHit: app.audioCmd(["mute", vr.kind, vr.target]) }
+                        }
+                        Column {
+                            visible: dcol.g === "zvuk"
+                            width: parent.width; spacing: 6
+                            Text { text: "VÝSTUP (klik = predvolený)"; topPadding: 6; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11; weight: Font.Bold; letterSpacing: 0.6 } }
+                            Repeater { model: app.audio.sinks
+                                Vol { required property var modelData; label: modelData.desc; value: modelData.volume; muted: modelData.mute; picked: modelData.default
+                                      kind: "sink"; target: modelData.name; onPick: app.audioCmd(["default", "sink", modelData.name]) } }
+                            Text { text: "VSTUP (mikrofón)"; topPadding: 4; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11; weight: Font.Bold; letterSpacing: 0.6 } }
+                            Repeater { model: app.audio.sources
+                                Vol { required property var modelData; label: modelData.desc; value: modelData.volume; muted: modelData.mute; picked: modelData.default
+                                      kind: "source"; target: modelData.name; onPick: app.audioCmd(["default", "source", modelData.name]) } }
+                            Text { text: "APLIKÁCIE"; topPadding: 4; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11; weight: Font.Bold; letterSpacing: 0.6 } }
+                            Text { visible: app.audio.apps.length === 0; text: "Žiadna aplikácia teraz nehrá."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+                            Repeater { model: app.audio.apps
+                                Vol { required property var modelData; label: modelData.name; value: modelData.volume; muted: modelData.mute; picked: false
+                                      kind: "app"; target: modelData.id } }
+                        }
                         Link { visible: dcol.g === "bluetooth"; glyph: "bluetooth"; label: "Bluetooth v riadiacom centre"; onClicked: app.run(["noctalia", "msg", "panel-open", "control-center", "bluetooth"]) }
                         Link { visible: dcol.g === "disky"; glyph: "folder"; label: "Otvoriť v Súboroch"; onClicked: app.run(["latte-app", "subory"]) }
                         Link { visible: dcol.g === "grafika"; glyph: "bolt"; label: "Stupeň výkonu (Nastavenia)"; onClicked: app.run(["latte-app", "nastavenia", "vykon"]) }
