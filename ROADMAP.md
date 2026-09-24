@@ -293,7 +293,8 @@ flowchart TD
 - [ ] App Manager: rpm-ostree na Atomic, ProtonDB pri .exe, Waydroid pri .apk, jednotné IPC so shellom.
 
 - [x] **Heidelberg** (editor dokumentov, `latte-app heidelberg`): Markdown/HTML/text s náhľadom, formátovanie, Ctrl+S do Dokumentov.
-- [ ] Heidelberg: rtf, odt, docx, epub (pandoc), export do PDF, kontrola pravopisu (hunspell sk).
+- [x] Heidelberg: docx, odt, rtf, epub cez pandoc (úprava ako Markdown, uloženie späť, záloha originálu „súbor~“), export DOCX/ODT/EPUB/HTML.
+- [ ] Heidelberg: export do PDF (bez LaTeXu, napr. weasyprint), kontrola pravopisu (hunspell sk), verné formátovanie docx.
 - [x] Súbory: Kôš v Obľúbených (obnoviť, odstrániť natrvalo, vysypať), kopírovanie s priebehom (rsync).
 
 - [x] **Zálohovanie** (`latte-backup`, Nastavenia › Dáta): snímky domova cez rsync --link-dest na USB disk alebo do priečinka,

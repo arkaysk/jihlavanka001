@@ -1,6 +1,7 @@
 // LatteOS — Heidelberg, editor dokumentov (old/IDEAS.md: „originálny LatteOS editor dokumentov“).
-// Prvá verzia: txt, md, html (a iný text) s náhľadom vedľa editora, formátovanie tlačidlami (Markdown),
-// Ctrl+S uloží, Ctrl+N nový, Ctrl+O otvorí z Dokumentov. Ďalšie formáty (rtf, odt, docx, epub, pdf) neskôr.
+// txt, md, html s náhľadom vedľa editora, formátovanie tlačidlami (Markdown), Ctrl+S uloží, Ctrl+N nový.
+// docx, odt, rtf, epub cez pandoc: otvoria sa ako Markdown, uložia späť do pôvodného formátu (originál
+// sa pri prvom uložení zazálohuje ako „súbor~“); Export do DOCX/ODT/EPUB/HTML.
 // Spúšťa sa: latte-app heidelberg [súbor]
 import QtQuick
 import Quickshell
@@ -22,12 +23,41 @@ ShellRoot {
     property var docs: []
     property bool preview: true
     readonly property string ext: (path.match(/\.([^./]+)$/) || [, "md"])[1].toLowerCase()
-    readonly property string kind: ext === "html" || ext === "htm" ? "html" : (ext === "md" || ext === "markdown" ? "md" : "txt")
+    readonly property bool isDoc: ["docx", "odt", "rtf", "epub", "doc"].indexOf(ext) >= 0   // cez pandoc
+    readonly property string kind: isDoc ? "md" : (ext === "html" || ext === "htm" ? "html" : (ext === "md" || ext === "markdown" ? "md" : "txt"))
+    property bool hasPandoc: true
+    property bool backedUp: false
     readonly property int words: editor.text.trim() === "" ? 0 : editor.text.trim().split(/\s+/).length
 
+    Process { id: pandocCheck; running: true; command: ["sh", "-c", "command -v pandoc"]; onExited: (code) => app.hasPandoc = code === 0 }
+    // dokumenty (docx, odt…) → Markdown na úpravu
+    Process {
+        id: docLoad
+        stdout: StdioCollector {
+            onStreamFinished: { editor.text = this.text; app.savedText = editor.text; app.status = "Otvorené cez pandoc (formátovanie zjednodušené na Markdown)"; app.remember(app.path); }
+        }
+        onExited: (code) => { if (code !== 0) app.status = "Dokument sa nepodarilo otvoriť (pandoc, kód " + code + ")"; }
+    }
+    function loadDoc() {
+        if (!hasPandoc) { status = "Na " + ext.toUpperCase() + " treba pandoc — tlačidlo Doinštalovať hore"; editor.text = ""; savedText = ""; return; }
+        docLoad.command = ["pandoc", path, "-t", "markdown-raw_html-native_divs-native_spans-header_attributes-bracketed_spans", "--wrap=none"];
+        docLoad.running = true;
+    }
+    Timer { id: pandocWait; interval: 300; onTriggered: app.loadDoc() }     // počkať na kontrolu pandocu
+    FileView { id: tmpMd; path: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/heidelberg-" + Qt.md5(app.path || "novy") + ".md"; printErrors: false; atomicWrites: true }
+    Process { id: docSave; onExited: (code) => app.status = code === 0 ? "Uložené · " + Qt.formatTime(new Date(), "HH:mm") : "Uloženie zlyhalo (pandoc, kód " + code + ")" }
+    function exportAs(fmt) {
+        if (!hasPandoc) { status = "Export potrebuje pandoc — Doinštalovať"; return; }
+        const baseName = path ? path.replace(/\.[^./]+$/, "") : docsDir + "/Dokument " + Qt.formatDateTime(new Date(), "yyyy-MM-dd HH-mm");
+        const out = baseName + "." + fmt;
+        tmpMd.setText(editor.text);
+        docSave.command = ["pandoc", "-f", kind === "html" ? "html" : "markdown", tmpMd.path, "-s", "-o", out];
+        docSave.running = true;
+        status = "Exportujem do " + out.split("/").pop() + "…";
+    }
     FileView {
         id: doc
-        path: app.path
+        path: app.isDoc ? "" : app.path
         printErrors: false
         blockLoading: true
         onLoaded: { editor.text = text(); app.savedText = editor.text; app.status = "Otvorené"; app.remember(app.path); }
@@ -45,20 +75,29 @@ ShellRoot {
     }
     Process {
         id: docsProc; running: true
-        command: ["sh", "-c", "mkdir -p \"$1\"; ls -t \"$1\"/*.md \"$1\"/*.txt \"$1\"/*.html 2>/dev/null | head -20", "sh", app.docsDir]
+        command: ["sh", "-c", "mkdir -p \"$1\"; ls -t \"$1\"/*.md \"$1\"/*.txt \"$1\"/*.html \"$1\"/*.docx \"$1\"/*.odt 2>/dev/null | head -20", "sh", app.docsDir]
         stdout: StdioCollector { onStreamFinished: app.docs = this.text.split("\n").filter(l => l !== "") }
     }
 
     function open(p) {
         if (dirty && !confirmDiscard) { confirmDiscard = true; pendingOpen = p; status = "Neuložené zmeny! Klikni znova pre zahodenie, alebo Ctrl+S."; return; }
         confirmDiscard = false;
-        path = p; doc.reload();
+        path = p; backedUp = false;
+        if (isDoc) loadDoc(); else doc.reload();
     }
     property bool confirmDiscard: false
     property string pendingOpen: ""
     function save() {
         if (path === "") {
             path = docsDir + "/Dokument " + Qt.formatDateTime(new Date(), "yyyy-MM-dd HH-mm") + ".md";
+        }
+        if (isDoc) {
+            if (!hasPandoc) { status = "Uloženie do " + ext.toUpperCase() + " potrebuje pandoc"; return; }
+            tmpMd.setText(editor.text);
+            const backup = backedUp ? "" : "cp -n -- \"$3\" \"$3~\" 2>/dev/null; ";
+            docSave.command = ["sh", "-c", backup + "pandoc -f markdown \"$1\" -o \"$2\"", "sh", tmpMd.path, path, path];
+            docSave.running = true; backedUp = true; savedText = editor.text;
+            remember(path); return;
         }
         doc.setText(editor.text);
         savedText = editor.text;
@@ -155,6 +194,27 @@ ShellRoot {
                 Fmt { label: "❝ Citát"; what: "q" }
                 Fmt { label: "</> Kód"; what: "c" }
                 Fmt { label: "Odkaz"; what: "a" }
+                Item { width: 18; height: 1 }
+                component Exp: Rectangle {
+                    id: eb
+                    property string label; property string fmt
+                    width: et.implicitWidth + 18; height: 32; radius: 8
+                    color: em2.containsMouse ? theme.hover : "transparent"; border { color: theme.line; width: 1 }
+                    Text { id: et; anchors.centerIn: parent; text: eb.label; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold } }
+                    MouseArea { id: em2; anchors.fill: parent; hoverEnabled: true; onClicked: app.exportAs(eb.fmt) }
+                }
+                Text { anchors.verticalCenter: parent.verticalCenter; text: "Export:"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+                Exp { label: "DOCX"; fmt: "docx" }
+                Exp { label: "ODT"; fmt: "odt" }
+                Exp { label: "EPUB"; fmt: "epub" }
+                Exp { label: "HTML"; fmt: "html" }
+                Rectangle {
+                    visible: !app.hasPandoc
+                    width: pt2.implicitWidth + 18; height: 32; radius: 8; color: theme.primary
+                    Text { id: pt2; anchors.centerIn: parent; text: "Doinštalovať dokumenty (pandoc)"; color: theme.fgOnPrimary; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold } }
+                    MouseArea { anchors.fill: parent; onClicked: { inst.command = ["foot", "-e", "sh", "-c", "sudo dnf install pandoc-cli; read -p 'Enter zavrie okno…' x"]; inst.running = true; } }
+                    Process { id: inst; onExited: pandocCheck.running = true }
+                }
             }
 
             Row {
@@ -209,7 +269,7 @@ ShellRoot {
                 Rectangle { width: parent.width; height: 1; color: theme.line }
                 Text {
                     x: 14; anchors.verticalCenter: parent.verticalCenter
-                    text: app.words + " slov · " + editor.text.length + " znakov · " + ({ md: "Markdown", html: "HTML", txt: "text" })[app.kind] + (app.status ? "   ·   " + app.status : "")
+                    text: app.words + " slov · " + editor.text.length + " znakov · " + (app.isDoc ? app.ext.toUpperCase() + " (upravuje sa ako Markdown)" : ({ md: "Markdown", html: "HTML", txt: "text" })[app.kind]) + (app.status ? "   ·   " + app.status : "")
                     color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
                 }
                 Text {
@@ -221,6 +281,7 @@ ShellRoot {
         }
     }
     Component.onCompleted: {
+        if (isDoc) { pandocWait.start(); return; }
         if (path === "") { editor.text = "# Vitaj v Heidelbergu\n\nToto je **editor dokumentov LatteOS**. Píš vľavo, vpravo vidíš výsledok.\n\n- Markdown aj HTML\n- Ctrl+S uloží do *Dokumenty*\n\n> Názov Gutenberg je obsadený, preto Heidelberg.\n"; savedText = editor.text; status = "Ukážka (neuloží sa, kým nestlačíš Ctrl+S)"; }
     }
 }

@@ -34,6 +34,16 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 12:00: Text Bar hľadá súbory, Heidelberg otvára Word/ODT ✅
+- **Text Bar (Super+Medzerník)** v bežnom hľadaní ukazuje aj **súbory a priečinky** z tvojho domova
+  (rýchlo cez index plocate). Klik otvorí súbor, pri priečinku Súbory.
+- **Heidelberg** otvorí **.docx, .odt, .rtf a .epub**:
+  - Upravujú sa ako Markdown s náhľadom a uložia sa späť do pôvodného formátu. Pri prvom uložení
+    ostane originál ako `súbor~`, lebo zložité formátovanie Wordu sa zjednoduší.
+  - Nové tlačidlá **Export: DOCX, ODT, EPUB, HTML**.
+  - Nainštaloval som `pandoc-cli` (204 MB). Na PC bez neho Heidelberg ponúkne doinštalovanie.
+  - Overené: otvorenie .docx, úprava, uloženie a znovu načítanie.
+
 ### 24. 9. 2026, 11:55: Cloud a synchronizácia ✅
 - **Nastavenia › Dáta › Cloud a synchronizácia:** Google Drive, OneDrive, Dropbox, Nextcloud/WebDAV,
   domáci server cez SFTP a ďalšie (rclone):
