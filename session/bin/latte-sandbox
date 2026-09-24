@@ -1,0 +1,100 @@
+#!/usr/bin/python3
+"""latte-sandbox — izolácia natívnych aplikácií podľa Setup Planu (F6, bez práv správcu, bubblewrap).
+
+  latte-sandbox run APP_ID -- PRÍKAZ…   spustí príkaz s obmedzeniami z ~/.config/latteos/plany/APP_ID.json
+  latte-sandbox args APP_ID             vypíše argumenty bwrap (na kontrolu)
+
+Zamietnuté položky plánu (kľúče ako v latte-apps plan):
+  shared:network   bez internetu (--unshare-net, ostane iba lo)
+  fs:home          súkromný domov ~/.local/share/latteos/sandbox/APP_ID namiesto skutočného domova
+  fs:xdg-download  pri súkromnom domove sa priečinok Stiahnuté NEpripojí (inak áno)
+  socket:pulseaudio  bez zvuku a mikrofónu (skryté sockety PipeWire/Pulse, /dev/snd)
+  device:camera    bez kamery a ostatných zariadení (minimálny /dev, grafická karta ostáva)
+  device:dri       bez grafickej karty (softvérové vykresľovanie)
+Okná (Wayland) ostávajú vždy. Bez zamietnutých položiek sa príkaz spustí priamo.
+"""
+import json, os, shutil, subprocess, sys
+
+HOME = os.path.expanduser("~")
+CFG = os.environ.get("XDG_CONFIG_HOME") or HOME + "/.config"
+RUN = os.environ.get("XDG_RUNTIME_DIR") or "/run/user/%d" % os.getuid()
+PLANS = os.path.join(CFG, "latteos", "plany")
+PRIVATE = os.path.join(os.environ.get("XDG_DATA_HOME") or HOME + "/.local/share", "latteos", "sandbox")
+
+
+def denied(app):
+    try:
+        with open(os.path.join(PLANS, app + ".json")) as f:
+            return set(json.load(f).get("denied", []))
+    except (OSError, ValueError):
+        return set()
+
+
+def download_dir():
+    try:
+        d = subprocess.run(["xdg-user-dir", "DOWNLOAD"], capture_output=True, text=True, timeout=2).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        d = ""
+    return d if d and d != HOME else HOME + "/Stiahnuté"
+
+
+def bwrap_args(app, deny):
+    a = ["--dev-bind", "/", "/", "--die-with-parent"]
+    if "shared:network" in deny:
+        a += ["--unshare-net"]
+    if "device:camera" in deny:
+        a += ["--dev", "/dev"]                                  # minimálny /dev (null, tty, shm, pts…)
+        if "device:dri" not in deny and os.path.isdir("/dev/dri"):
+            a += ["--dev-bind", "/dev/dri", "/dev/dri"]
+        if "socket:pulseaudio" not in deny and os.path.isdir("/dev/snd"):
+            a += ["--dev-bind", "/dev/snd", "/dev/snd"]
+    else:
+        if "device:dri" in deny and os.path.isdir("/dev/dri"):
+            a += ["--tmpfs", "/dev/dri"]
+        if "socket:pulseaudio" in deny and os.path.isdir("/dev/snd"):
+            a += ["--tmpfs", "/dev/snd"]
+    if "socket:pulseaudio" in deny:
+        if os.path.isdir(RUN + "/pulse"):
+            a += ["--tmpfs", RUN + "/pulse"]
+        for s in ("pipewire-0", "pipewire-0-manager"):
+            if os.path.exists(os.path.join(RUN, s)):
+                a += ["--ro-bind", "/dev/null", os.path.join(RUN, s)]
+    if "fs:home" in deny:
+        priv = os.path.join(PRIVATE, app)
+        os.makedirs(priv, mode=0o700, exist_ok=True)
+        a += ["--bind", priv, HOME]
+        if "fs:xdg-download" not in deny:
+            dl = download_dir()
+            if os.path.isdir(dl):
+                os.makedirs(priv + dl[len(HOME):], exist_ok=True)
+                a += ["--bind", dl, dl]
+        # písma a vzhľad z domova (iba na čítanie), aby aplikácia nevyzerala inak
+        for keep in (".config/fontconfig", ".local/share/fonts", ".config/gtk-3.0", ".config/gtk-4.0"):
+            p = os.path.join(HOME, keep)
+            if os.path.exists(p):
+                a += ["--ro-bind", p, p]
+    return a
+
+
+def main(argv):
+    if len(argv) >= 2 and argv[0] == "args":
+        print(" ".join(bwrap_args(argv[1], denied(argv[1]))))
+        return 0
+    if len(argv) >= 3 and argv[0] == "run":
+        app, rest = argv[1], argv[2:]
+        cmd = rest[1:] if rest[0] == "--" else rest
+        if not cmd:
+            return 2
+        deny = denied(app)
+        if not deny:
+            os.execvp(cmd[0], cmd)
+        if not shutil.which("bwrap"):
+            print("latte-sandbox: chýba bubblewrap, spúšťam bez izolácie", file=sys.stderr)
+            os.execvp(cmd[0], cmd)
+        os.execvp("bwrap", ["bwrap"] + bwrap_args(app, deny) + ["--"] + cmd)
+    print(__doc__.strip(), file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

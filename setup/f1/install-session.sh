@@ -22,7 +22,7 @@ sudo usermod -aG latte "$user"
 
 echo "== binárky a skripty → /usr/bin"
 sudo install -Dm755 "$repo/target/release/latte-boot" /usr/bin/latte-boot
-for f in latte-session latte-safe latte-greeter latte-theme latte-app latte-ai latte-shellset latte-sysmon latte-apps latte-devices latte-backup latte-games latte-net latte-cloud latte-siet latte-otvor latte-kos latte-spustac; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
+for f in latte-session latte-safe latte-greeter latte-theme latte-app latte-ai latte-shellset latte-sysmon latte-apps latte-devices latte-backup latte-games latte-net latte-cloud latte-siet latte-otvor latte-kos latte-spustac latte-sandbox; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
 
 echo "== konfigurácie relácií → /usr/share/latteos"
 # bežiaci Hyprland sleduje svoje súbory a pri zmene sa znovu načíta: súbor sa preto vymieňa atomicky

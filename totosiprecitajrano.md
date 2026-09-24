@@ -70,6 +70,27 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 21:50: Setup Plan aj pre natívne aplikácie (RPM) — izolácia bubblewrap ✅
+- **Pravý klik › Setup Plan** funguje aj pri aplikáciách z Fedory, napr. Foot a kitty. Natívna aplikácia si nič
+  nežiada, preto plán navrhuje LatteOS. Obsahuje položky Internet, Celý domov (inak súkromný), Stiahnuté, Zvuk a mikrofón,
+  Kamera a zariadenia, Grafická karta a Okná (nutné).
+- Nový `latte-sandbox run APP -- príkaz` spustí aplikáciu v **bubblewrape** podľa plánu:
+  - bez siete ostane iba lo;
+  - namiesto domova dostane súkromný priečinok (`~/.local/share/latteos/sandbox/APP`), voliteľne so Stiahnutými,
+    a písma a vzhľad iba na čítanie;
+  - bez zvuku sú skryté sockety PipeWire;
+  - bez zariadení má minimálny /dev, grafická karta ostáva.
+
+  Spúšťa sa to cez prekrytie .desktop, takže to platí pre lištu, Text Bar aj App Manager. Bez zamietnutí sa prekrytie zmaže.
+- **Tlačidlo NET** pri natívnych aplikáciách teraz zapisuje do toho istého plánu, takže nevznikajú dva obaly.
+  Staré prekrytia NET sa prečítajú správne.
+- Otestované na Foot s profilom Nedôveryhodná, spusteným cez .desktop:
+  - bežal pod bwrap vo vlastnom sieťovom aj mount mennom priestore;
+  - domov obsahoval iba Stiahnuté, pactl sa nepripojil a okno sa normálne otvorilo.
+
+  Potom som všetko vrátil: plán, prekrytie aj súkromný priečinok som zmazal.
+- Chýba: filter D-Bus (xdg-dbus-proxy), teda natívna aplikácia stále vidí zbernicu relácie, a profily pre Windows aplikácie.
+
 ### 24. 9. 2026, 21:45: indikátor mikrofónu a kamery na lište ✅ (ukáže sa po ďalšom prihlásení)
 - Kým niektorá aplikácia používa **mikrofón alebo kameru**, v ostrove zariadení svieti **červená kapsula**
   s ikonou, ako bodka v iOS a Androide. Inak je neviditeľná. Tooltip povie ktorá aplikácia

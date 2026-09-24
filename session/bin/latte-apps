@@ -80,6 +80,8 @@ def installed():
             if kv.get("X-LatteOS-NET") == "off":      # prekrytie od latte-net: metadáta z pôvodného súboru, NET vypnutý
                 netoff.add(base[:-8])
                 continue
+            if kv.get("X-LatteOS-Sandbox") == "on":    # prekrytie Setup Planu (latte-sandbox): metadáta z pôvodného
+                continue
             if kv.get("Type", "Application") != "Application" or kv.get("NoDisplay", "").lower() == "true" or kv.get("Hidden", "").lower() == "true":
                 continue
             seen.add(base)
@@ -229,9 +231,97 @@ def ini(text):
     return out
 
 
+# natívne aplikácie (RPM, miestne): plán píše LatteOS, izoluje latte-sandbox (bubblewrap)
+NATIVE_ITEMS = [
+    {"key": "shared:network", "group": "Internet", "label": "Prístup na internet a do miestnej siete", "risk": 1},
+    {"key": "fs:home", "group": "Súbory", "label": "Celý tvoj domovský priečinok (inak dostane súkromný)", "risk": 2},
+    {"key": "fs:xdg-download", "group": "Súbory", "label": "Stiahnuté (pri súkromnom domove)", "risk": 1},
+    {"key": "socket:pulseaudio", "group": "Zvuk", "label": "Prehrávať zvuk a nahrávať z mikrofónu", "risk": 1},
+    {"key": "device:camera", "group": "Zariadenia", "label": "Kamera, USB a ostatné zariadenia", "risk": 2},
+    {"key": "device:dri", "group": "Zariadenia", "label": "Grafická karta (zrýchlené vykresľovanie)", "risk": 0},
+    {"key": "socket:wayland", "group": "Okná", "label": "Zobrazovať okná", "risk": 0, "required": True},
+]
+NATIVE_UNTRUSTED = ["shared:network", "fs:home", "socket:pulseaudio", "device:camera"]
+SANDBOX_MARK = "X-LatteOS-Sandbox=on"
+NET_MARK = "X-LatteOS-NET=off"
+
+
+def native_desktop(app):
+    """Pôvodný .desktop natívnej aplikácie (nie naše prekrytie v ~/.local/share/applications)."""
+    for d in ("/usr/share/applications", "/usr/local/share/applications", HOME + "/.local/share/applications"):
+        p = os.path.join(d, app + ".desktop")
+        if os.path.exists(p):
+            try:
+                txt = open(p, encoding="utf-8", errors="replace").read()
+            except OSError:
+                continue
+            if SANDBOX_MARK in txt or NET_MARK in txt:
+                continue
+            return p
+    return None
+
+
+def load_saved(app):
+    try:
+        with open(os.path.join(PLANS_DIR, app + ".json")) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def native_plan(app):
+    saved = load_saved(app)
+    denied = set(saved.get("denied", []))
+    try:                                                  # staré prekrytie tlačidla NET (latte-net exec)
+        if NET_MARK in open(os.path.join(HOME, ".local/share/applications", app + ".desktop"), encoding="utf-8").read():
+            denied.add("shared:network")
+    except OSError:
+        pass
+    items = [dict(i, allowed=i["key"] not in denied) for i in NATIVE_ITEMS]
+    return {"app": app, "installed": True, "native": True, "runtime": "", "runtimeInstalled": True, "size": "",
+            "profile": saved.get("profile", ""), "items": items, "untrusted": list(NATIVE_UNTRUSTED)}
+
+
+def native_apply(app, denied):
+    """Prekrytie .desktop: Exec cez latte-sandbox run APP -- …; bez zamietnutí sa prekrytie zmaže."""
+    user = os.path.join(HOME, ".local/share/applications", app + ".desktop")
+    src = native_desktop(app)
+    if not src:
+        print("natívna aplikácia sa nenašla: " + app, file=sys.stderr)
+        return 1
+    real = [d for d in denied if d != "socket:wayland"]
+    if not real:
+        try:
+            txt = open(user, encoding="utf-8").read()
+            if SANDBOX_MARK in txt or NET_MARK in txt:   # zmazať iba naše prekrytie
+                os.remove(user)
+        except OSError:
+            pass
+    else:
+        out = []
+        for line in open(src, encoding="utf-8", errors="replace"):
+            m = re.match(r"^(TryExec|Exec)=(.*)$", line.rstrip("\n"))
+            if m and m.group(1) == "TryExec":
+                continue
+            if m:
+                line = "Exec=latte-sandbox run " + app + " -- " + m.group(2) + "\n"
+            out.append(line)
+            if line.strip() == "[Desktop Entry]":
+                out.append(SANDBOX_MARK + "\n")
+                if "shared:network" in real:
+                    out.append(NET_MARK + "\n")
+        os.makedirs(os.path.dirname(user), exist_ok=True)
+        with open(user, "w", encoding="utf-8") as f:
+            f.writelines(out)
+    subprocess.call(["update-desktop-database", os.path.dirname(user)], stderr=subprocess.DEVNULL)
+    return 0
+
+
 def plan(app):
     rc, text, _ = sh(["flatpak", "info", "-m", app])
     installed_ = rc == 0
+    if not installed_ and native_desktop(app):
+        return native_plan(app)
     if not installed_:
         rc, text, err = sh(["flatpak", "remote-info", "--user", "-m", "flathub", app], timeout=60)
         if rc != 0:
@@ -315,7 +405,11 @@ def plan_apply(app, denied_json):
                  "fs": ["--nofilesystem=" + v] if deny else [],   # povolenie = to, čo si aplikácia žiada (bez prepisu)
                  "talk": ["--no-talk-name=" + v] if deny else ["--talk-name=" + v],
                  "system-talk": ["--system-no-talk-name=" + v] if deny else ["--system-talk-name=" + v]}.get(kind, [])
-    if p["installed"] and args:
+    if p.get("native"):
+        rc = native_apply(app, denied)
+        if rc != 0:
+            return rc
+    elif p["installed"] and args:
         rc = subprocess.call(["flatpak", "override", "--user"] + args + [app])
         if rc != 0:
             return rc

@@ -11,11 +11,11 @@
 
 APP_ID je názov .desktop súboru bez prípony (napr. org.mozilla.firefox, foot).
 - Flatpak aplikácia: flatpak override --user --unshare=network (izolácia Flatpaku).
-- Natívna aplikácia: v ~/.local/share/applications vznikne prekrytie .desktop súboru, ktorého Exec
-  beží cez `latte-net exec --`; každý spúšťač (lišta, Text Bar, App Manager) ho rešpektuje.
-  Zapnutie NET prekrytie odstráni. Poznámka: aplikácia spustená inak (z terminálu) sieť má.
+- Natívna aplikácia: NET je položka jej Setup Planu (~/.config/latteos/plany/APP.json). Prekrytie .desktop
+  v ~/.local/share/applications spúšťa aplikáciu cez `latte-sandbox run APP --` (bubblewrap podľa plánu);
+  každý spúšťač (lišta, Text Bar, App Manager) ho rešpektuje. Poznámka: aplikácia spustená inak (z terminálu) sieť má.
 """
-import glob, os, re, shutil, subprocess, sys
+import glob, json, os, re, shutil, subprocess, sys
 
 HOME = os.path.expanduser("~")
 USER_APPS = HOME + "/.local/share/applications"
@@ -59,10 +59,30 @@ def override_path(app):
     return os.path.join(USER_APPS, app + ".desktop")
 
 
+PLANS = os.path.join(os.environ.get("XDG_CONFIG_HOME") or HOME + "/.config", "latteos", "plany")
+
+
+def plan_denied(app):
+    try:
+        with open(os.path.join(PLANS, app + ".json")) as f:
+            return set(json.load(f).get("denied", []))
+    except (OSError, ValueError):
+        return set()
+
+
+def set_native(app, net_on):
+    """NET natívnej aplikácie = položka shared:network v jej Setup Plane (jeden obal, žiadne vnáranie bwrap)."""
+    d = plan_denied(app)
+    (d.discard if net_on else d.add)("shared:network")
+    return subprocess.call(["latte-apps", "plan-apply", app, json.dumps(sorted(d))])
+
+
 def status(app):
     if is_flatpak(app):
         r = subprocess.run(["flatpak", "override", "--user", "--show", app], capture_output=True, text=True)
         return "off" if re.search(r"^shared=.*!network", r.stdout, re.M) else "on"
+    if "shared:network" in plan_denied(app):
+        return "off"
     p = override_path(app)
     try:
         return "off" if MARK in open(p, encoding="utf-8").read() else "on"
@@ -73,6 +93,8 @@ def status(app):
 def set_off(app):
     if is_flatpak(app):
         return subprocess.call(["flatpak", "override", "--user", "--unshare=network", app])
+    if shutil.which("latte-sandbox") and shutil.which("latte-apps"):
+        return set_native(app, False)
     src = find_desktop(app)
     if not src:
         print("aplikácia sa nenašla: " + app, file=sys.stderr)
@@ -97,6 +119,8 @@ def set_off(app):
 def set_on(app):
     if is_flatpak(app):
         return subprocess.call(["flatpak", "override", "--user", "--share=network", app])
+    if shutil.which("latte-sandbox") and shutil.which("latte-apps"):
+        return set_native(app, True)
     p = override_path(app)
     try:
         if MARK in open(p, encoding="utf-8").read():   # zmazať iba naše prekrytie, nie vlastné súbory používateľa

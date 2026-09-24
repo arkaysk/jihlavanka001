@@ -297,7 +297,7 @@ ShellRoot {
                     Action { visible: !!parent.a; glyph: "player-play"; label: "Spustiť"; onClicked: app.launch(app.sel) }
                     Action { visible: !!parent.a && parent.a.source === "flatpak"; glyph: "shield"; label: "Oprávnenia a NET"
                              onClicked: { app.section = "opravnenia"; permProc.command = ["latte-apps", "permissions", app.sel.id]; permProc.running = true; } }
-                    Action { visible: !!parent.a && parent.a.source === "flatpak"; glyph: "list-check"; label: "Setup Plan (čo smie)"
+                    Action { visible: !!parent.a && !parent.a.latteos; glyph: "list-check"; label: "Setup Plan (čo smie)"
                              onClicked: app.openPlan(app.sel.id, app.sel.name, false) }
                     Action { visible: !!parent.a && !parent.a.latteos && (parent.a.source === "flatpak" || !!parent.a.package); danger: true; glyph: "trash"
                              label: "Odinštalovať"; onClicked: app.uninstall(app.sel) }
@@ -338,7 +338,9 @@ ShellRoot {
                 x: 22; y: 20; width: parent.width - 44; spacing: 6
                 Text { text: "Setup Plan · " + app.planName; width: parent.width; elide: Text.ElideRight; color: theme.fg; font { family: theme.fontDisplay; pixelSize: 22; weight: Font.DemiBold } }
                 Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
-                       text: "Toto si aplikácia žiada. Schváľ celý plán, vypni, čo nechceš, alebo zvoľ profil. LatteOS to zapíše do izolácie Flatpaku a kedykoľvek to zmeníš v Oprávneniach." }
+                       text: app.plan && app.plan.native
+                             ? "Natívna aplikácia (RPM) si nič nežiada — plán navrhuje LatteOS. Čo vypneš, zablokuje izolácia (bubblewrap) pri každom spustení z LatteOS; nedôveryhodná dostane súkromný domov."
+                             : "Toto si aplikácia žiada. Schváľ celý plán, vypni, čo nechceš, alebo zvoľ profil. LatteOS to zapíše do izolácie Flatpaku a kedykoľvek to zmeníš v Oprávneniach." }
                 Text { visible: !!app.plan && !!app.plan.items; width: parent.width; wrapMode: Text.WordWrap; color: theme.fg; font { family: theme.fontUi; pixelSize: 12 }
                        text: !app.plan || !app.plan.items ? "" : [app.plan.size ? "Veľkosť: " + app.plan.size : "",
                              app.plan.runtime ? "Runtime " + app.plan.runtime.split("/")[0] + " " + app.plan.runtime.split("/").pop() + (app.plan.runtimeInstalled ? " (už máš)" : " (stiahne sa)") : ""].filter(x => x).join("  ·  ") }
@@ -796,7 +798,7 @@ ShellRoot {
                             const a = ir.modelData, p = mapToItem(null, m.x, m.y);
                             const items = [{ glyph: "player-play", label: "Spustiť", action: () => app.launch(a) }];
                             if (a.source === "flatpak") items.push({ glyph: "shield", label: "Oprávnenia a NET", action: () => { app.section = "opravnenia"; permProc.command = ["latte-apps", "permissions", a.id]; permProc.running = true; } });
-                            if (a.source === "flatpak") items.push({ glyph: "list-check", label: "Setup Plan (čo smie)", action: () => app.openPlan(a.id, a.name, false) });
+                            if (!a.latteos) items.push({ glyph: "list-check", label: "Setup Plan (čo smie)", action: () => app.openPlan(a.id, a.name, false) });
                             items.push({ glyph: "folder", label: "Súbor .desktop", action: () => app.run(["latte-app", "subory", a.desktop.substring(0, a.desktop.lastIndexOf("/"))]) });
                             if (!a.latteos && (a.source === "flatpak" || a.package)) { items.push({ separator: true }); items.push({ glyph: "trash", label: "Odinštalovať", danger: true, action: () => app.uninstall(a) }); }
                             ctx.open(p.x, p.y, items, a.name + " · " + app.srcName(a));
