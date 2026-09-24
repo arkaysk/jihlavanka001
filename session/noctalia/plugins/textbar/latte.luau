@@ -26,6 +26,8 @@ local items = {
   { "Riadiace centrum", "Wi-Fi, Bluetooth, zvuk, jas", "adjustments", "riadiace centrum wifi bluetooth zvuk device", { "noctalia", "msg", "panel-toggle", "control-center" } },
   { "Sieť", "Pripojenia (nmtui)", "wifi", "siet wifi internet network", { "foot", "-e", "nmtui" } },
   { "Monitor (správca procesov)", "Ctrl+Shift+Esc · procesy, po štarte, telemetria", "activity", "monitor procesy task manager aktivita autorun", { "latte-app", "monitor" } },
+  { "Aplikácie (App Manager)", "Objavovať, aktualizácie, nainštalované, NET", "apps", "aplikacie app manager instalovat obchod flathub aktualizacie", { "latte-app", "aplikacie" } },
+  { "Aktualizovať systém a aplikácie", "App Manager › Aktualizácie", "refresh", "aktualizacie update upgrade", { "latte-app", "aplikacie", "aktualizacie" } },
   { "Po štarte", "Čo sa spúšťa pri prihlásení (Monitor)", "player-play", "autorun autostart po starte sluzby", { "latte-app", "monitor", "autorun" } },
   { "AI", "Lokálne, domáci server, cloud (Nastavenia)", "sparkles", "ai llm lm studio ollama claude chatgpt", { "latte-app", "nastavenia", "ai" } },
   { "Kalendár", "Panel Čas · plánovač udalostí", "calendar", "kalendar udalosti planovac todo", { "noctalia", "msg", "panel-open", "latteos/time:panel" } },

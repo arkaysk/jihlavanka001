@@ -1,0 +1,243 @@
+#!/usr/bin/python3
+"""latte-apps — App Manager LatteOS (backend pre apps/aplikacie.qml a Nastavenia › Softvér).
+
+  latte-apps installed               JSON: nainštalované aplikácie (.desktop) so zdrojom (Flatpak / RPM / miestne) a veľkosťou
+  latte-apps updates                 JSON: dostupné aktualizácie (dnf z cache, Flatpak)
+  latte-apps search TEXT             JSON: Flathub (appstream) + balíky Fedory
+  latte-apps permissions APP_ID      JSON: oprávnenia Flatpak aplikácie (sieť, súbory, zariadenia…)
+  latte-apps net APP_ID on|off       tlačidlo NET pre Flatpak aplikáciu (flatpak override --user)
+  latte-apps check SÚBOR             „Bude to fungovať?“ — JSON verdikt pre .flatpakref/.rpm/.AppImage/.exe/.apk/.deb…
+  latte-apps install flatpak ID      inštalácia z Flathubu pre používateľa (bez roota)
+  latte-apps remove flatpak ID       odinštalovanie Flatpaku používateľa
+
+RPM (systém) sa inštaluje a odinštaluje v termináli cez sudo dnf, aby bolo vidieť, čo sa deje.
+"""
+import glob, json, os, re, shutil, subprocess, sys
+
+HOME = os.path.expanduser("~")
+DESKTOP_DIRS = [
+    ("flatpak-user", HOME + "/.local/share/flatpak/exports/share/applications"),
+    ("flatpak", "/var/lib/flatpak/exports/share/applications"),
+    ("local", HOME + "/.local/share/applications"),
+    ("rpm", "/usr/share/applications"),
+]
+
+
+def sh(argv, timeout=60):
+    try:
+        r = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+        return r.returncode, r.stdout, r.stderr
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return 127, "", str(e)
+
+
+def parse_desktop(path):
+    kv, section = {}, None
+    try:
+        for line in open(path, encoding="utf-8", errors="replace"):
+            line = line.strip()
+            if line.startswith("["):
+                section = line
+                continue
+            if section != "[Desktop Entry]" or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            kv.setdefault(k.strip(), v.strip())
+    except OSError:
+        pass
+    return kv
+
+
+def human(n):
+    n = float(n or 0)
+    for u in ("B", "kB", "MB", "GB"):
+        if n < 1024:
+            return ("%.0f %s" if u in ("B", "kB") or n >= 10 else "%.1f %s") % (n, u)
+        n /= 1024
+    return "%.1f TB" % n
+
+
+def installed():
+    apps, seen = [], set()
+    for src, d in DESKTOP_DIRS:
+        for f in sorted(glob.glob(d + "/*.desktop")):
+            base = os.path.basename(f)
+            if base in seen:
+                continue
+            kv = parse_desktop(f)
+            if kv.get("Type", "Application") != "Application" or kv.get("NoDisplay", "").lower() == "true" or kv.get("Hidden", "").lower() == "true":
+                continue
+            seen.add(base)
+            name = kv.get("Name[sk]") or kv.get("Name") or base
+            apps.append({"id": base[:-8], "desktop": f, "name": name, "comment": kv.get("Comment[sk]") or kv.get("Comment", ""),
+                         "exec": kv.get("Exec", ""), "icon": kv.get("Icon", ""), "categories": kv.get("Categories", ""),
+                         "source": "flatpak" if src.startswith("flatpak") else src, "scope": "user" if src in ("flatpak-user", "local") else "system",
+                         "package": "", "size": 0, "latteos": base.startswith("latteos-")})
+    # RPM: balík a veľkosť jedným volaním
+    rpm_apps = [a for a in apps if a["source"] == "rpm"]
+    if rpm_apps:
+        rc, out, _ = sh(["rpm", "-qf", "--qf", "%{NAME}|%{SIZE}\\n"] + [a["desktop"] for a in rpm_apps])
+        for a, line in zip(rpm_apps, out.splitlines()):
+            if "|" in line and "not owned" not in line and "nie je vlastnený" not in line:
+                a["package"], size = line.split("|", 1)
+                a["size"] = int(size or 0)
+            else:
+                a["source"] = "local"
+    # Flatpak: veľkosť z flatpak list
+    if shutil.which("flatpak"):
+        rc, out, _ = sh(["flatpak", "list", "--app", "--columns=application,size,installation,version"])
+        info = {}
+        for line in out.splitlines():
+            f = line.split("\t")
+            if len(f) >= 3:
+                info[f[0]] = f
+        for a in apps:
+            if a["source"] == "flatpak" and a["id"] in info:
+                a["package"] = a["id"]
+                a["sizeText"] = info[a["id"]][1]
+                a["version"] = info[a["id"]][3] if len(info[a["id"]]) > 3 else ""
+    for a in apps:
+        a.setdefault("sizeText", human(a["size"]) if a["size"] else "")
+    apps.sort(key=lambda a: a["name"].lower())
+    return apps
+
+
+def updates():
+    out = []
+    rc, text, _ = sh(["dnf", "-q", "--cacheonly", "check-update"], timeout=90)
+    for line in text.splitlines():
+        f = line.split()
+        if len(f) >= 3 and "." in f[0] and not line.startswith(("Obsolet", "Security")):
+            out.append({"source": "rpm", "id": f[0].rsplit(".", 1)[0], "version": f[1], "repo": f[2]})
+    if shutil.which("flatpak"):
+        rc, text, _ = sh(["flatpak", "remote-ls", "--updates", "--columns=application,version,origin"], timeout=90)
+        for line in text.splitlines():
+            f = line.split("\t")
+            if f and f[0]:
+                out.append({"source": "flatpak", "id": f[0], "version": f[1] if len(f) > 1 else "", "repo": f[2] if len(f) > 2 else ""})
+    return out
+
+
+def search(q):
+    res = []
+    if shutil.which("flatpak"):
+        rc, text, _ = sh(["flatpak", "search", "--columns=name,description,application,version,remotes", q], timeout=60)
+        for line in text.splitlines():
+            f = line.split("\t")
+            if len(f) >= 3 and "." in f[2] and not re.search(r"\.(Gtk3theme|Platform|Sdk|KStyle|PlatformTheme)\b", f[2]):
+                res.append({"source": "flatpak", "id": f[2], "name": f[0], "comment": f[1], "version": f[3] if len(f) > 3 else "",
+                            "note": "Flathub · beží v izolácii (sandbox), inštaluje sa bez hesla"})
+    rc, text, _ = sh(["dnf", "-q", "--cacheonly", "repoquery", "--qf", "%{name}\t%{summary}\t%{version}\n", "--latest-limit=1", "*" + q + "*"], timeout=60)
+    for line in text.splitlines()[:15]:
+        f = line.split("\t")
+        if len(f) >= 2 and not f[0].endswith(("-devel", "-debuginfo", "-debugsource", "-doc", "-libs")):
+            res.append({"source": "rpm", "id": f[0], "name": f[0], "comment": f[1], "version": f[2] if len(f) > 2 else "",
+                        "note": "Fedora · systémový balík, inštalácia vyžaduje heslo správcu"})
+    return res[:40]
+
+
+def permissions(app):
+    rc, text, _ = sh(["flatpak", "info", "--show-permissions", app])
+    perms, section = {}, None
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("["):
+            section = line.strip("[]")
+            continue
+        if "=" in line and section:
+            k, _, v = line.partition("=")
+            perms.setdefault(section, {})[k] = [x for x in v.split(";") if x]
+    ctx = perms.get("Context", {})
+    shared = ctx.get("shared", [])
+    rc2, over, _ = sh(["flatpak", "override", "--user", "--show", app])
+    net_off = bool(re.search(r"^shared=.*!network", over, re.M))
+    return {"app": app, "network": "network" in shared and not net_off, "raw": perms,
+            "summary": [
+                ["Internet", "áno" if ("network" in shared and not net_off) else "nie"],
+                ["Súbory", ", ".join(ctx.get("filesystems", [])) or "iba vlastné"],
+                ["Zariadenia", ", ".join(ctx.get("devices", [])) or "žiadne"],
+                ["Okná a zvuk", ", ".join(ctx.get("sockets", [])) or "—"],
+            ]}
+
+
+def check(path):
+    """Bude to fungovať? Jednoduchý verdikt podľa typu súboru a toho, čo je v systéme."""
+    name = os.path.basename(path)
+    low = name.lower()
+    v = {"file": path, "name": name, "verdict": "nie", "title": "", "reasons": [], "action": []}   # action = argv (nikdy reťazec pre shell)
+    if not os.path.exists(path):
+        v.update(title="Súbor neexistuje", reasons=[path])
+        return v
+    if low.endswith((".flatpakref", ".flatpak")):
+        ok = bool(shutil.which("flatpak"))
+        v.update(verdict="ano" if ok else "nie", title="Flatpak aplikácia" if ok else "Chýba Flatpak",
+                 reasons=["beží izolovane (sandbox) na každej Fedore", "inštalácia pre tvoj účet bez hesla"],
+                 action=["flatpak", "install", "--user", "-y", path])
+    elif low.endswith(".rpm"):
+        rc, arch, _ = sh(["rpm", "-qp", "--qf", "%{ARCH}", path])
+        machine = os.uname().machine
+        reasons = ["architektúra " + (arch or "?") + (" ✓" if arch in (machine, "noarch") else " ✗ (tento PC je " + machine + ")")]
+        rc2, out, err = sh(["dnf", "-q", "--cacheonly", "install", "--assumeno", path], timeout=90)
+        problem = re.search(r"(Problem|Error|Chyba|conflict|nothing provides)", out + err, re.I)
+        reasons.append("problém so závislosťami: " + problem.string[problem.start():].strip().splitlines()[0][:160] if problem else "závislosti sa dajú splniť")
+        good = arch in (machine, "noarch") and not problem
+        v.update(verdict="ano" if good else "nie", title="RPM balík pre Fedoru" if good else "RPM sa nedá nainštalovať",
+                 reasons=reasons + ["inštaluje sa do systému (heslo správcu), nie je izolovaný"], action=["sudo", "dnf", "install", path])
+    elif low.endswith(".appimage"):
+        fuse2 = sh(["rpm", "-q", "fuse-libs"])[0] == 0
+        v.update(verdict="ano" if fuse2 else "podmienecne", title="AppImage",
+                 reasons=["prenosný program, netreba inštalovať", "FUSE 2 " + ("je nainštalovaný ✓" if fuse2 else "chýba — väčšina AppImage ho potrebuje (sudo dnf install fuse-libs)"),
+                          "beží bez izolácie"], action=["chmod", "+x", path])
+    elif low.endswith((".exe", ".msi")):
+        has = shutil.which("umu-run") or shutil.which("wine")
+        v.update(verdict="podmienecne" if has else "nie", title="Windows program",
+                 reasons=["spúšťa sa cez Proton/Wine (F8 herná vrstva)", ("umu-launcher/Wine je nainštalovaný" if has else "umu-launcher ani Wine zatiaľ nie sú nainštalované"),
+                          "hry z obchodov (Steam, GOG, Epic) fungujú cez ich launcher; kontrola proti ProtonDB príde neskôr"],
+                 action=["umu-run", path] if has else [])
+    elif low.endswith(".apk"):
+        has = shutil.which("waydroid")
+        v.update(verdict="podmienecne" if has else "nie", title="Android aplikácia",
+                 reasons=["Android aplikácie bežia cez Waydroid (potrebuje reálny HW, nie VM)", "Waydroid " + ("je nainštalovaný" if has else "zatiaľ nie je nainštalovaný")],
+                 action=["waydroid", "app", "install", path] if has else [])
+    elif low.endswith(".deb"):
+        v.update(verdict="nie", title="Balík pre Debian/Ubuntu",
+                 reasons=[".deb je pre iný systém; hľadaj rovnakú aplikáciu na Flathube alebo ako .rpm", "App Manager ju skúsi nájsť podľa názvu"],
+                 action=[])
+    elif low.endswith((".sh", ".run")):
+        v.update(verdict="podmienecne", title="Inštalačný skript",
+                 reasons=["môže zmeniť čokoľvek v systéme — spusti iba zo zdroja, ktorému veríš", "najprv si ho prečítaj (Súbory › Otvoriť v editore)"], action=[])
+    else:
+        v.update(title="Neznámy typ súboru", reasons=["App Manager pozná .flatpakref, .rpm, .AppImage, .exe, .apk, .deb"])
+    return v
+
+
+def main(a):
+    if not a:
+        print(__doc__.strip(), file=sys.stderr)
+        return 2
+    cmd = a[0]
+    if cmd == "installed":
+        print(json.dumps(installed(), ensure_ascii=False))
+    elif cmd == "updates":
+        print(json.dumps(updates(), ensure_ascii=False))
+    elif cmd == "search" and len(a) > 1:
+        print(json.dumps(search(" ".join(a[1:])), ensure_ascii=False))
+    elif cmd == "permissions" and len(a) == 2:
+        print(json.dumps(permissions(a[1]), ensure_ascii=False))
+    elif cmd == "net" and len(a) == 3:
+        rc, out, err = sh(["flatpak", "override", "--user", "--share=network" if a[2] == "on" else "--unshare=network", a[1]])
+        print(err.strip() or ("NET " + a[2] + ": " + a[1]))
+        return rc
+    elif cmd == "check" and len(a) == 2:
+        print(json.dumps(check(a[1]), ensure_ascii=False))
+    elif cmd in ("install", "remove") and len(a) == 3 and a[1] == "flatpak":
+        argv = ["flatpak", "install", "--user", "-y", "--noninteractive", "flathub", a[2]] if cmd == "install" else ["flatpak", "uninstall", "--user", "-y", "--noninteractive", a[2]]
+        return subprocess.call(argv)
+    else:
+        print(__doc__.strip(), file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -1,7 +1,7 @@
 # LatteOS — dlaždica aplikácií (App Manager) na ľavom konci lišty. Podľa starej verzie
 # (old/docs/lista-a-rohy.md): široká dlaždica (≈ 2 × výška lišty), bez textu, ikona nad pokojnou
 # animovanou textúrou. Pohyb je pasívny (cyklus 6–12 s, ≤ 10 obr/s), nesúvisí so stavom systému.
-# Klik = spúšťač aplikácií, pravý klik = App Manager (zatiaľ Nastavenia › Softvér).
+# Klik = spúšťač aplikácií, pravý klik = App Manager (latte-app aplikacie).
 # Pohyb: ~/.config/latteos/bar-anim  (vzdy | kurzor | vypnuty), scéna: ~/.config/latteos/bar-scene (para | matrix)
 
 id          = "latteos/apps"

@@ -81,4 +81,4 @@ function update()
 end
 
 function onClick() noctalia.runAsync({ "noctalia", "msg", "panel-toggle", "launcher" }) end
-function onRightClick() noctalia.runAsync({ "latte-app", "nastavenia", "aplikacie" }) end
+function onRightClick() noctalia.runAsync({ "latte-app", "aplikacie" }) end

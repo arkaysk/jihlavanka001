@@ -22,7 +22,7 @@ sudo usermod -aG latte "$user"
 
 echo "== binárky a skripty → /usr/bin"
 sudo install -Dm755 "$repo/target/release/latte-boot" /usr/bin/latte-boot
-for f in latte-session latte-safe latte-greeter latte-theme latte-app latte-ai latte-shellset latte-sysmon; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
+for f in latte-session latte-safe latte-greeter latte-theme latte-app latte-ai latte-shellset latte-sysmon latte-apps; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
 
 echo "== konfigurácie relácií → /usr/share/latteos"
 # bežiaci Hyprland sleduje svoje súbory a pri zmene sa znovu načíta: súbor sa preto vymieňa atomicky
@@ -69,13 +69,21 @@ for f in rc.xml environment; do sudo install -Dm644 "$S/greeter/labwc/$f" "/usr/
 sudo install -d -m2775 -o root -g latte /var/lib/latteos/greeter
 [ -f /var/lib/latteos/greeter/greeter.conf ] || sudo install -m664 -o root -g latte "$S/greeter/greeter.conf" /var/lib/latteos/greeter/greeter.conf
 
-echo "== aplikácie LatteOS (Quickshell QML): Súbory"
+echo "== App Manager: Flatpak a Flathub (inštalácia aplikácií pre používateľa bez roota)"
+rpm -q flatpak >/dev/null || sudo dnf -y -q install flatpak
+flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+echo "== aplikácie LatteOS (Quickshell QML): Súbory, Nastavenia, Monitor, Aplikácie"
 sudo install -d /usr/share/latteos/apps/common /usr/share/latteos/apps/data
 sudo install -m644 "$S"/apps/*.qml /usr/share/latteos/apps/
 sudo install -m644 "$S"/apps/common/*.qml /usr/share/latteos/apps/common/
 sudo install -m644 "$S"/apps/data/*.qml /usr/share/latteos/apps/data/
 sudo install -m644 "$S"/apps/*.desktop /usr/share/applications/
 xdg-mime default latteos-subory.desktop inode/directory 2>/dev/null || true
+# inštalačné súbory otvára App Manager („Bude to fungovať?“)
+for m in application/x-rpm application/vnd.flatpak.ref application/x-msdownload application/vnd.android.package-archive application/vnd.debian.binary-package application/x-iso9660-appimage; do
+    xdg-mime default latteos-aplikacie.desktop "$m" 2>/dev/null || true
+done
 
 echo "== systemd + tmpfiles + /etc/latteos"
 sudo install -Dm644 "$S/systemd/latte-boot.service" /usr/lib/systemd/system/latte-boot.service

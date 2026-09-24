@@ -108,7 +108,8 @@ Text {
         "users": 0xEBF2,
         "volume": 0xEB51,
         "wifi": 0xEB52,
-        "world-longitude": 0xED2F
+        "world-longitude": 0xED2F,
+        "help": 0xEABF
     })
     FontLoader { id: tabler; source: "file:///usr/share/noctalia/assets/fonts/noctalia-tabler.ttf" }
     font.family: tabler.name

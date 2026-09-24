@@ -49,12 +49,12 @@ ShellRoot {
     readonly property var areas: [
         { key: "softver", title: "Softvér", glyph: "apps", summary: "AI: " + (ai.ok === "1" ? (ai.model || "pripravené") : "nenastavené"), owner: "App Manager",
           pages: [
-            { key: "aplikacie", label: "Aplikácie", glyph: "apps", status: "planned" },
-            { key: "instalacia", label: "Inštalácia aplikácií", glyph: "download", status: "planned" },
-            { key: "aktualizacie", label: "Aktualizácie", glyph: "refresh", status: "planned" },
+            { key: "aplikacie", label: "Aplikácie", glyph: "apps", status: "partial" },
+            { key: "instalacia", label: "Inštalácia aplikácií", glyph: "download", status: "partial" },
+            { key: "aktualizacie", label: "Aktualizácie", glyph: "refresh", status: "partial" },
             { key: "ai", label: "AI", glyph: "sparkles", status: "ready" },
-            { key: "spustanie", label: "Spúšťanie a na pozadí", glyph: "player-play", status: "planned" },
-            { key: "sukromie", label: "Súkromie a NET", glyph: "world", status: "planned" } ] },
+            { key: "spustanie", label: "Spúšťanie a na pozadí", glyph: "player-play", status: "partial" },
+            { key: "sukromie", label: "Súkromie a NET", glyph: "world", status: "partial" } ] },
         { key: "data", title: "Dáta", glyph: "folder", summary: "Súbory · farebné štítky", owner: "Data Manager",
           pages: [
             { key: "subory", label: "Súbory a priečinky", glyph: "folder", status: "ready" },
@@ -323,6 +323,11 @@ ShellRoot {
     function intro(k) {
         return ({
             domov: "Stav systému na jednom mieste. Klik na kartu otvorí jej nastavenia.",
+            aplikacie: "App Manager spravuje aplikácie; tu je rýchly vstup.",
+            instalacia: "Inštalácia jedným klikom a kontrola stiahnutých súborov.",
+            aktualizacie: "Aktualizácie systému a aplikácií.",
+            sukromie: "Kto smie na internet (NET) a k súborom.",
+            spustanie: "Aplikácie a služby, ktoré sa spúšťajú samé.",
             ai: "Kam sa pýta režim AI v Text Bare: malý model na tomto PC, tvoj domáci server (napr. LM Studio), alebo veľké AI v cloude.",
             subory: "Súbory (Data Manager) otvoríš tlačidlom nižšie alebo Super+E. Priečinky sa dajú farebne označiť pravým klikom.",
             ulozisko: "Pripojené disky a voľné miesto. Upratovanie a veľké súbory pribudnú v Data Manageri.",
@@ -481,7 +486,16 @@ ShellRoot {
         }
     }
 
+    // stránky, ktoré vlastní iný manažér (main_setting_v2 §57: stav + odkaz, nie druhá implementácia)
+    readonly property var managed: ({
+        aplikacie: ["Aplikácie", "Nainštalované aplikácie, zdroj, veľkosť, odinštalovanie.", ["latte-app", "aplikacie", "nainstalovane"]],
+        instalacia: ["Aplikácie", "Objavovať: Flathub (bez hesla, v izolácii) a Fedora. „Bude to fungovať?“ pre stiahnuté súbory.", ["latte-app", "aplikacie", "objavovat"]],
+        aktualizacie: ["Aplikácie", "Systém (dnf) aj Flatpak aplikácie na jednom mieste, „Aktualizovať všetko“.", ["latte-app", "aplikacie", "aktualizacie"]],
+        sukromie: ["Aplikácie", "NET pre Flatpak aplikácie už funguje (internet áno/nie). Natívne aplikácie a Windows hry príde s F6.", ["latte-app", "aplikacie", "opravnenia"]],
+        spustanie: ["Monitor", "Čo sa spúšťa po prihlásení: autostart, služby tvojho účtu, časovače. Vypnutie jedným klikom.", ["latte-app", "monitor", "autorun"]]
+    })
     function page(k) {
+        if (managed[k]) return pManaged;
         return ({ domov: pDomov, ai: pAi, subory: pSubory, ulozisko: pUlozisko, vykon: pVykon, diagnostika: pDiag,
                   prihlasovanie: pGreeter, motiv: pMotiv, pozadie: pPozadie, okna: pOkna, lista: pLista, efekty: pEfekty,
                   start: pStart, cas: pCas, o: pO })[k] || pPlan;
@@ -900,6 +914,16 @@ ShellRoot {
                     Text { text: modelData.split("|")[1] || "—"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.DemiBold } }
                 }
             }
+        }
+    }
+    Component {
+        id: pManaged
+        Column {
+            spacing: 12
+            readonly property var m: app.managed[app.section] || ["", "", []]
+            Text { width: parent.width; wrapMode: Text.WordWrap; text: parent.m[1]; color: theme.fg; font { family: theme.fontUi; pixelSize: 14 } }
+            Button { label: "Otvoriť " + parent.m[0]; glyph: parent.m[0] === "Monitor" ? "activity" : "apps"; primaryStyle: true; onClicked: app.run(parent.m[2]) }
+            Text { text: "Nastavenia ukazujú stav a odkaz; operácie vlastní " + parent.m[0] + " (jedna implementácia)."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
         }
     }
     Component {

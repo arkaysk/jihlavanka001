@@ -270,12 +270,19 @@ flowchart TD
 
 ### F4 — Systémové služby (Rust)
 - [ ] Device Manager: stavia na crate `latte-hw`, udisks2, NetworkManager, PipeWire.
-- [ ] Process Manager: náhrada Ctrl+Alt+Del, autoruns, HW info (vzor Mission Center).
+- [x] **Monitor** (Process Manager, prototyp v Quickshelli + `latte-sysmon`): Ctrl+Shift+Esc, živý stav s grafmi, procesy podľa
+  druhu (aplikácia/prostredie/pomocný/systém) s varovaním a potvrdením, **Po štarte** (XDG autostart, systemd, časovače, cron,
+  vypnutie pre vlastný účet), **telemetria** do `$XDG_RUNTIME_DIR/latteos/telemetry.json` (OLED, Stream Deck).
+- [ ] Monitor: stála služba telemetrie, HW info (vzor Mission Center), strom procesov, proces → aplikácia → zariadenie.
 - [x] Data Manager **prototyp** (Quickshell, `latte-app subory`): Tento počítač (lsblk), dva panely F3/F5/F6, detail, kôš.
 - [x] Data Manager: **kontextové menu** (pravý klik v zozname aj v bočnej lište), **farebné štítky** priečinkov a súborov
   (`~/.config/latteos/tags.json`), vlastné Obľúbené, premenovanie, nový priečinok, terminál tu.
 - [ ] Data Manager v Ruste (udisks2, kopírovanie s priebehom, zdieľané priečinky) podľa prototypu.
-- [ ] App Manager: dnf + Flatpak (neskôr rpm-ostree), jednotné IPC so shellom.
+- [x] **App Manager** (prototyp `latte-app aplikacie` + `latte-apps`): Objavovať (Flathub + Fedora, odporúčané: základ, hry,
+  tvorba, komunikácia), Aktualizácie (dnf + Flatpak, „Aktualizovať všetko“), Nainštalované (zdroj, veľkosť, odinštalovanie),
+  **Oprávnenia a NET** (Flatpak: internet áno/nie cez `flatpak override`), **„Bude to fungovať?“** pre .rpm/.flatpakref/.AppImage/
+  .exe/.apk/.deb (aj z pravého kliku v Súboroch a ako predvolená aplikácia pre tieto typy).
+- [ ] App Manager: rpm-ostree na Atomic, ProtonDB pri .exe, Waydroid pri .apk, jednotné IPC so shellom.
 
 ### F5 — Stabilita a pamäť
 - [x] OOM politika podľa Ubuntu 26.10 ([session/oom](session/oom/README.md)): `user@` −500 a `ManagedOOMMemoryPressure=auto`,
@@ -285,7 +292,8 @@ flowchart TD
 
 ### F6 — Bezpečnostný model *(hlavný diferenciátor)*
 - [ ] Trusted/untrusted profily nad Flatpak portálmi a bubblewrapom.
-- [ ] Tlačidlo NET na aplikáciu, zatiaľ pre natívne a Flatpak aplikácie.
+- [x] Tlačidlo NET pre **Flatpak** aplikácie (App Manager › Oprávnenia a NET).
+- [ ] Tlačidlo NET pre natívne aplikácie a Windows hry (cgroup/nftables podľa aplikácie).
 - [ ] Setup Plan dialóg (vzor Flatseal).
 
 ### F7 — AI a Text Bar

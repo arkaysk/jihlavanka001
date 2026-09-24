@@ -88,6 +88,8 @@ ShellRoot {
         items.push({ separator: true });
         items.push({ glyph: "pencil", label: "Premenovať…", keepOpen: true, action: () => ctx.replace([{ input: e.name, action: (t) => app.rename(e, t) }], "Nový názov · Enter uloží, Esc zruší") });
         items.push({ glyph: "clipboard", label: "Kopírovať cestu", action: () => app.run(["wl-copy", "--", e.path], "Cesta skopírovaná") });
+        if (!e.isDir && /\.(rpm|flatpakref|flatpak|appimage|exe|msi|apk|deb|run)$/i.test(e.name))
+            items.push({ glyph: "help", label: "Bude to fungovať?", hint: "App Manager", action: () => app.run(["latte-app", "aplikacie", "check", e.path]) });
         if (app.dual) {
             items.push({ glyph: "copy", label: "Kopírovať do druhého", hint: "F5", action: () => app.copyToOther(false) });
             items.push({ glyph: "arrows-exchange", label: "Presunúť do druhého", hint: "F6", action: () => app.copyToOther(true) });
