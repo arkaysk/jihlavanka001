@@ -45,7 +45,7 @@ clipboard_placement      = "floating"
 control_center_placement = "attached"
 
 # ── Lišta: ostrovy zľava doprava ───────────────────────────────────────────────
-# Aplikácie · Čas+notifikácie · Systém+páska · Hľadanie · Schránka · Súbory+zariadenia
+# Aplikácie · Čas a dátum+oznámenia · Systém+páska · Hľadanie · Schránka · Súbory+zariadenia
 [bar.main]
 position           = "bottom"
 thickness          = 56
@@ -67,16 +67,16 @@ font_scale         = 1.05
 
 start  = ["group:apps", "group:time", "group:system"]
 center = ["group:search"]
-end    = ["clipboard", "group:devices"]
+end    = ["latte-cat", "clipboard", "group:devices"]
 
 [[bar.main.capsule_group]]
 id      = "apps"
-members = ["launcher"]
+members = ["latte-apps"]
 enabled = true
 
 [[bar.main.capsule_group]]
 id      = "time"
-members = ["clock", "notifications"]
+members = ["latte-time", "notifications"]
 enabled = true
 
 [[bar.main.capsule_group]]
@@ -98,9 +98,17 @@ enabled = true
 [widget.launcher]
 glyph = "apps"
 
+# široká dlaždica aplikácií s pokojnou textúrou (plugin latteos/apps); klik = spúšťač, pravý klik = App Manager
+[widget.latte-apps]
+type = "latteos/apps:tile"
+
 [widget.clock]
 format         = "{:%H:%M}"
 tooltip_format = "{:%A, %-d. %B %Y}"
+
+# čas + dátum LatteOS (plugin latteos/time): klik = panel Čas · Oznámenia · Kalendár, pravý klik = Kalendár
+[widget.latte-time]
+type = "latteos/time:clock"
 
 # šálka Latte = systémové menu LatteOS (plugin latteos/system); riadiace centrum ostáva v ostrove zariadení
 [widget.latte-cup]
@@ -122,6 +130,10 @@ focused_color = "primary"
 [widget.textbar]
 type = "latteos/textbar:bar"
 
+# maskot LatteOS (plugin latteos/cat): ťuká do rytmu hudby, v noci spí; pravý klik = iný maskot
+[widget.latte-cat]
+type = "latteos/cat:mascot"
+
 [widget.files]
 type  = "custom_button"
 glyph = "folder"
@@ -141,7 +153,7 @@ path = "/usr/share/backgrounds/latteos/latteos-wallpaper2.jpg"
 
 # pluginy LatteOS (/usr/share/latteos/noctalia/plugins/<plugin>/plugin.toml)
 [plugins]
-enabled     = ["latteos/system", "latteos/textbar", "latteos/devices"]
+enabled     = ["latteos/system", "latteos/textbar", "latteos/devices", "latteos/time", "latteos/apps", "latteos/cat"]
 auto_update = "none"
 
 [[plugins.source]]

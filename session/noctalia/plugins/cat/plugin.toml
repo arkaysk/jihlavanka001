@@ -1,0 +1,22 @@
+# LatteOS — maskot na lište („kde mám mačku?“). Vlastná pixel-art (make-mascots.py): Latte mačka,
+# čierna Mokka, kávové Zrnko. Keď hrá hudba, ťuká labkami (štýl bongo cat); inak sedí a žmurká,
+# v noci a pri Nerušiť spí. Klik = pohladkať, pravý klik = ďalší maskot.
+# Voľba: ~/.config/latteos/mascot (macka | mokka | zrnko | ziadny), Nastavenia › Prostredie › Lišta.
+
+id          = "latteos/cat"
+name        = "LatteOS Maskot"
+version     = "0.1.0"
+plugin_api  = 32
+author      = "latteos"
+license     = "MIT"
+dependencies = []
+tags        = ["latteos", "fun"]
+icon        = "cat"
+description = "Pixel maskot na lište: ťuká do rytmu hudby, žmurká, v noci spí."
+
+[[widget]]
+id    = "mascot"
+entry = "mascot.luau"
+
+[widget.actions]
+middle = "none"

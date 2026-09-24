@@ -45,6 +45,11 @@ for p in "$S"/noctalia/plugins/*/; do   # pluginy LatteOS (zdroj „latteos“ v
     n="$(basename "$p")"; sudo install -d "/usr/share/latteos/noctalia/plugins/$n"
     sudo install -m644 "$p"* "/usr/share/latteos/noctalia/plugins/$n/"
 done
+# maskoti na lištu: vlastná pixel-art, snímky sa generujú (plugin latteos/cat)
+tmpm="$(mktemp -d)"; python3 "$S/noctalia/plugins/cat/make-mascots.py" "$tmpm" | sed 's/^/   /'
+sudo install -d /usr/share/latteos/noctalia/plugins/cat/mascots
+sudo install -m644 "$tmpm"/*.png /usr/share/latteos/noctalia/plugins/cat/mascots/
+rm -rf "$tmpm"
 sudo install -d /usr/share/fonts/latteos /usr/share/backgrounds/latteos
 sudo install -m644 "$S"/fonts/*.ttf "$S"/fonts/OFL-*.txt /usr/share/fonts/latteos/
 sudo fc-cache -f /usr/share/fonts/latteos

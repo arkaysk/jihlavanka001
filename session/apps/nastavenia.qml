@@ -40,6 +40,9 @@ ShellRoot {
     property var clockZones: []
     property string about: ""
     property string storage: ""
+    property string mascot: "macka"
+    property string barAnim: ""        // prázdne = podľa stupňa (VM: pod kurzorom)
+    property string barScene: "para"
 
     // ── strom Nastavení (kanonický, main_setting_v2.md §58) ──────────────────────
     // status: ready = funguje · partial = časť · planned = zatiaľ len plán
@@ -165,6 +168,16 @@ ShellRoot {
         id: clockFile
         path: app.cfgHome + "/latteos/clock.conf"; printErrors: false
         onLoaded: { const r = text().match(/^zones = "(.*)"/m); app.clockZones = r && r[1] ? r[1].split(",") : []; }
+    }
+    FileView { path: app.cfgHome + "/latteos/mascot"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.mascot = text().trim() || "macka"; onLoadFailed: app.mascot = "macka" }
+    FileView { path: app.cfgHome + "/latteos/bar-anim"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.barAnim = text().trim(); onLoadFailed: app.barAnim = "" }
+    FileView { path: app.cfgHome + "/latteos/bar-scene"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.barScene = text().trim() || "para"; onLoadFailed: app.barScene = "para" }
+    function writePref(name, value, msg) {
+        if (value === "") run(["rm", "-f", app.cfgHome + "/latteos/" + name], msg);
+        else run(["sh", "-c", "mkdir -p \"$(dirname \"$1\")\" && printf '%s\\n' \"$2\" > \"$1\"", "sh", app.cfgHome + "/latteos/" + name, value], msg);
     }
     function toggleZone(z) {
         const zs = clockZones.indexOf(z) >= 0 ? clockZones.filter(x => x !== z) : clockZones.concat([z]);
@@ -319,7 +332,7 @@ ShellRoot {
             motiv: "Téma prefarbí lištu, panely, okná aj aplikácie naraz. Každá téma má tmavú aj svetlú verziu.",
             pozadie: "Tapeta plochy. Témy si pri zmene vyberú svoju, tu ju môžeš zmeniť.",
             okna: "Ako sa ukladajú okná. Super+W prepína režimy aj bez otvárania nastavení.",
-            lista: "Spodná lišta z ostrovov. Šírku určuje odsadenie od okrajov obrazovky.",
+            lista: "Spodná lišta z ostrovov. Šírku určuje odsadenie od okrajov obrazovky. Vľavo dlaždica aplikácií, vpravo maskot.",
             efekty: "Efekty kompozitora riadi stupeň výkonu; pohyblivé materiály tém prídu na silnejšom HW.",
             start: "Režim NORMAL (Hyprland) alebo SAFE (labwc bez GPU). SAFE naskočí sám po dvoch pádoch za sebou.",
             cas: "Poloha určuje východ a západ slnka pre automatický svetlý/tmavý režim a nočné svetlo. Ďalšie časové pásma ukáže panel Čas.",
@@ -366,7 +379,7 @@ ShellRoot {
             domov: "/run/latteos/mode.toml", motiv: "~/.config/latteos/theme\n~/.config/latteos/theme-mode", pozadie: "~/.local/state/noctalia/settings.toml",
             okna: "~/.local/state/latteos/window-mode", vykon: "~/.config/latteos/tier", efekty: "~/.config/latteos/tier",
             start: "/etc/latteos/boot.toml\n/var/lib/latteos/", ai: "~/.config/latteos/ai.toml\n~/.config/latteos/ai-keys (0600)",
-            lista: "~/.local/state/noctalia/settings.toml [bar.main]", cas: "~/.local/state/noctalia/settings.toml [location]\n~/.config/latteos/clock.conf",
+            lista: "~/.local/state/noctalia/settings.toml [bar.main]\n~/.config/latteos/bar-anim, bar-scene, mascot", cas: "~/.local/state/noctalia/settings.toml [location]\n~/.config/latteos/clock.conf",
             prihlasovanie: "/var/lib/latteos/greeter/greeter.conf", diagnostika: "/var/lib/latteos/greeter/last-crash.log\n/var/lib/latteos/crash-count",
             subory: "~/.config/latteos/subory.json\n~/.config/latteos/tags.json"
         })[k] || "—";
@@ -776,6 +789,25 @@ ShellRoot {
                       onStepped: (v) => app.shellSet("bar.main.margin_edge", v, "Odsadenie od spodku " + v) }
             Stepper { label: "Medzera medzi ostrovmi"; value: parseInt(app.bar.widget_spacing) || 12; step: 2; min: 4; max: 32
                       onStepped: (v) => app.shellSet("bar.main.widget_spacing", v, "Medzera " + v) }
+            Heading { text: "DLAŽDICA APLIKÁCIÍ (vľavo)" }
+            Segments {
+                options: [["", "Podľa výkonu"], ["vzdy", "Vždy v pohybe"], ["kurzor", "Pod kurzorom"], ["vypnuty", "Bez pohybu"]]
+                value: app.barAnim
+                onPicked: (v) => { app.barAnim = v; app.writePref("bar-anim", v, "Pohyb dlaždice: " + (v || "podľa výkonu")); }
+            }
+            Segments {
+                options: [["para", "Para"], ["matrix", "Matrix"]]
+                value: app.barScene
+                onPicked: (v) => { app.barScene = v; app.writePref("bar-scene", v, "Textúra: " + v); }
+            }
+            Heading { text: "MASKOT" }
+            Segments {
+                options: [["macka", "Latte mačka"], ["mokka", "Mokka"], ["zrnko", "Zrnko"], ["ziadny", "Žiadny"]]
+                value: app.mascot
+                onPicked: (v) => { app.mascot = v; app.writePref("mascot", v, "Maskot: " + v); }
+            }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Maskot ťuká labkami do rytmu hudby, žmurká a v noci či pri Nerušiť spí. Pohyb stojí trochu CPU, preto je vo VM iba pri hudbe." }
             Row {
                 spacing: 10
                 Button { label: "Predvolené LatteOS"; glyph: "refresh"
