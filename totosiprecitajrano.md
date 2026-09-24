@@ -34,6 +34,16 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 11:55: F6 — NET pre každú aplikáciu ✅
+- V **App Manageri › Oprávnenia a NET** má každá aplikácia vypínač internetu. Doteraz to fungovalo iba
+  pre Flatpak, teraz aj pre bežné aplikácie:
+  - Vypnutím vznikne prekrytie spúšťača a aplikácia beží v **bubblewrape bez siete**. Okno, zvuk a
+    schránka fungujú, internet nie.
+  - Overené: okno sa otvorilo, sieť nebola dostupná.
+  - Platí pre každé spustenie z LatteOS (lišta, Text Bar, App Manager). Aplikácia spustená ručne z
+    terminálu sieť má; na to bude treba systémovú službu s firewallom (zapísané v ROADMAP).
+- Windows hry (Proton) prídu s hernou vrstvou.
+
 ### 24. 9. 2026, 11:40: Herňa, Používatelia ✅
 - **Super+G = Herňa:** knižnica hier zo **Steamu** (aj Flatpak verzie) a **Heroicu** (Epic, GOG, Amazon)
   s obalmi a filtrom. Klik spustí hru v **hernom režime** a po zatvorení hry sa efekty vrátia.

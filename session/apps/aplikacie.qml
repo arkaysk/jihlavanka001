@@ -356,18 +356,21 @@ ShellRoot {
         Column {
             spacing: 10
             Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 }
-                   text: "NET = smie aplikácia na internet. Pre Flatpak aplikácie to LatteOS vie vypnúť hneď (izolácia Flatpaku). Pre systémové (RPM) aplikácie a Windows hry príde NET s bezpečnostným modelom (F6)." }
+                   text: "NET = smie aplikácia na internet. Vypnutie platí pri každom spustení z LatteOS (lišta, Text Bar, App Manager): Flatpak cez jeho izoláciu, ostatné aplikácie bežia bez siete (bubblewrap). Zmena platí po reštarte aplikácie." }
             Repeater {
-                model: app.installedApps.filter(a => a.source === "flatpak")
+                model: app.installedApps.filter(a => !a.latteos)
                 AppRow {
                     required property var modelData
-                    width: parent.width; title: modelData.name; sub: modelData.id; badge: "Flatpak"; glyph: "world"
-                    actionLabel: "Podrobnosti"; actionPrimary: false
-                    onAction: { app.selId = modelData.id; permProc.command = ["latte-apps", "permissions", modelData.id]; permProc.running = true; }
+                    width: parent.width; height: 54; title: modelData.name; sub: modelData.id + (modelData.source === "flatpak" ? "  ·  podrobnosti: klik na riadok" : "")
+                    badge: app.srcName(modelData); glyph: modelData.net === "off" ? "world-off" : "world"
+                    actionLabel: modelData.net === "off" ? "○ NET vypnutý" : "● NET zapnutý"; actionPrimary: modelData.net !== "off"
+                    onAction: { app.run(["latte-apps", "net", modelData.id, modelData.net === "off" ? "on" : "off"], "NET " + (modelData.net === "off" ? "zapnutý" : "vypnutý") + ": " + modelData.name); netRefresh.restart(); }
+                    MouseArea { anchors { left: parent.left; top: parent.top; bottom: parent.bottom; right: parent.right; rightMargin: 150 }
+                                enabled: parent.modelData.source === "flatpak"
+                                onClicked: { app.selId = parent.modelData.id; permProc.command = ["latte-apps", "permissions", parent.modelData.id]; permProc.running = true; } }
                 }
             }
-            Text { visible: app.installedApps.filter(a => a.source === "flatpak").length === 0; width: parent.width; wrapMode: Text.WordWrap
-                   text: "Zatiaľ žiadne Flatpak aplikácie. Nainštaluj niečo v Objavovať."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 } }
+            Timer { id: netRefresh; interval: 700; onTriggered: listProc.running = true }
             Rectangle {
                 visible: !!app.perms.app
                 width: parent.width; height: pc.implicitHeight + 28; radius: 14; color: theme.field; border { color: theme.primary; width: 1 }

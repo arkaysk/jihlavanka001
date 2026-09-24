@@ -5,7 +5,7 @@
   latte-apps updates                 JSON: dostupné aktualizácie (dnf z cache, Flatpak)
   latte-apps search TEXT             JSON: Flathub (appstream) + balíky Fedory
   latte-apps permissions APP_ID      JSON: oprávnenia Flatpak aplikácie (sieť, súbory, zariadenia…)
-  latte-apps net APP_ID on|off       tlačidlo NET pre Flatpak aplikáciu (flatpak override --user)
+  latte-apps net APP_ID on|off       tlačidlo NET (latte-net: Flatpak override alebo bubblewrap bez siete)
   latte-apps check SÚBOR             „Bude to fungovať?“ — JSON verdikt pre .flatpakref/.rpm/.AppImage/.exe/.apk/.deb…
   latte-apps install flatpak ID      inštalácia z Flathubu pre používateľa (bez roota)
   latte-apps remove flatpak ID       odinštalovanie Flatpaku používateľa
@@ -58,13 +58,16 @@ def human(n):
 
 
 def installed():
-    apps, seen = [], set()
+    apps, seen, netoff = [], set(), set()
     for src, d in DESKTOP_DIRS:
         for f in sorted(glob.glob(d + "/*.desktop")):
             base = os.path.basename(f)
             if base in seen:
                 continue
             kv = parse_desktop(f)
+            if kv.get("X-LatteOS-NET") == "off":      # prekrytie od latte-net: metadáta z pôvodného súboru, NET vypnutý
+                netoff.add(base[:-8])
+                continue
             if kv.get("Type", "Application") != "Application" or kv.get("NoDisplay", "").lower() == "true" or kv.get("Hidden", "").lower() == "true":
                 continue
             seen.add(base)
@@ -98,6 +101,13 @@ def installed():
                 a["version"] = info[a["id"]][3] if len(info[a["id"]]) > 3 else ""
     for a in apps:
         a.setdefault("sizeText", human(a["size"]) if a["size"] else "")
+        a["net"] = "off" if a["id"] in netoff else "on"
+    # Flatpak: NET z flatpak override
+    for a in apps:
+        if a["source"] == "flatpak":
+            rc, o, _ = sh(["flatpak", "override", "--user", "--show", a["id"]])
+            if re.search(r"^shared=.*!network", o, re.M):
+                a["net"] = "off"
     apps.sort(key=lambda a: a["name"].lower())
     return apps
 
@@ -225,9 +235,7 @@ def main(a):
     elif cmd == "permissions" and len(a) == 2:
         print(json.dumps(permissions(a[1]), ensure_ascii=False))
     elif cmd == "net" and len(a) == 3:
-        rc, out, err = sh(["flatpak", "override", "--user", "--share=network" if a[2] == "on" else "--unshare=network", a[1]])
-        print(err.strip() or ("NET " + a[2] + ": " + a[1]))
-        return rc
+        return subprocess.call(["latte-net", "on" if a[2] == "on" else "off", a[1]])   # Flatpak aj natívne (bubblewrap)
     elif cmd == "check" and len(a) == 2:
         print(json.dumps(check(a[1]), ensure_ascii=False))
     elif cmd in ("install", "remove") and len(a) == 3 and a[1] == "flatpak":

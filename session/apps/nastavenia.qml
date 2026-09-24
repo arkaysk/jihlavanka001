@@ -610,7 +610,7 @@ ShellRoot {
         aplikacie: ["Aplikácie", "Nainštalované aplikácie, zdroj, veľkosť, odinštalovanie.", ["latte-app", "aplikacie", "nainstalovane"]],
         instalacia: ["Aplikácie", "Objavovať: Flathub (bez hesla, v izolácii) a Fedora. „Bude to fungovať?“ pre stiahnuté súbory.", ["latte-app", "aplikacie", "objavovat"]],
         aktualizacie: ["Aplikácie", "Systém (dnf) aj Flatpak aplikácie na jednom mieste, „Aktualizovať všetko“.", ["latte-app", "aplikacie", "aktualizacie"]],
-        sukromie: ["Aplikácie", "NET pre Flatpak aplikácie už funguje (internet áno/nie). Natívne aplikácie a Windows hry príde s F6.", ["latte-app", "aplikacie", "opravnenia"]],
+        sukromie: ["Aplikácie", "NET pre každú aplikáciu: internet áno/nie. Flatpak cez jeho izoláciu, ostatné aplikácie bežia bez siete (bubblewrap). Windows hry cez Proton prídu s hernou vrstvou.", ["latte-app", "aplikacie", "opravnenia"]],
         obrazovky: ["Správca zariadení", "Rozlíšenie a mierka obrazovky s potvrdením do 15 s (inak sa zmena vráti). Uloží sa do ~/.config/latteos/monitors.lua.", ["latte-app", "zariadenia", "obrazovky"]],
         zvuk: ["Správca zariadení", "Zvukové karty a predvolený výstup; hlasitosť je v Zariadeniach na lište.", ["latte-app", "zariadenia", "zvuk"]],
         siet: ["Správca zariadení", "Sieťové karty a pripojenia (NetworkManager). Wi-Fi a VPN cez nmtui, neskôr priamo.", ["latte-app", "zariadenia", "siet"]],

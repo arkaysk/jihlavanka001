@@ -310,7 +310,9 @@ flowchart TD
 ### F6 — Bezpečnostný model *(hlavný diferenciátor)*
 - [ ] Trusted/untrusted profily nad Flatpak portálmi a bubblewrapom.
 - [x] Tlačidlo NET pre **Flatpak** aplikácie (App Manager › Oprávnenia a NET).
-- [ ] Tlačidlo NET pre natívne aplikácie a Windows hry (cgroup/nftables podľa aplikácie).
+- [x] Tlačidlo NET pre **natívne** aplikácie (`latte-net`): prekrytie .desktop spúšťa aplikáciu cez bubblewrap --unshare-net
+  (bez práv správcu; Wayland a D-Bus fungujú, sieť nie — overené).
+- [ ] NET pre Windows hry (Proton) a pre aplikácie spustené z terminálu (cgroup + nftables, vyžaduje službu so správcom).
 - [ ] Setup Plan dialóg (vzor Flatseal).
 
 ### F7 — AI a Text Bar
