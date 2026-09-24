@@ -6,7 +6,9 @@
   latte-apps search TEXT             JSON: Flathub (appstream) + balíky Fedory
   latte-apps permissions APP_ID      JSON: oprávnenia Flatpak aplikácie (sieť, súbory, zariadenia…)
   latte-apps net APP_ID on|off       tlačidlo NET (latte-net: Flatpak override alebo bubblewrap bez siete)
-  latte-apps check SÚBOR             „Bude to fungovať?“ — JSON verdikt pre .flatpakref/.rpm/.AppImage/.exe/.apk/.deb…
+  latte-apps check SÚBOR             „Bude to fungovať?“ — JSON verdikt pre .flatpakref/.rpm/.AppImage/.exe/.apk/.deb…,
+                                     aj zložku (stiahnutá hra, CD/DVD), archív .zip/.rar/.7z a obraz .iso:
+                                     inštalátor Windows (setup.exe, repack s .bin), prenosná hra, hra pre Linux
   latte-apps install flatpak ID      inštalácia z Flathubu pre používateľa (bez roota)
   latte-apps remove flatpak ID       odinštalovanie Flatpaku používateľa
 
@@ -177,6 +179,127 @@ def permissions(app):
             ]}
 
 
+SKIP_EXE = re.compile(r"(^|/)(unins\d*|uninstall|vc_?redist[^/]*|dxsetup|dxwebsetup|directx[^/]*|dotnet[^/]*|ndp\d+[^/]*|physx[^/]*|oalinst|"
+                      r"unitycrashhandler\w*|crashreport\w*|ue4prereqsetup\w*|easyanticheat\w*|quicksfv|7z\w*|unrar\w*)\.exe$", re.I)
+INSTALLER = re.compile(r"(^|/)(setup|install|installer|autorun|launcher_setup|setup_[^/]+)\.exe$", re.I)
+
+
+def list_tree(path):
+    """(relatívna cesta, veľkosť) pre zložku alebo archív; None ak sa archív nedá prečítať."""
+    out = []
+    if os.path.isdir(path):
+        base = len(path.rstrip("/")) + 1
+        for root, dirs, files in os.walk(path):
+            if root[base:].count("/") >= 4:
+                dirs[:] = []
+            for f in files:
+                full = os.path.join(root, f)
+                try:
+                    out.append((full[base:], os.path.getsize(full)))
+                except OSError:
+                    pass
+                if len(out) > 20000:
+                    return out
+        return out
+    low = path.lower()
+    if low.endswith(".zip") and shutil.which("unzip"):
+        rc, text, _ = sh(["unzip", "-Zl", path], timeout=60)
+        for l in text.splitlines():
+            f = l.split(None, 9)
+            if len(f) == 10 and f[3].isdigit():
+                out.append((f[9], int(f[3])))
+        return out
+    if shutil.which("7z"):
+        rc, text, _ = sh(["7z", "l", "-slt", path], timeout=60)
+        cur, size = None, 0
+        for l in text.splitlines():
+            if l.startswith("Path = "):
+                cur = l[7:]
+            elif l.startswith("Size = ") and cur:
+                out.append((cur, int(l[7:] or 0))); cur = None
+        return out[1:] if out and out[0][0] == path else out
+    if shutil.which("bsdtar"):
+        rc, text, _ = sh(["bsdtar", "-tvf", path], timeout=60)
+        for l in text.splitlines():
+            f = l.split(None, 8)
+            if len(f) == 9 and f[4].isdigit():
+                out.append((f[8], int(f[4])))
+        return out if rc == 0 else None
+    return None
+
+
+def check_game(path, files, archive):
+    """Zložka / CD / archív s hrou alebo programom: čo to je, čím to spustiť, čo chýba."""
+    name = os.path.basename(path.rstrip("/"))
+    if archive:
+        name = re.sub(r"\.(zip|rar|7z|iso)$", "", name, flags=re.I)
+    v = {"file": path, "name": name, "verdict": "podmienecne", "title": "", "reasons": [], "action": [], "plan": [], "needs": []}
+    orig = {f.lower(): f for f, _ in files}                 # výstup s pôvodnými veľkými písmenami (RA95.exe)
+    lows = [(f.lower(), sz) for f, sz in files]
+    total = sum(sz for _, sz in files)
+    exes = [(f, sz) for f, sz in lows if f.endswith(".exe")]
+    inst = [f for f, _ in exes if INSTALLER.search(f)]
+    autorun = [f for f, _ in lows if f.endswith("autorun.inf")]
+    bins = [f for f, _ in lows if re.search(r"(^|/)(fg|setup|data|dodi)[-_]?\d+[^/]*\.bin$", f) or re.search(r"(^|/)[^/]+-\d+\.bin$", f)]
+    msi = [f for f, _ in lows if f.endswith(".msi")]
+    linux = [f for f, _ in lows if f.endswith((".x86_64", ".x86")) or re.search(r"(^|/)(start|run|launch)[^/]*\.sh$", f)]
+    gog = [f for f, _ in lows if re.search(r"gog[^/]*\.sh$|/gameinfo$", f)]
+    portable = [f for f, sz in sorted(exes, key=lambda x: -x[1]) if not SKIP_EXE.search(f) and not INSTALLER.search(f)]
+    redist = sorted({f.split("/")[0] for f, _ in lows if re.search(r"(^|/)(_?commonredist|redist|directx|vcredist)/", f)})
+    umu = shutil.which("umu-run")
+    wine = shutil.which("wine")
+    runner = "Proton (umu-launcher)" if umu else ("Wine" if wine else "")
+    gb = lambda n: human(n)
+    o = lambda f: orig.get(f, f)
+    free = shutil.disk_usage(os.path.expanduser("~")).free
+    prefix = "~/Hry/" + re.sub(r"[^\w .-]", "", name).strip()
+    if archive:
+        v["plan"].append("Rozbaliť archív do " + prefix + " (" + gb(total) + ")")
+        if not path.lower().endswith(".zip") and not shutil.which("7z") and not shutil.which("bsdtar"):
+            v["needs"].append({"pkg": "7zip", "label": "7-Zip (rar, 7z, iso)"})
+    if linux or gog:
+        v.update(verdict="ano", title="Hra alebo program pre Linux")
+        v["reasons"].append("spúšťač pre Linux: " + o((gog or linux)[0]))
+        v["plan"].append("Spustiť priamo (bez Wine), vytvoriť spúšťač v App Manageri a na ploche")
+    elif inst or msi or autorun:
+        rep = bool(bins)
+        v["title"] = "Inštalátor pre Windows" + (" — repack v častiach (.bin)" if rep else (" z CD/DVD" if autorun else ""))
+        v["reasons"].append("inštalátor: " + o((inst or msi or autorun)[0]) + ((" + " + str(len(bins)) + " častí .bin") if rep else ""))
+        if rep:
+            v["reasons"].append("repacky (napr. FitGirl, DODI) sa rozbaľujú dlho a potrebujú miesto navyše: počítaj ~" + gb(total * 2.5) + " voľného")
+            if any("verify" in f for f, _ in lows):
+                v["plan"].append("Najprv overiť .bin súbory (MD5) — ekvivalent „Verify BIN files“ vo Windows")
+        v["plan"].append("Vytvoriť samostatný sandbox (Wine prefix) " + prefix + "/prefix — hra nevidí zvyšok systému")
+        v["plan"].append("Spustiť " + o((inst or msi or autorun)[0]).split("/")[-1] + " cez " + (runner or "Proton/Wine") + ", cieľ inštalácie C:\\Games v sandboxe")
+        v["plan"].append("Po inštalácii nájsť hlavné .exe a vytvoriť spúšťač (App Manager, plocha)")
+    elif portable:
+        v["title"] = "Prenosná hra / program pre Windows (bez inštalácie)"
+        v["reasons"].append("hlavný program: " + o(portable[0]) + " (" + gb(dict(lows)[portable[0]]) + ")")
+        v["plan"].append("Vytvoriť sandbox " + prefix + "/prefix a spúšťať " + o(portable[0]).split("/")[-1] + " cez " + (runner or "Proton/Wine"))
+        v["plan"].append("Vytvoriť spúšťač v App Manageri a na ploche")
+        if len(portable) > 1:
+            v["reasons"].append("ďalšie .exe: " + ", ".join(o(p).split("/")[-1] for p in portable[1:4]))
+    else:
+        v.update(verdict="nie", title="Nenašiel som program ani inštalátor",
+                 reasons=["v " + ("archíve" if archive else "zložke") + " nie je .exe, .msi, autorun.inf ani spúšťač pre Linux"])
+        return v
+    if redist:
+        v["reasons"].append("doplnkové knižnice (" + ", ".join(redist) + ") Proton zvyčajne nepotrebuje — preskočia sa")
+    if not (linux or gog):
+        if not runner:
+            # umu-launcher (Proton mimo Steamu) vo Fedore nie je — príde zo zdroja LatteOS (resources/upstream/umu-launcher);
+            # dovtedy Wine z Fedory
+            v["needs"].append({"pkg": "wine", "label": "Wine z Fedory"})
+            v["reasons"].append("chýba Wine/Proton — zatiaľ Wine z Fedory; Proton cez umu-launcher príde s hernou vrstvou LatteOS")
+        else:
+            v["reasons"].append("spustí sa cez " + runner)
+        v["reasons"].append("anti-cheat (EasyAntiCheat, BattlEye) môže online hru zablokovať — offline hry zvyčajne fungujú")
+    v["reasons"].append("veľkosť " + gb(total) + " · voľné miesto " + gb(free) + (" ✓" if free > total * (2.5 if bins else 1.3) else " ✗ málo miesta"))
+    if free < total * (2.5 if bins else 1.3):
+        v["verdict"] = "nie"
+    return v
+
+
 def check(path):
     """Bude to fungovať? Jednoduchý verdikt podľa typu súboru a toho, čo je v systéme."""
     name = os.path.basename(path)
@@ -185,6 +308,13 @@ def check(path):
     if not os.path.exists(path):
         v.update(title="Súbor neexistuje", reasons=[path])
         return v
+    if os.path.isdir(path) or low.endswith((".zip", ".rar", ".7z", ".iso")):
+        files = list_tree(path)
+        if files is None:
+            v.update(verdict="podmienecne", title="Archív " + low.rsplit(".", 1)[-1].upper(),
+                     reasons=["archív sa zatiaľ nedá prečítať — chýba 7-Zip"], needs=[{"pkg": "7zip", "label": "7-Zip (rar, 7z, iso)"}], plan=[])
+            return v
+        return check_game(path, files, not os.path.isdir(path))
     if low.endswith((".flatpakref", ".flatpak")):
         ok = bool(shutil.which("flatpak"))
         v.update(verdict="ano" if ok else "nie", title="Flatpak aplikácia" if ok else "Chýba Flatpak",

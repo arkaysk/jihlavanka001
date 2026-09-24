@@ -290,6 +290,8 @@ ShellRoot {
     Component {
         id: pPrehlad
         Flickable {
+            id: rolovanie1
+            ScrollHint { flick: rolovanie1; colors: theme }
             contentHeight: col.implicitHeight; clip: true
             Column {
                 id: col
@@ -411,6 +413,7 @@ ShellRoot {
             }
             ListView {
                 id: list
+                ScrollHint { flick: list; colors: theme }
                 anchors { top: head.bottom; left: parent.left; right: parent.right; bottom: parent.bottom }
                 clip: true; boundsBehavior: Flickable.StopAtBounds
                 model: app.shown
@@ -460,6 +463,8 @@ ShellRoot {
     Component {
         id: pAutorun
         Flickable {
+            id: rolovanie3
+            ScrollHint { flick: rolovanie3; colors: theme }
             contentHeight: acol.implicitHeight; clip: true
             Column {
                 id: acol
@@ -511,6 +516,8 @@ ShellRoot {
     Component {
         id: pHardver
         Flickable {
+            id: rolovanie4
+            ScrollHint { flick: rolovanie4; colors: theme }
             contentHeight: hcol.implicitHeight; clip: true
             Column {
                 id: hcol

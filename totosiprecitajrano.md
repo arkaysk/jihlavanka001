@@ -70,6 +70,30 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 20:15: pravý klik, ukazovateľ rolovania, Discord 1×, inštalácia zo zložky ✅
+- **Pravý klik na ikonu aplikácie** v rýchlom spustení je ponuka ako v ponuke Štart vo Windows 11:
+  - Otvoriť a **úlohy aplikácie** (Firefox: Nové okno, Nové súkromné okno…);
+  - **Pripnúť medzi obľúbené** (sekcia PRIPNUTÉ navrchu), **Odsunúť na koniec zoznamu** (aplikácie, ktoré ťa
+    nezaujímajú, sú úplne dole v sekcii ODSUNUTÉ, dajú sa vrátiť);
+  - Pridať na plochu (spúšťač s ikonou), Otvoriť umiestnenie súboru, Detail v App Manageri, Odinštalovať.
+  - Karty v obchode majú tiež pravý klik: detail, inštalovať/otvoriť, oprávnenia, Flathub, odinštalovať.
+  - Máš pravdu, že na kontextové ponuky zabúdam. Zapísal som si to ako trvalé pravidlo.
+- **Ukazovateľ rolovania** je teraz pri každom zozname vo všetkých aplikáciách LatteOS (21 miest). Je to tenký
+  pás pri okraji, pri rolovaní a pod myšou výraznejší, dá sa potiahnuť. Pri pásoch v obchode je vodorovný.
+- **Discord 2×:** bol raz v oblasti oznámení a raz medzi bežiacimi Flatpakmi. Flatpak s ikonou v oblasti
+  oznámení sa už druhýkrát neukáže.
+- **Bude to fungovať? pre hry a programy mimo obchodu** (inštaláciu odkladáme, teraz iba overujeme rozpoznanie):
+  - **zložka s inštalátorom** (setup.exe + fg-01…06.bin ako tvoj repack, MD5, „Verify BIN files“) aj CD/DVD
+    s autorun.inf: plán overiť .bin, vytvoriť samostatný sandbox (Wine prefix v ~/Hry/<hra>), spustiť setup
+    a nakoniec vytvoriť spúšťač;
+  - **prenosná hra** (iba napr. RA95.exe, bez inštalátora): hlavný program, sandbox, spúšťač;
+  - **archív** .zip (už teraz), .rar/.7z/.iso (po doinštalovaní 7-Zip): rozbaliť do ~/Hry a potom ako zložka;
+  - hra pre Linux (GOG .sh, .x86_64) → priamo; redist knižnice sa preskočia; počíta potrebné miesto
+    (repack ~2,5×); upozorní na anti-cheat.
+  - Súbory: pravý klik na **zložku** alebo archív › Bude to fungovať?
+  - umu-launcher (Proton mimo Steamu) vo Fedore nie je. Zatiaľ ponúkne Wine z Fedory, Proton cez umu pridám
+    s hernou vrstvou zo zdroja v resources.
+
 ### 24. 9. 2026, 19:50: plný App Manager — obchod a všetky aktualizácie ✅ (zadanie 24. 9. večer, časť 2)
 - **Obchod** (namiesto krátkeho zoznamu), ako GNOME Software alebo Bazaar, z Flathubu:
   - úvodný banner s trendovou aplikáciou a jej snímkou;

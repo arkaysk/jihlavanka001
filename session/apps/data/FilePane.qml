@@ -133,6 +133,7 @@ Rectangle {
 
     ListView {
         id: list
+        ScrollHint { flick: list; colors: pane.theme }
         visible: !pane.icons
         anchors { top: head.bottom; topMargin: 4; left: parent.left; right: parent.right; bottom: parent.bottom; margins: 8 }
         clip: true
@@ -216,6 +217,7 @@ Rectangle {
     // ikony: mriežka ako vo Win11 (ikona alebo náhľad obrázka, pod ňou názov na dva riadky)
     GridView {
         id: grid
+        ScrollHint { flick: grid; colors: pane.theme }
         visible: pane.icons
         anchors { top: parent.top; left: parent.left; right: parent.right; bottom: parent.bottom; margins: 8 }
         clip: true

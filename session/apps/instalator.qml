@@ -181,6 +181,7 @@ ShellRoot {
                 width: parent.width; height: 240; radius: 10; color: theme.field
                 Flickable {
                     id: lf; anchors { fill: parent; margins: 10 }
+                    ScrollHint { flick: lf; colors: theme }
                     contentHeight: lg.implicitHeight; clip: true
                     onContentHeightChanged: contentY = Math.max(0, contentHeight - height)
                     Text { id: lg; width: parent.width; wrapMode: Text.WrapAnywhere; text: app.log || "(zatiaľ nič)"; color: theme.fgDim; font { family: theme.fontMono; pixelSize: 11 } }

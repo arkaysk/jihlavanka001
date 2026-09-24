@@ -73,6 +73,7 @@ ShellRoot {
 
         ListView {
             id: list
+            ScrollHint { flick: list; colors: theme }
             anchors { left: parent.left; right: parent.right; top: header.bottom; bottom: inputBox.top; margins: 16 }
             clip: true; spacing: 10
             model: app.msgs.filter(m => header.searchText === "" || String(m.content).toLowerCase().includes(header.searchText.toLowerCase()))

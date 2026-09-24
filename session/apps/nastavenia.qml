@@ -421,6 +421,7 @@ ShellRoot {
 
         Flickable {
             id: content
+            ScrollHint { flick: content; colors: theme }
             anchors { left: side.right; top: header.bottom; bottom: parent.bottom; right: detail.left; margins: 24 }
             contentHeight: body.implicitHeight + 24; clip: true
             Column {

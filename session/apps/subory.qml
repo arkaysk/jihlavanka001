@@ -225,7 +225,7 @@ ShellRoot {
         items.push({ separator: true });
         items.push({ glyph: "pencil", label: "Premenovať…", keepOpen: true, action: () => ctx.replace([{ input: e.name, action: (t) => app.rename(e, t) }], "Nový názov · Enter uloží, Esc zruší") });
         items.push({ glyph: "clipboard", label: "Kopírovať cestu", action: () => app.run(["wl-copy", "--", e.path], "Cesta skopírovaná") });
-        if (!e.isDir && /\.(rpm|flatpakref|flatpak|appimage|exe|msi|apk|deb|run)$/i.test(e.name))
+        if (e.isDir || /\.(rpm|flatpakref|flatpak|appimage|exe|msi|apk|deb|run|zip|rar|7z|iso)$/i.test(e.name))
             items.push({ glyph: "help", label: "Bude to fungovať?", hint: "App Manager", action: () => app.run(["latte-app", "aplikacie", "check", e.path]) });
         if (app.dual) {
             items.push({ glyph: "copy", label: "Kopírovať do druhého", hint: "F5", action: () => app.copyToOther(false) });
@@ -678,6 +678,8 @@ ShellRoot {
                 }
                 IconButton { anchors { right: parent.right; rightMargin: 8; top: parent.top; topMargin: 6 } theme: theme; glyph: "x"; tip: "Zavrieť výsledky"; onClicked: app.found = [] }
                 ListView {
+                    id: rolovanie1
+                    ScrollHint { flick: rolovanie1; colors: theme }
                     anchors { left: parent.left; right: parent.right; top: fhead.bottom; bottom: parent.bottom; margins: 8; topMargin: 10 }
                     clip: true; model: app.found; boundsBehavior: Flickable.StopAtBounds
                     delegate: Rectangle {

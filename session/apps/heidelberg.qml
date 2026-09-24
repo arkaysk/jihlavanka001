@@ -492,14 +492,15 @@ ShellRoot {
                     radius: 12; color: app.rich ? Qt.rgba(0, 0, 0, theme.mode === "dark" ? 0.25 : 0.07) : theme.field
                     clip: true
                     Flickable {
-                        id: flick
+                        id: flickDoc
+                        ScrollHint { flick: flickDoc; colors: theme }
                         anchors { fill: parent; margins: app.rich ? 0 : 14 }
                         contentWidth: app.rich ? Math.max(width, app.pageW + 48) : width
                         contentHeight: app.rich ? Math.max(app.pageH, editor.implicitHeight + app.marginMm * 2 * app.mmPx) + 48 : editor.implicitHeight
                         clip: true
                         Rectangle {   // strana
                             visible: app.rich
-                            x: Math.max(24, (flick.width - app.pageW) / 2); y: 24
+                            x: Math.max(24, (flickDoc.width - app.pageW) / 2); y: 24
                             width: app.pageW; height: Math.max(app.pageH, editor.implicitHeight + app.marginMm * 2 * app.mmPx)
                             color: "white"; border { color: Qt.rgba(0, 0, 0, 0.12); width: 1 }
                             MouseArea {   // klik na prázdnu časť strany = písať na koniec
@@ -514,21 +515,21 @@ ShellRoot {
                         }
                         TextEdit {
                             id: editor
-                            x: app.rich ? Math.max(24, (flick.width - app.pageW) / 2) + app.marginMm * app.mmPx : 0
+                            x: app.rich ? Math.max(24, (flickDoc.width - app.pageW) / 2) + app.marginMm * app.mmPx : 0
                             y: app.rich ? 24 + app.marginMm * app.mmPx : 0
-                            width: app.rich ? app.pageW - 2 * app.marginMm * app.mmPx : flick.width
+                            width: app.rich ? app.pageW - 2 * app.marginMm * app.mmPx : flickDoc.width
                             textFormat: app.rich ? TextEdit.RichText : TextEdit.PlainText
                             wrapMode: TextEdit.Wrap; selectByMouse: true; focus: true; persistentSelection: true
                             color: app.rich ? "#111111" : theme.fg
                             selectionColor: theme.primary; selectedTextColor: theme.fgOnPrimary
                             font { family: app.kind === "txt" ? theme.fontUi : (app.rich ? "Manrope" : theme.fontMono); pixelSize: app.rich ? Math.round(15 * app.zoom) : 14 }
                             onLinkActivated: (l) => Qt.openUrlExternally(l)
-                            onTextChanged: if (!activeFocus) flick.contentY = 0       // načítaný dokument od začiatku
+                            onTextChanged: if (!activeFocus) flickDoc.contentY = 0       // načítaný dokument od začiatku
                             onCursorRectangleChanged: {
                                 if (!activeFocus) return;                               // posúvať iba pri písaní
                                 const top = cursorRectangle.y + y, bot = top + cursorRectangle.height;
-                                if (top < flick.contentY) flick.contentY = top;
-                                else if (bot > flick.contentY + flick.height) flick.contentY = bot - flick.height;
+                                if (top < flickDoc.contentY) flickDoc.contentY = top;
+                                else if (bot > flickDoc.contentY + flickDoc.height) flickDoc.contentY = bot - flickDoc.height;
                             }
                         }
                         Text { visible: app.plain === "" && !app.rich; text: "Píš… (Markdown: # nadpis, **tučné**, *kurzíva*, - zoznam)"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 14 } }
@@ -541,6 +542,8 @@ ShellRoot {
                     width: (work.mainW - 14) / 2; height: parent.height
                     radius: 12; color: Qt.rgba(0, 0, 0, theme.mode === "dark" ? 0.12 : 0.03); border { color: theme.line; width: 1 }
                     Flickable {
+                        id: rolovanie2
+                        ScrollHint { flick: rolovanie2; colors: theme }
                         anchors { fill: parent; margins: 20 }
                         contentHeight: rendered.implicitHeight; clip: true
                         Text {
@@ -586,6 +589,8 @@ ShellRoot {
                         Text { visible: !app.checking && app.issues.length === 0; width: parent.width; wrapMode: Text.WordWrap; text: "Bez chýb ✓ (" + app.words + " slov)"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
                     }
                     ListView {
+                        id: rolovanie3
+                        ScrollHint { flick: rolovanie3; colors: theme }
                         anchors { left: parent.left; right: parent.right; top: chead.bottom; bottom: parent.bottom; margins: 10; topMargin: 8 }
                         clip: true; spacing: 6; model: app.issues
                         delegate: Rectangle {
@@ -647,6 +652,8 @@ ShellRoot {
                     Text { x: 10; anchors.verticalCenter: parent.verticalCenter; visible: ffi.text === ""; text: "Hľadať písmo…"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 } }
                 }
                 ListView {
+                    id: rolovanie4
+                    ScrollHint { flick: rolovanie4; colors: theme }
                     anchors { left: parent.left; right: parent.right; top: ff.bottom; bottom: parent.bottom; margins: 8 }
                     clip: true
                     model: app.fonts.filter(f => app.fontFilter === "" || f.toLowerCase().includes(app.fontFilter.toLowerCase()))

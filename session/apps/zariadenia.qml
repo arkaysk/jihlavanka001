@@ -116,6 +116,7 @@ ShellRoot {
 
             Flickable {
                 id: content
+                ScrollHint { flick: content; colors: theme }
                 anchors { left: side.right; top: header.bottom; bottom: parent.bottom; right: detail.left; margins: 20 }
                 contentHeight: col.implicitHeight + 20; clip: true
                 Column {
@@ -175,6 +176,8 @@ ShellRoot {
                 width: 320; radius: theme.radius
                 color: Qt.rgba(0, 0, 0, theme.mode === "dark" ? 0.16 : 0.04); border { color: theme.line; width: 1 }
                 Flickable {
+                    id: rolovanie2
+                    ScrollHint { flick: rolovanie2; colors: theme }
                     anchors { fill: parent; margins: 16 }
                     contentHeight: dcol.implicitHeight; clip: true
                     Column {

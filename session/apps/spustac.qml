@@ -20,6 +20,8 @@ ShellRoot {
     property string tab: "apps"
     property string query: ""
     property var usage: ({})                 // id → { n, t } (počet a čas spustení)
+    property var pinned: []                  // pripnuté navrch (pravý klik › Pripnúť medzi obľúbené)
+    property var bottom: []                  // odsunuté úplne dole (pravý klik › Odsunúť na koniec)
 
     IpcHandler {
         target: "spustac"
@@ -33,14 +35,68 @@ ShellRoot {
     FileView {
         id: usageFile
         path: sp.state + "/spustac.json"; printErrors: false
-        onLoaded: { try { sp.usage = JSON.parse(text()) || {}; } catch (e) { sp.usage = {}; } }
+        onLoaded: {
+            try {
+                const j = JSON.parse(text()) || {};
+                if (j.usage) { sp.usage = j.usage; sp.pinned = j.pinned || []; sp.bottom = j.bottom || []; } else sp.usage = j;   // starý formát = iba počty
+            } catch (e) { sp.usage = {}; }
+        }
     }
     function launch(e) {
         const u = Object.assign({}, usage);
         u[e.id] = { n: ((u[e.id] || {}).n || 0) + 1, t: Date.now() };
-        usage = u; usageFile.setText(JSON.stringify(u));
+        usage = u; savePrefs();
         e.execute();
         open = false;
+    }
+    function savePrefs() { usageFile.setText(JSON.stringify({ usage: usage, pinned: pinned, bottom: bottom })); }
+    function togglePin(id) { pinned = pinned.indexOf(id) >= 0 ? pinned.filter(x => x !== id) : pinned.concat([id]); bottom = bottom.filter(x => x !== id); savePrefs(); }
+    function toggleBottom(id) { bottom = bottom.indexOf(id) >= 0 ? bottom.filter(x => x !== id) : bottom.concat([id]); pinned = pinned.filter(x => x !== id); savePrefs(); }
+    // kontextová ponuka dlaždice (ako v ponuke Štart vo Windows 11)
+    property var menuEntry: null
+    property string menuPath: ""             // .desktop súbor položky (zistí sa pri otvorení ponuky)
+    Process {
+        id: whereProc
+        stdout: StdioCollector { onStreamFinished: sp.menuPath = this.text.trim() }
+    }
+    function tileMenu(e, x, y) {
+        menuEntry = e; menuPath = "";
+        whereProc.command = ["sh", "-c", 'for d in "$HOME/.local/share/applications" "$HOME/.local/share/flatpak/exports/share/applications" /var/lib/flatpak/exports/share/applications /usr/share/applications; do [ -f "$d/$1.desktop" ] && { echo "$d/$1.desktop"; exit; }; done', "sh", e.id];
+        whereProc.running = true;
+        const items = [{ glyph: "player-play", label: "Otvoriť", action: () => sp.launch(e) }];
+        const acts = e.actions || [];
+        if (acts.length) {
+            items.push({ separator: true });
+            for (const a of acts.slice(0, 6)) items.push({ glyph: "point", label: a.name, action: () => { a.execute(); sp.open = false; } });
+        }
+        items.push({ separator: true });
+        const pin = pinned.indexOf(e.id) >= 0, low = bottom.indexOf(e.id) >= 0;
+        items.push({ glyph: "star", label: pin ? "Odopnúť z obľúbených" : "Pripnúť medzi obľúbené", action: () => sp.togglePin(e.id) });
+        items.push({ glyph: "arrow-up", label: low ? "Vrátiť do zoznamu" : "Odsunúť na koniec zoznamu", action: () => sp.toggleBottom(e.id) });
+        items.push({ glyph: "device-desktop", label: "Pridať na plochu", action: () => sp.toDesktop(e) });
+        items.push({ separator: true });
+        items.push({ glyph: "folder", label: "Otvoriť umiestnenie súboru", action: () => sp.revealEntry(e) });
+        items.push({ glyph: "apps", label: "Detail v App Manageri", action: () => { sp.open = false; run.command = ["latte-app", "aplikacie", "detail", e.id]; run.startDetached(); } });
+        items.push({ glyph: "trash", label: "Odinštalovať…", danger: true, enabled: !e.id.startsWith("latteos-"), action: () => sp.uninstall(e) });
+        tmenu.open(x, y, items, e.name);
+    }
+    Process { id: helper }
+    function sh(cmd, args) { helper.command = ["sh", "-c", cmd, "sh"].concat(args || []); helper.startDetached(); }
+    readonly property string findDesktop: 'p=""; for d in "$HOME/.local/share/applications" "$HOME/.local/share/flatpak/exports/share/applications" /var/lib/flatpak/exports/share/applications /usr/share/applications; do [ -f "$d/$1.desktop" ] && { p="$d/$1.desktop"; break; }; done; '
+    function revealEntry(e) {
+        open = false;
+        // Flatpak: priečinok aplikácie; inak priečinok programu z Exec, nakoniec priečinok .desktop súboru
+        sh(findDesktop + 'f=$(flatpak info --show-location "$1" 2>/dev/null); if [ -n "$f" ]; then latte-app subory "$f/files"; exit; fi; '
+           + 'x=$(sed -n "s/^Exec=//p" "$p" | head -1 | cut -d" " -f1); x=$(command -v "$x" 2>/dev/null); '
+           + 'if [ -n "$x" ]; then latte-app subory "$(dirname "$(readlink -f "$x")")"; else latte-app subory "$(dirname "$p")"; fi', [e.id]);
+    }
+    function toDesktop(e) {
+        sh(findDesktop + 'd=$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Plocha"); mkdir -p "$d"; cp -n "$p" "$d/" && chmod +x "$d/$1.desktop" && notify-send -a LatteOS "Na ploche" "$2"', [e.id, e.name]);
+    }
+    function uninstall(e) {
+        open = false;
+        sh(findDesktop + 'case "$p" in */flatpak/*) latte-app aplikacie detail "$1" ;; *) pk=$(rpm -qf --qf "%{NAME}\n" "$p" 2>/dev/null | head -1); '
+           + '[ -n "$pk" ] && latte-app instalator "--nazov=Odinštalovať_$2" remove "$pk" ;; esac', [e.id, e.name.replace(/ /g, "_")]);
     }
     function fullManager() { open = false; run.command = ["latte-app", "aplikacie"]; run.startDetached(); }
     Process { id: run }
@@ -64,7 +120,9 @@ ShellRoot {
                                  .sort((a, b) => a.name.localeCompare(b.name, "sk"))
     readonly property var found: query === "" ? [] : apps.filter(e => (e.name + " " + e.genericName + " " + e.comment + " " + (e.keywords || []).join(" "))
                                                                  .toLowerCase().includes(query.toLowerCase()))
-    readonly property var frequent: apps.filter(e => usage[e.id]).sort((a, b) => (usage[b.id].n - usage[a.id].n) || (usage[b.id].t - usage[a.id].t)).slice(0, 6)
+    readonly property var pinnedApps: pinned.map(id => apps.find(e => e.id === id)).filter(e => !!e)
+    readonly property var bottomApps: apps.filter(e => bottom.indexOf(e.id) >= 0)
+    readonly property var frequent: apps.filter(e => usage[e.id] && pinned.indexOf(e.id) < 0 && bottom.indexOf(e.id) < 0).sort((a, b) => (usage[b.id].n - usage[a.id].n) || (usage[b.id].t - usage[a.id].t)).slice(0, 6)
 
     // bežiace Flatpaky (aj bez ikony v oblasti oznámení)
     property var flatpaks: []
@@ -74,6 +132,17 @@ ShellRoot {
         stdout: StdioCollector { onStreamFinished: sp.flatpaks = this.text.split("\n").filter(l => l !== "" && !l.startsWith("org.freedesktop.") && !l.endsWith(".Platform")) }
     }
     Process { id: killer; onExited: flatpakPs.running = true }
+    // Flatpak s ikonou v oblasti oznámení sa neukáže druhýkrát (Discord bol 2×)
+    function trayHas(appId) {
+        const last = appId.split(".").pop().toLowerCase();
+        const e = DesktopEntries.byId(appId);
+        const nm = e ? e.name.toLowerCase() : "";
+        return SystemTray.items.values.some(t => {
+            const s = ((t.id || "") + " " + (t.title || "") + " " + (t.tooltipTitle || "")).toLowerCase();
+            return s.includes(last) || (nm !== "" && s.includes(nm)) || s.includes(appId.toLowerCase());
+        });
+    }
+    readonly property var flatpaksOnly: flatpaks.filter(f => !trayHas(f))
 
     // ponuka aplikácie z oblasti oznámení (DBusMenu) kreslená v paneli — natívne vyskakovacie menu sa nad
     // vrstvou s výhradným fokusom neukáže
@@ -133,7 +202,7 @@ ShellRoot {
                 Row {
                     id: tabs; spacing: 4; anchors.verticalCenter: parent.verticalCenter
                     Repeater {
-                        model: [["apps", "Aplikácie"], ["bg", "Na pozadí" + ((SystemTray.items.values.length + sp.flatpaks.length) ? " · " + (SystemTray.items.values.length) : "")]]
+                        model: [["apps", "Aplikácie"], ["bg", "Na pozadí" + ((SystemTray.items.values.length + sp.flatpaksOnly.length) ? " · " + (SystemTray.items.values.length + sp.flatpaksOnly.length) : "")]]
                         Rectangle {
                             required property var modelData
                             width: tt.implicitWidth + 24; height: 34; radius: 17
@@ -179,13 +248,15 @@ ShellRoot {
                     width: parent.width - 6; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; maximumLineCount: 2; wrapMode: Text.WordWrap
                     text: at.entry.name; color: theme.fg; font { family: theme.fontUi; pixelSize: 11; weight: Font.Medium }
                 }
-                MouseArea { id: am; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: sp.launch(at.entry) }
+                MouseArea { id: am; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; acceptedButtons: Qt.LeftButton | Qt.RightButton
+                            onClicked: (m) => { if (m.button === Qt.RightButton) { const q = mapToItem(box, m.x, m.y); sp.tileMenu(at.entry, q.x, q.y); } else sp.launch(at.entry); } }
             }
             component Section: Text { width: list.width; topPadding: 10; bottomPadding: 2; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11; weight: Font.Bold; letterSpacing: 0.8 } }
 
             // aplikácie
             Flickable {
                 id: list
+                ScrollHint { flick: list; colors: theme }
                 visible: sp.tab === "apps"
                 anchors { left: parent.left; right: parent.right; top: head.bottom; bottom: foot.top; margins: 18; topMargin: 12 }
                 contentHeight: appCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
@@ -194,6 +265,8 @@ ShellRoot {
                     Text { visible: sp.query !== "" && sp.found.length === 0; topPadding: 30; width: parent.width; horizontalAlignment: Text.AlignHCenter
                            text: "Nič také nie je nainštalované. Skús App Manager ›"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 } }
                     Flow { visible: sp.query !== ""; width: parent.width; Repeater { model: sp.query !== "" ? sp.found : []; AppTile { required property var modelData; entry: modelData } } }
+                    Section { visible: sp.query === "" && sp.pinnedApps.length > 0; text: "PRIPNUTÉ" }
+                    Flow { visible: sp.query === ""; width: parent.width; Repeater { model: sp.query === "" ? sp.pinnedApps : []; AppTile { required property var modelData; entry: modelData } } }
                     Section { visible: sp.query === "" && sp.frequent.length > 0; text: "ČASTO POUŽÍVANÉ" }
                     Flow { visible: sp.query === ""; width: parent.width; Repeater { model: sp.query === "" ? sp.frequent : []; AppTile { required property var modelData; entry: modelData } } }
                     Repeater {
@@ -201,18 +274,21 @@ ShellRoot {
                         Column {
                             id: grp
                             required property var modelData
-                            readonly property var items: sp.apps.filter(e => sp.groupOf(e) === modelData[0])
+                            readonly property var items: sp.apps.filter(e => sp.groupOf(e) === modelData[0] && sp.bottom.indexOf(e.id) < 0)
                             visible: items.length > 0; width: appCol.width
                             Section { text: grp.modelData[1].toUpperCase() + "  ·  " + grp.items.length }
                             Flow { width: parent.width; Repeater { model: grp.items; AppTile { required property var modelData; entry: modelData } } }
                         }
                     }
+                    Section { visible: sp.query === "" && sp.bottomApps.length > 0; text: "ODSUNUTÉ  ·  " + sp.bottomApps.length + "  (pravý klik › Vrátiť do zoznamu)" }
+                    Flow { visible: sp.query === ""; width: parent.width; opacity: 0.7; Repeater { model: sp.query === "" ? sp.bottomApps : []; AppTile { required property var modelData; entry: modelData } } }
                 }
             }
 
             // na pozadí: oblasť oznámení (SNI) + bežiace Flatpaky
             Flickable {
                 id: bgList
+                ScrollHint { flick: bgList; colors: theme }
                 visible: sp.tab === "bg"
                 anchors { left: parent.left; right: parent.right; top: head.bottom; bottom: foot.top; margins: 18; topMargin: 12 }
                 contentHeight: bgCol.implicitHeight; clip: true
@@ -249,9 +325,9 @@ ShellRoot {
                         }
                     }
                     Text { visible: SystemTray.items.values.length === 0; text: "Nič nebeží v oblasti oznámení."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 } }
-                    Section { visible: sp.flatpaks.length > 0; text: "BEŽIACE FLATPAKY" }
+                    Section { visible: sp.flatpaksOnly.length > 0; text: "ĎALŠIE BEŽIACE APLIKÁCIE (Flatpak, bez ikony v oblasti oznámení)" }
                     Repeater {
-                        model: sp.flatpaks
+                        model: sp.flatpaksOnly
                         Rectangle {
                             id: fr
                             required property string modelData
@@ -311,6 +387,8 @@ ShellRoot {
                     }
                 }
             }
+
+            ContextMenu { id: tmenu; theme: theme }
 
             // päta: plný App Manager
             Rectangle {

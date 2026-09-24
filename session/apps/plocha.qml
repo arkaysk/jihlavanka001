@@ -40,7 +40,8 @@ ShellRoot {
     Timer { interval: 4000; repeat: true; running: true; triggeredOnStart: true; onTriggered: if (!trashProc.running) trashProc.running = true }
     Process { id: run }
     function sh(cmd, args) { run.command = ["sh", "-c", cmd, "sh"].concat(args || []); run.running = true; }
-    function open(p) { sh(p === pl.trashDir ? 'latte-app subory "$1" >/dev/null 2>&1 &' : 'xdg-open "$1" >/dev/null 2>&1 &', [p]); }
+    // spúšťač aplikácie (.desktop, napr. z rýchleho spustenia › Pridať na plochu) sa spustí, ostatné otvorí
+    function open(p) { sh(p === pl.trashDir ? 'latte-app subory "$1" >/dev/null 2>&1 &' : (p.endsWith(".desktop") ? 'gio launch "$1" >/dev/null 2>&1 &' : 'xdg-open "$1" >/dev/null 2>&1 &'), [p]); }
 
     // „Otvoriť v…“ cez latte-otvor (rovnaké ako v Súboroch)
     Process {
@@ -125,6 +126,7 @@ ShellRoot {
                 property bool isDir: false
                 property string glyph: "file"
                 property string badge: ""
+                property string iconSrc: ""          // ikona aplikácie (spúšťač .desktop)
                 readonly property bool selected: pl.sel === path
                 width: 110; height: 96
                 Rectangle {
@@ -139,7 +141,8 @@ ShellRoot {
                     anchors { horizontalCenter: parent.horizontalCenter; top: parent.top; topMargin: 8 }
                     color: Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, 0.88)
                     border { color: Qt.rgba(theme.outline.r, theme.outline.g, theme.outline.b, 0.6); width: 1 }
-                    Glyph { anchors.centerIn: parent; name: ic.glyph; size: 28; color: ic.isDir || ic.glyph === "trash" ? theme.primary : theme.fg }
+                    Glyph { anchors.centerIn: parent; visible: appImg.status !== Image.Ready; name: ic.glyph; size: 28; color: ic.isDir || ic.glyph === "trash" ? theme.primary : theme.fg }
+                    Image { id: appImg; anchors { fill: parent; margins: 6 } source: ic.iconSrc; sourceSize { width: 80; height: 80 } fillMode: Image.PreserveAspectFit; asynchronous: true }
                     Rectangle {
                         visible: ic.badge !== ""
                         anchors { right: parent.right; top: parent.top; rightMargin: -6; topMargin: -6 }
@@ -178,7 +181,9 @@ ShellRoot {
                     required property string fileName
                     required property string filePath
                     required property bool fileIsDir
-                    path: filePath; name: fileName; isDir: fileIsDir; glyph: pl.glyphFor(fileName, fileIsDir)
+                    readonly property var de: fileName.endsWith(".desktop") ? DesktopEntries.byId(fileName.slice(0, -8)) : null
+                    path: filePath; name: de ? de.name : fileName; isDir: fileIsDir; glyph: pl.glyphFor(fileName, fileIsDir)
+                    iconSrc: de && de.icon ? Quickshell.iconPath(de.icon, true) : ""
                 }
             }
         }

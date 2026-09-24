@@ -15,7 +15,7 @@ ShellRoot {
     readonly property var args: (Quickshell.env("LATTE_APP_ARGS") || "").trim().split(" ")
     // „check“ bez súboru (spustenie z ponuky, .desktop má %f) = Objavovať
     property string section: args[0] === "check" ? (args.length > 1 && args[1] !== "" ? "check" : "objavovat")
-                           : (({ aplikacie: "nainstalovane", instalacia: "objavovat", hladat: "objavovat" })[args[0]] || args[0] || "objavovat")
+                           : (({ aplikacie: "nainstalovane", instalacia: "objavovat", hladat: "objavovat", detail: "objavovat" })[args[0]] || args[0] || "objavovat")
     property string status: ""
     property string query: ""
     property var results: []
@@ -143,6 +143,8 @@ ShellRoot {
     Component.onCompleted: {
         go(section);
         // latte-app aplikacie hladat <názov alebo id> (napr. zo Súborov › Otvoriť v › Nainštalovať): rovno hľadá
+        // latte-app aplikacie detail <id> (rýchle spustenie › pravý klik › Detail): stránka aplikácie v obchode
+        if (args[0] === "detail" && args.length > 1) Qt.callLater(() => app.openApp(args[1]));
         if (args[0] === "hladat" && args.length > 1) { query = args.slice(1).join(" "); doSearch(); Qt.callLater(() => header.searchText = query); }
     }
 
@@ -171,7 +173,7 @@ ShellRoot {
                         { key: "opravnenia", glyph: "shield", label: "Oprávnenia a NET", sub: "internet, súbory, zariadenia" }
                     ] },
                     { title: "Inštalácia súboru", items: [
-                        { key: "check", glyph: "help", label: "Bude to fungovať?", sub: ".rpm .exe .apk .AppImage .deb" }
+                        { key: "check", glyph: "help", label: "Bude to fungovať?", sub: "zložka, CD, .zip .rar .exe .rpm .AppImage" }
                     ] }
                 ]
                 onActivated: (it) => app.go(it.key)
@@ -190,6 +192,7 @@ ShellRoot {
 
             Flickable {
                 id: content
+                ScrollHint { flick: content; colors: theme }
                 anchors { left: side.right; top: header.bottom; bottom: statusBar.top; right: detail.visible ? detail.left : parent.right; margins: 20 }
                 contentHeight: body.implicitHeight + 20; clip: true
                 Loader {
@@ -317,7 +320,24 @@ ShellRoot {
             Text { visible: !cardItem.info.installed && !!cardItem.info.verified; text: "✔ overený"; color: theme.primary; font { family: theme.fontUi; pixelSize: 10; weight: Font.Bold } }
             Text { visible: !cardItem.info.installed && (cardItem.info.installs || 0) > 0; text: "↓ " + app.fmtCount(cardItem.info.installs) + "/mes."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 10 } }
         }
-        MouseArea { id: cm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: app.openApp(cardItem.info.id) }
+        MouseArea {
+            id: cm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onClicked: (m) => {
+                if (m.button !== Qt.RightButton) { app.openApp(cardItem.info.id); return; }
+                const i = cardItem.info, q = mapToItem(null, m.x, m.y);
+                const items = [{ glyph: "info-circle", label: "Zobraziť detail", action: () => app.openApp(i.id) }];
+                if (i.installed) {
+                    items.push({ glyph: "player-play", label: "Otvoriť", action: () => app.runFlatpak(i.id) });
+                    items.push({ glyph: "shield", label: "Oprávnenia a NET", action: () => { app.section = "opravnenia"; app.selId = i.id; permProc.command = ["latte-apps", "permissions", i.id]; permProc.running = true; } });
+                } else items.push({ glyph: "download", label: "Inštalovať", enabled: app.busyId === "", action: () => app.install("flatpak", i.id, i.name) });
+                items.push({ separator: true });
+                items.push({ glyph: "external-link", label: "Otvoriť na Flathube", action: () => Qt.openUrlExternally("https://flathub.org/apps/" + i.id) });
+                items.push({ glyph: "clipboard", label: "Kopírovať ID aplikácie", action: () => app.run(["wl-copy", "--", i.id], "Skopírované: " + i.id) });
+                if (i.installed) { items.push({ separator: true });
+                    items.push({ glyph: "trash", label: "Odinštalovať", danger: true, action: () => { app.busyId = i.id; app.status = "Odinštalujem " + i.name + "…"; installProc.command = ["latte-apps", "remove", "flatpak", i.id]; installProc.running = true; } }); }
+                ctx.open(q.x, q.y, items, i.name);
+            }
+        }
     }
     component Shelf: Column {
         id: shelf
@@ -325,6 +345,8 @@ ShellRoot {
         width: parent ? parent.width : 600; spacing: 8; visible: items.length > 0
         Heading { text: shelf.title.toUpperCase(); topPadding: 6 }
         ListView {
+            id: rolovanie2
+            ScrollHint { flick: rolovanie2; colors: theme; horizontal: true }
             width: parent.width; height: 104; orientation: ListView.Horizontal; spacing: 10; clip: true
             model: shelf.items; boundsBehavior: Flickable.StopAtBounds
             delegate: AppCard { required property var modelData; info: modelData }
@@ -389,6 +411,8 @@ ShellRoot {
                 }
                 // snímky obrazovky
                 ListView {
+                    id: rolovanie3
+                    ScrollHint { flick: rolovanie3; colors: theme; horizontal: true }
                     visible: !!parent.d && parent.d.screenshots.length > 0
                     width: parent.width; height: 300; orientation: ListView.Horizontal; spacing: 12; clip: true
                     model: parent.d ? parent.d.screenshots : []
@@ -680,7 +704,7 @@ ShellRoot {
         Column {
             spacing: 12
             Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 }
-                   text: "Stiahol si inštalačku? LatteOS povie vopred, či pôjde a ako. V Súboroch: pravý klik na súbor › Bude to fungovať?" }
+                   text: "Stiahol si inštalačku alebo hru? LatteOS povie vopred, či pôjde a ako — aj pre zložku (napr. setup.exe a .bin súbory), CD/DVD, prenosnú hru (iba .exe) a archív .zip, .rar, .7z, .iso. V Súboroch: pravý klik › Bude to fungovať?" }
             Heading { text: "NEDÁVNO STIAHNUTÉ" }
             Text { visible: app.downloads.length === 0; text: "V priečinku Stiahnuté nie sú inštalačné súbory."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
             Flow {
@@ -707,8 +731,32 @@ ShellRoot {
                         model: app.verdict ? app.verdict.reasons : []
                         Text { required property string modelData; width: vc.width; wrapMode: Text.WordWrap; text: "•  " + modelData; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 } }
                     }
+                    Heading { visible: !!app.verdict && (app.verdict.plan || []).length > 0; text: "AKO TO LATTEOS SPRAVÍ"; topPadding: 6 }
+                    Repeater {
+                        model: app.verdict ? (app.verdict.plan || []) : []
+                        Row {
+                            required property string modelData
+                            required property int index
+                            width: vc.width; spacing: 10
+                            Rectangle { width: 22; height: 22; radius: 11; color: Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.2)
+                                        Text { anchors.centerIn: parent; text: String(index + 1); color: theme.primary; font { family: theme.fontUi; pixelSize: 11; weight: Font.Bold } } }
+                            Text { width: vc.width - 32; wrapMode: Text.WordWrap; text: modelData; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 } }
+                        }
+                    }
+                    Text { visible: !!app.verdict && (app.verdict.plan || []).length > 0; width: vc.width; wrapMode: Text.WordWrap; topPadding: 4
+                           text: "Samotnú inštaláciu do sandboxu (Proton/Wine) App Manager zatiaľ nespúšťa — najprv overujeme, či rozpozná každý typ."
+                           color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } }
+                    Flow {
+                        visible: !!app.verdict && (app.verdict.needs || []).length > 0
+                        width: vc.width; spacing: 8
+                        Repeater {
+                            model: app.verdict ? (app.verdict.needs || []) : []
+                            Pill { required property var modelData; label: "Doinštalovať: " + modelData.label
+                                   onClicked: app.run(["latte-app", "instalator", "--nazov=" + modelData.label.replace(/ /g, "_"), "install", modelData.pkg], "Inštalátor: " + modelData.label) }
+                        }
+                    }
                     Pill {
-                        visible: !!app.verdict && app.verdict.action.length > 0 && app.verdict.verdict !== "nie"
+                        visible: !!app.verdict && (app.verdict.action || []).length > 0 && app.verdict.verdict !== "nie"
                         label: "Inštalovať / spustiť"; primaryStyle: true
                         // argv sa odovzdá ako argumenty ("$@"), názov súboru sa nikdy nevkladá do príkazu shellu
                         onClicked: app.verdict.action[0] === "latte-app"
