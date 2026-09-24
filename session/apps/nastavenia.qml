@@ -137,6 +137,7 @@ ShellRoot {
         if (key === "pouzivatelia") usersProc.running = true;
         if (key === "synchronizacia") cloudProc.running = true;
         if (key === "zalohy" || key === "domov") backupProc.running = true;
+        if (key === "domov") { netProc.running = true; cloudProc.running = true; }
         if (key === "ulozisko" || key === "domov") storageProc.running = true;
     }
     Component.onCompleted: { go(section); aiStatus.running = true; }
@@ -306,6 +307,21 @@ ShellRoot {
     Cmd { id: cloudProc; command: ["latte-cloud", "list"]
           onDone: (out) => app.clouds = out.split("\n").filter(l => l.includes("|")).map(l => { const p = l.split("|"); return { name: p[0], type: p[1], mounted: p[2] === "1", auto: p[3] === "1" }; }) }
     Timer { id: cloudRefresh; interval: 1500; onTriggered: cloudProc.running = true }
+    property string netState: ""
+    Cmd { id: netProc; command: ["sh", "-c", "nmcli -t -f TYPE,STATE,CONNECTION device 2>/dev/null | grep ':connected:\\|:pripojené:' | head -1"]
+          onDone: (out) => { const p = out.trim().split(":"); app.netState = p.length >= 3 ? ({ ethernet: "Kábel", wifi: "Wi-Fi" })[p[0]] + " · " + p.slice(2).join(":") : "Bez pripojenia"; } }
+    // upozornenia pre Domov (old/main_setting_v2.md §5: dôležité upozornenia na jednom mieste)
+    readonly property var warnings: {
+        const w = [];
+        if ((mode.mode || "") === "safe") w.push(["shield", "Beží režim SAFE", mode.reason || "grafika bez GPU", "start"]);
+        if (crashCount > 0) w.push(["alert-triangle", "Relácia NORMAL spadla " + crashCount + "×", "pri 2 pádoch naštartuje SAFE", "diagnostika"]);
+        const root = (storage.split("\n").find(l => l.trim().startsWith("/ ")) || "").trim().split(/\s+/);
+        if (root.length >= 5 && parseInt(root[4]) >= 90) w.push(["database", "Systémový disk je plný na " + root[4], "uprac v Súboroch alebo Monitore", "ulozisko"]);
+        if (!backup.target) w.push(["history", "Zálohy nie sú nastavené", "pripoj USB disk a zapni zálohu", "zalohy"]);
+        else if (!backup.last) w.push(["history", "Ešte žiadna záloha", "Zálohovať teraz", "zalohy"]);
+        if (ai.ok === "0") w.push(["robot-off", "AI teraz neodpovedá", ai.target || "", "ai"]);
+        return w;
+    }
     Cmd { id: localeProc; command: ["sh", "-c", "locale -a"]; onDone: (out) => app.locales = out.split("\n").map(l => l.toLowerCase()) }
     FileView {
         id: localeFile
@@ -649,13 +665,35 @@ ShellRoot {
                         ["data", "ulozisko", "Dáta", (app.storage.split("\n").find(l => l.startsWith("/ ")) || "/ ?").trim().split(/\s+/).slice(3, 5).join(" voľné · ") + " obsadené", "database"],
                         ["softver", "ai", "AI", app.ai.ok === "1" ? (app.ai.model || "pripravené") : "nenastavené", "sparkles"],
                         ["prostredie", "motiv", "Prostredie", theme.themeName + " · " + app.modeName(app.modePref), "palette"],
-                        ["ucet", "prihlasovanie", "Účet", app.user + " · prihlásenie " + app.greeter, "user"]
+                        ["ucet", "prihlasovanie", "Účet", app.user + " · prihlásenie " + app.greeter, "user"],
+                        ["hardver", "siet", "Sieť", app.netState || "…", "wifi"],
+                        ["data", "zalohy", "Zálohy", app.backup.last ? "posledná " + app.backup.last.slice(0, 10) : (app.backup.target ? "zatiaľ žiadna" : "nenastavené"), "history"],
+                        ["data", "synchronizacia", "Cloud", app.clouds.length ? app.clouds.filter(c => c.mounted).length + " z " + app.clouds.length + " pripojených" : "žiadny účet", "cloud"]
                     ]
                     Card {
                         required property var modelData
                         width: 250; glyph: modelData[4]; title: modelData[2]; sub: modelData[3]
                         onClicked: app.go(modelData[1])
                     }
+                }
+            }
+            Heading { text: app.warnings.length ? "UPOZORNENIA · " + app.warnings.length : "UPOZORNENIA"; visible: true }
+            Text { visible: app.warnings.length === 0; text: "● Všetko v poriadku"; color: theme.primary; font { family: theme.fontUi; pixelSize: 13; weight: Font.Bold } }
+            Repeater {
+                model: app.warnings
+                Rectangle {
+                    required property var modelData
+                    width: Math.min(parent.width, 640); height: 52; radius: 12
+                    color: wm.containsMouse ? theme.hover : Qt.rgba(theme.error.r, theme.error.g, theme.error.b, 0.10)
+                    border { color: Qt.rgba(theme.error.r, theme.error.g, theme.error.b, 0.45); width: 1 }
+                    Glyph { x: 14; anchors.verticalCenter: parent.verticalCenter; name: parent.modelData[0]; size: 20; color: theme.error }
+                    Column {
+                        x: 46; anchors.verticalCenter: parent.verticalCenter
+                        Text { text: "! " + parent.parent.modelData[1]; color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.Bold } }
+                        Text { text: parent.parent.modelData[2]; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } }
+                    }
+                    Glyph { anchors { right: parent.right; rightMargin: 14; verticalCenter: parent.verticalCenter } name: "chevron-right"; size: 16; color: theme.fgDim }
+                    MouseArea { id: wm; anchors.fill: parent; hoverEnabled: true; onClicked: app.go(parent.modelData[3]) }
                 }
             }
             Heading { text: "NEDÁVNO POUŽITÉ" }
