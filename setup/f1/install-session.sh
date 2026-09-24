@@ -80,6 +80,7 @@ echo "== App Manager: Flatpak a Flathub (inštalácia aplikácií pre používat
 rpm -q flatpak >/dev/null || sudo dnf -y -q install flatpak
 rpm -q rclone >/dev/null || sudo dnf -y -q install rclone        # Synchronizácia (cloudové priečinky)
 rpm -q breeze-icon-theme >/dev/null || sudo dnf -y -q install breeze-icon-theme   # ikony súborov (Kapsa, Súbory)
+rpm -q pandoc-cli hunspell-sk >/dev/null || sudo dnf -y -q install pandoc-cli hunspell hunspell-sk   # Heidelberg: dokumenty a kontrola textu
 rpm -q fuse3 >/dev/null || sudo dnf -y -q install fuse3                             # FTP/SFTP ako priečinky (latte-siet, rclone mount)
 flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 

@@ -70,6 +70,23 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 17:55: Heidelberg ako plnohodnotný editor ✅ (bod 8)
+- **Režim Dokument** (docx, odt, rtf, epub, html a každý nový dokument) je **WYSIWYG na strane papiera**:
+  - písmo (výber s náhľadom v danom písme), veľkosť, **B** *I* U S, farby;
+  - zarovnanie vľavo, na stred, vpravo a do bloku, nadpisy H1–H3, odrážky, číslovaný zoznam, citát;
+    tlačidlo „Tx“ zruší formát.
+- **Príprava na tlač:** strana A4/A5/Letter, na výšku alebo na šírku, okraje 15–30 mm, lupa Ctrl+/−,
+  orientačné zlomy strán. **Ctrl+P = Tlačiť:** vyrobí PDF presne podľa strany a pošle ho na tlačiareň.
+  Ak tlačiareň nie je (VM nemá CUPS), otvorí PDF v prehliadači.
+  **PDF** robí weasyprint: prvýkrát tlačidlo „Doinštalovať PDF a tlač“ (Inštalátor). Vo VM som ho neinštaloval.
+- **Kontrola textu (F7):** slovenský a anglický slovník (hunspell). Ukáže preklepy s návrhmi (klik = oprava
+  všetkých výskytov), zdvojené slová, dvojité medzery a medzeru pred interpunkciou. Skratky a názvy ako
+  LatteOS nehlási. Tlačidlo „Do slovníka“ ukladá do ~/.config/latteos/slovnik.dic.
+- **Režim Text** (md, txt) zostáva: zdroj vľavo, náhľad vpravo. Ctrl+Shift+N = nová poznámka.
+- **Pandoc a hunspell-sk** sú v základnej inštalácii. Export DOCX som overil pandocom.
+- Obmedzenie: DOCX/ODT cez pandoc nezachovajú písma a farby. Presne ich zachová HTML (vlastný formát
+  Heidelbergu) a PDF.
+
 ### 24. 9. 2026, 17:40: Súbory — Forklift a Total Commander, FTP/SFTP, Otvoriť v…, Kôš na ploche ✅ (bod 7)
 - **Dva režimy** (tlačidlo v hlavičke):
   - **Forklift:** panel náhľadu sa dá skryť (Alt+P). **Zobrazenie ako vo Win11:** extra veľké, veľké, stredné
