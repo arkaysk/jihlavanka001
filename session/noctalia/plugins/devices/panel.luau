@@ -98,8 +98,12 @@ function render()
       ui.button({ text = "VRR", enabled = false, flexGrow = 1, tooltip = "na reálnom HW" }),
     }),
     heading("INTERNET PODĽA APLIKÁCIÍ (NET)"),
-    ui.label({ text = "Pripravujeme: vypínač internetu pre každú aplikáciu vrátane Windows aplikácií (bezpečnostný model F6).",
+    ui.label({ text = "Flatpak aplikáciám vypneš internet v App Manageri › Oprávnenia a NET. Natívne a Windows aplikácie prídu s F6.",
                fontSize = 12, color = "on_surface_variant", maxWidth = 360, maxLines = 3 }),
+    ui.row({ gap = 8 }, {
+      ui.button({ text = "Správca zariadení", glyph = "cpu", flexGrow = 1, onClick = function() panel.close(); noctalia.runAsync({ "latte-app", "zariadenia" }) end }),
+      ui.button({ text = "NET", glyph = "world", variant = "ghost", onClick = function() panel.close(); noctalia.runAsync({ "latte-app", "aplikacie", "opravnenia" }) end }),
+    }),
   }
   panel.render(ui.scroll({ flexGrow = 1, gap = 12, align = "stretch" }, body))
 end

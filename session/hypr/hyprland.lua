@@ -24,6 +24,12 @@ local colors = {
 -- ── monitory ──────────────────────────────────────────────────────────────────
 -- mierka 1: „auto“ vo VM zvolil 2 (lišta dvojnásobná). Na HW ju neskôr nastaví Device Manager.
 hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1 })
+-- obrazovky uložené v Device Manageri (latte-devices display keep) prepíšu predvolené pravidlo
+do
+    local f = (os.getenv("XDG_CONFIG_HOME") or ((os.getenv("HOME") or "") .. "/.config")) .. "/latteos/monitors.lua"
+    local h = io.open(f, "r")
+    if h then h:close(); pcall(dofile, f) end
+end
 
 
 -- ── prostredie ────────────────────────────────────────────────────────────────

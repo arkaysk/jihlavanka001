@@ -1,0 +1,273 @@
+#!/usr/bin/python3
+"""latte-devices — Device Manager LatteOS (Správca zariadení): inventár hardvéru a obrazovky.
+
+  latte-devices list                          JSON: skupiny zariadení (Obrazovky, Grafika, Zvuk, Sieť, Disky, Vstup,
+                                              USB, Kamery, Bluetooth, Napájanie, Počítač); bez práv správcu
+  latte-devices display try NAME MODE SCALE   skúsi režim obrazovky (napr. 1920x1080@60 1.25) — bez uloženia
+  latte-devices display keep NAME MODE SCALE  uloží do ~/.config/latteos/monitors.lua (Hyprland ho načíta pri štarte)
+  latte-devices display revert NAME           vráti uložený (alebo predvolený) režim
+
+Zariadenie je v jednej skupine podľa toho, čo robí (USB klávesnica je Vstup, USB disk je Disk).
+Ukazuje zariadenia, nie ich obsah (súbory sú v Súboroch). Čo sa nedá zistiť, je v „problems“.
+"""
+import glob, json, os, re, subprocess, sys
+
+HOME = os.path.expanduser("~")
+CFG = os.path.join(os.environ.get("XDG_CONFIG_HOME", HOME + "/.config"), "latteos")
+MONFILE = os.path.join(CFG, "monitors.lua")
+problems = []
+
+
+def read(p, d=""):
+    try:
+        with open(p) as f:
+            return f.read().strip()
+    except OSError:
+        return d
+
+
+def sh(argv, timeout=10):
+    try:
+        r = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+        return r.returncode, r.stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return 127, ""
+
+
+def human(n):
+    n = float(n or 0)
+    for u in ("B", "kB", "MB", "GB", "TB"):
+        if n < 1024:
+            return ("%.0f %s" if n >= 10 or u == "B" else "%.1f %s") % (n, u)
+        n /= 1024
+    return "%.1f PB" % n
+
+
+def item(name, sub="", status="ok", **details):
+    return {"name": name, "sub": sub, "status": status, "details": {k.replace("_", " "): v for k, v in details.items() if v not in ("", None)}}
+
+
+def displays():
+    rc, out = sh(["hyprctl", "monitors", "-j"])
+    items = []
+    try:
+        for m in json.loads(out or "[]"):
+            modes = []
+            for md in m.get("availableModes", []):
+                r = re.match(r"(\d+)x(\d+)@([\d.]+)Hz", md)
+                if r and int(r.group(1)) >= 1024 and int(r.group(2)) >= 600:
+                    modes.append("%sx%s@%d" % (r.group(1), r.group(2), round(float(r.group(3)))))
+            modes = list(dict.fromkeys(modes))
+            cur = "%dx%d@%d" % (m["width"], m["height"], round(m["refreshRate"]))
+            items.append(dict(item(" ".join(x for x in (m.get("make"), m.get("model")) if x and x != "Unknown") or m["name"],
+                                   "%d × %d · %d Hz · mierka %s" % (m["width"], m["height"], round(m["refreshRate"]), m["scale"]),
+                                   connector=m["name"], serial=m.get("serial", ""), transform=m.get("transform", 0),
+                                   VRR="áno" if m.get("vrr") else "nie"),
+                              connector=m["name"], mode=cur, scale=m["scale"], modes=modes[:24]))
+    except (ValueError, KeyError):
+        pass
+    if not items:   # bez Hyprlandu (SAFE, labwc): pripojené konektory z DRM
+        for c in sorted(glob.glob("/sys/class/drm/card*-*")):
+            if read(c + "/status") == "connected":
+                modes = read(c + "/modes").splitlines()
+                items.append(item(os.path.basename(c).split("-", 1)[1], (modes[0] if modes else "?") + " · z DRM (bez kompozitora)"))
+    return items
+
+
+def pci():
+    rc, out = sh(["lspci", "-mm"])
+    devs = []
+    for line in out.splitlines():
+        f = re.findall(r'"([^"]*)"', line)
+        slot = line.split()[0] if line else ""
+        if len(f) >= 3:
+            drv = os.path.basename(os.path.realpath("/sys/bus/pci/devices/0000:%s/driver" % slot)) if os.path.exists("/sys/bus/pci/devices/0000:%s/driver" % slot) else ""
+            devs.append({"slot": slot, "cls": f[0], "vendor": f[1], "device": f[2], "driver": drv})
+    return devs
+
+
+def gpus(devs):
+    mode = read("/run/latteos/mode.toml")
+    renderer = (re.search(r'renderer = "([^"]+)"', mode) or [None, "?"])[1]
+    tier = (re.search(r'tier = "([^"]+)"', mode) or [None, "?"])[1]
+    out = []
+    for d in devs:
+        if re.search(r"VGA|3D|Display", d["cls"]):
+            out.append(item(d["vendor"] + " " + d["device"], "ovládač " + (d["driver"] or "žiadny") + " · LatteOS kreslí: " + renderer,
+                            "ok" if d["driver"] else "warn", PCI=d["slot"], ovládač=d["driver"], stupeň_výkonu=tier))
+    return out
+
+
+def audio(devs):
+    out = []
+    for line in read("/proc/asound/cards").splitlines():
+        r = re.match(r"\s*(\d+) \[(\S+)\s*\]: (.+)", line)
+        if r:
+            out.append(item(r.group(3).split(" - ", 1)[-1], "ALSA karta " + r.group(1), card=r.group(2)))
+    rc, o = sh(["wpctl", "inspect", "@DEFAULT_AUDIO_SINK@"])
+    desc = (re.search(r'node\.description = "([^"]+)"', o) or [None, ""])[1]
+    if desc:
+        out.insert(0, item(desc, "predvolený výstup (PipeWire)"))
+    if not out:
+        problems.append("zvuk: žiadna zvuková karta")
+    return out
+
+
+def network():
+    out = []
+    rc, o = sh(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device"])
+    for line in o.splitlines():
+        f = line.split(":")
+        if len(f) >= 4 and f[1] not in ("loopback",):
+            kind = {"ethernet": "Kábel (Ethernet)", "wifi": "Wi-Fi", "bridge": "Most", "wifi-p2p": "Wi-Fi Direct"}.get(f[1], f[1])
+            mac = read("/sys/class/net/%s/address" % f[0])
+            speed = read("/sys/class/net/%s/speed" % f[0])
+            out.append(item(kind + " · " + f[0], (f[3] or f[2]).replace("\\:", ":"), "ok" if f[2].startswith("connected") or f[2] == "pripojené" else "off",
+                            stav=f[2], MAC=mac, rýchlosť=(speed + " Mb/s") if speed and speed != "-1" else ""))
+    return out
+
+
+def disks():
+    rc, o = sh(["lsblk", "-J", "-d", "-b", "-o", "NAME,MODEL,SIZE,TRAN,RM,ROTA,TYPE"])
+    out = []
+    try:
+        for d in json.loads(o)["blockdevices"]:
+            if d["type"] != "disk" or d["name"].startswith(("zram", "loop")):
+                continue
+            kind = "USB disk" if d.get("tran") == "usb" or d.get("rm") else ("NVMe SSD" if d["name"].startswith("nvme") else ("HDD" if d.get("rota") else "SSD"))
+            out.append(item((d.get("model") or d["name"]).strip(), kind + " · " + human(d["size"]), zariadenie="/dev/" + d["name"], pripojenie=d.get("tran") or ""))
+    except (ValueError, KeyError):
+        problems.append("disky: lsblk zlyhal")
+    return out
+
+
+def inputs():
+    out = []
+    for block in read("/proc/bus/input/devices").split("\n\n"):
+        name = (re.search(r'N: Name="([^"]+)"', block) or [None, ""])[1]
+        handlers = (re.search(r"H: Handlers=(.+)", block) or [None, ""])[1]
+        if not name or re.search(r"Power Button|Sleep Button|PC Speaker|Video Bus|Lid Switch", name):
+            continue
+        kind = "Klávesnica" if "kbd" in handlers and "mouse" not in handlers else ("Myš / touchpad" if "mouse" in handlers else ("Ovládač" if "js" in handlers else ""))
+        if kind:
+            out.append(item(name, kind))
+    return out
+
+
+def usb():
+    rc, o = sh(["lsusb"])
+    out = []
+    for line in o.splitlines():
+        r = re.match(r"Bus (\d+) Device (\d+): ID (\S+) (.*)", line)
+        if r and "root hub" not in r.group(4).lower():
+            out.append(item(r.group(4) or r.group(3), "USB " + r.group(3), zbernica=r.group(1), zariadenie=r.group(2)))
+    return out
+
+
+def cameras():
+    return [item(read(d + "/name") or os.path.basename(d), "/dev/" + os.path.basename(d)) for d in sorted(glob.glob("/sys/class/video4linux/video*"))]
+
+
+def bluetooth():
+    out = []
+    for h in sorted(glob.glob("/sys/class/bluetooth/hci*")):
+        rc, o = sh(["bluetoothctl", "show"])
+        powered = "Powered: yes" in o
+        out.append(item("Bluetooth " + os.path.basename(h), "zapnutý" if powered else "vypnutý", "ok" if powered else "off",
+                        adresa=read(h + "/address")))
+    return out
+
+
+def power():
+    out = []
+    for p in sorted(glob.glob("/sys/class/power_supply/*")):
+        t = read(p + "/type")
+        if t == "Battery":
+            cap = read(p + "/capacity")
+            out.append(item("Batéria " + os.path.basename(p), cap + " % · " + read(p + "/status"), "warn" if cap and int(cap) < 15 else "ok",
+                            výrobca=read(p + "/manufacturer"), model=read(p + "/model_name")))
+        elif t == "Mains":
+            out.append(item("Napájací adaptér", "pripojený" if read(p + "/online") == "1" else "odpojený"))
+    rc, o = sh(["powerprofilesctl", "get"])
+    if o.strip():
+        out.append(item("Profil výkonu", {"power-saver": "Úsporný", "balanced": "Vyvážený", "performance": "Výkon"}.get(o.strip(), o.strip())))
+    return out
+
+
+def computer():
+    cpu = read("/proc/cpuinfo")
+    model = (re.search(r"model name\s*: (.+)", cpu) or [None, "?"])[1]
+    cores = len(re.findall(r"^processor", cpu, re.M))
+    mem = int((re.search(r"MemTotal:\s+(\d+)", read("/proc/meminfo")) or [None, "0"])[1]) * 1024
+    rc, virt = sh(["systemd-detect-virt"])
+    vendor, product = read("/sys/class/dmi/id/sys_vendor"), read("/sys/class/dmi/id/product_name")
+    return [item(model, "%d vlákien" % cores, jadro=os.uname().release),
+            item("Pamäť", human(mem)),
+            item(" ".join(x for x in (vendor, product) if x) or "Počítač", "virtuálny stroj: " + virt.strip() if virt.strip() and virt.strip() != "none" else "fyzický PC",
+                 BIOS=read("/sys/class/dmi/id/bios_version"), doska=read("/sys/class/dmi/id/board_name"))]
+
+
+GROUPS = [("obrazovky", "Obrazovky", "device-desktop"), ("grafika", "Grafika", "cpu"), ("zvuk", "Zvuk", "volume"), ("siet", "Sieť", "wifi"),
+          ("disky", "Disky", "database"), ("vstup", "Vstup", "keyboard"), ("usb", "USB", "usb"), ("kamery", "Kamery", "photo"),
+          ("bluetooth", "Bluetooth", "bluetooth"), ("napajanie", "Napájanie", "battery"), ("pocitac", "Počítač", "server")]
+
+
+def inventory():
+    devs = pci()
+    data = {"obrazovky": displays(), "grafika": gpus(devs), "zvuk": audio(devs), "siet": network(), "disky": disks(), "vstup": inputs(),
+            "usb": usb(), "kamery": cameras(), "bluetooth": bluetooth(), "napajanie": power(), "pocitac": computer()}
+    # každé zariadenie je v jednej skupine: USB klávesnica/myš je Vstup, USB disk je Disk, USB kamera je Kamera
+    taken = [i["name"].lower() for k in ("vstup", "disky", "kamery") for i in data[k]]
+    data["usb"] = [u for u in data["usb"] if not any(u["name"].lower() in t or t in u["name"].lower() for t in taken)]
+    return {"groups": [{"key": k, "title": t, "glyph": g, "items": data[k]} for k, t, g in GROUPS], "problems": problems}
+
+
+def hypr_monitor(name, mode, scale):
+    code = 'hl.monitor({ output = "%s", mode = "%s", position = "auto", scale = %s })' % (name, mode, float(scale))
+    return sh(["hyprctl", "eval", code])[0]
+
+
+def saved():
+    out = {}
+    for line in read(MONFILE).splitlines():
+        r = re.search(r'output = "([^"]+)", mode = "([^"]+)", position = "auto", scale = ([\d.]+)', line)
+        if r:
+            out[r.group(1)] = (r.group(2), r.group(3))
+    return out
+
+
+def main(a):
+    if a[:1] == ["list"]:
+        print(json.dumps(inventory(), ensure_ascii=False))
+        return 0
+    if len(a) >= 3 and a[0] == "display":
+        name = a[2]
+        if not re.match(r"^[\w.-]+$", name):
+            return 2
+        if a[1] in ("try", "keep") and len(a) == 5:
+            mode, scale = a[3], a[4]
+            if not re.match(r"^\d+x\d+@\d+(\.\d+)?$", mode) or not re.match(r"^\d+(\.\d+)?$", scale):
+                print("zlý režim alebo mierka", file=sys.stderr)
+                return 2
+            if a[1] == "try":
+                return hypr_monitor(name, mode, scale)
+            s = saved()
+            s[name] = (mode, scale)
+            os.makedirs(CFG, exist_ok=True)
+            with open(MONFILE + ".tmp", "w") as f:
+                f.write("-- LatteOS — obrazovky (zapísal Device Manager / Nastavenia › Hardvér › Obrazovky)\n")
+                for n, (m, sc) in sorted(s.items()):
+                    f.write('hl.monitor({ output = "%s", mode = "%s", position = "auto", scale = %s })\n' % (n, m, sc))
+            os.replace(MONFILE + ".tmp", MONFILE)
+            return hypr_monitor(name, mode, scale)
+        if a[1] == "revert":
+            s = saved()
+            if name in s:
+                return hypr_monitor(name, *s[name])
+            return sh(["hyprctl", "eval", 'hl.monitor({ output = "%s", mode = "preferred", position = "auto", scale = 1 })' % name])[0]
+    print(__doc__.strip(), file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

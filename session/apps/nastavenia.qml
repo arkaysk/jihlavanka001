@@ -64,11 +64,11 @@ ShellRoot {
         { key: "hardver", title: "Hardvér", glyph: "cpu", summary: (mode.renderer || "?") + " · stupeň " + (mode.tier || "?"), owner: "Device Manager",
           pages: [
             { key: "vykon", label: "Výkon a grafika", glyph: "bolt", status: "ready" },
-            { key: "obrazovky", label: "Obrazovky", glyph: "device-desktop", status: "planned" },
-            { key: "zvuk", label: "Zvuk", glyph: "volume", status: "planned" },
-            { key: "siet", label: "Sieť", glyph: "wifi", status: "planned" },
-            { key: "bluetooth", label: "Bluetooth a periférie", glyph: "bluetooth", status: "planned" },
-            { key: "napajanie", label: "Napájanie", glyph: "battery", status: "planned" },
+            { key: "obrazovky", label: "Obrazovky", glyph: "device-desktop", status: "partial" },
+            { key: "zvuk", label: "Zvuk", glyph: "volume", status: "partial" },
+            { key: "siet", label: "Sieť", glyph: "wifi", status: "partial" },
+            { key: "bluetooth", label: "Bluetooth a periférie", glyph: "bluetooth", status: "partial" },
+            { key: "napajanie", label: "Napájanie", glyph: "battery", status: "partial" },
             { key: "diagnostika", label: "Diagnostika a pády", glyph: "stethoscope", status: "partial" } ] },
         { key: "ucet", title: "Účet", glyph: "user", summary: user, owner: "Session Manager",
           pages: [
@@ -324,6 +324,8 @@ ShellRoot {
         return ({
             domov: "Stav systému na jednom mieste. Klik na kartu otvorí jej nastavenia.",
             aplikacie: "App Manager spravuje aplikácie; tu je rýchly vstup.",
+            obrazovky: "Obrazovky spravuje Správca zariadení.", zvuk: "Zvuk spravuje Správca zariadení.", siet: "Sieť spravuje Správca zariadení.",
+            bluetooth: "Bluetooth spravuje Správca zariadení.", napajanie: "Napájanie spravuje Správca zariadení.",
             instalacia: "Inštalácia jedným klikom a kontrola stiahnutých súborov.",
             aktualizacie: "Aktualizácie systému a aplikácií.",
             sukromie: "Kto smie na internet (NET) a k súborom.",
@@ -492,6 +494,11 @@ ShellRoot {
         instalacia: ["Aplikácie", "Objavovať: Flathub (bez hesla, v izolácii) a Fedora. „Bude to fungovať?“ pre stiahnuté súbory.", ["latte-app", "aplikacie", "objavovat"]],
         aktualizacie: ["Aplikácie", "Systém (dnf) aj Flatpak aplikácie na jednom mieste, „Aktualizovať všetko“.", ["latte-app", "aplikacie", "aktualizacie"]],
         sukromie: ["Aplikácie", "NET pre Flatpak aplikácie už funguje (internet áno/nie). Natívne aplikácie a Windows hry príde s F6.", ["latte-app", "aplikacie", "opravnenia"]],
+        obrazovky: ["Správca zariadení", "Rozlíšenie a mierka obrazovky s potvrdením do 15 s (inak sa zmena vráti). Uloží sa do ~/.config/latteos/monitors.lua.", ["latte-app", "zariadenia", "obrazovky"]],
+        zvuk: ["Správca zariadení", "Zvukové karty a predvolený výstup; hlasitosť je v Zariadeniach na lište.", ["latte-app", "zariadenia", "zvuk"]],
+        siet: ["Správca zariadení", "Sieťové karty a pripojenia (NetworkManager). Wi-Fi a VPN cez nmtui, neskôr priamo.", ["latte-app", "zariadenia", "siet"]],
+        bluetooth: ["Správca zariadení", "Bluetooth adaptéry; párovanie v riadiacom centre.", ["latte-app", "zariadenia", "bluetooth"]],
+        napajanie: ["Správca zariadení", "Batéria, adaptér a profil výkonu.", ["latte-app", "zariadenia", "napajanie"]],
         spustanie: ["Monitor", "Čo sa spúšťa po prihlásení: autostart, služby tvojho účtu, časovače. Vypnutie jedným klikom.", ["latte-app", "monitor", "autorun"]]
     })
     function page(k) {
@@ -922,7 +929,7 @@ ShellRoot {
             spacing: 12
             readonly property var m: app.managed[app.section] || ["", "", []]
             Text { width: parent.width; wrapMode: Text.WordWrap; text: parent.m[1]; color: theme.fg; font { family: theme.fontUi; pixelSize: 14 } }
-            Button { label: "Otvoriť " + parent.m[0]; glyph: parent.m[0] === "Monitor" ? "activity" : "apps"; primaryStyle: true; onClicked: app.run(parent.m[2]) }
+            Button { label: "Otvoriť " + parent.m[0]; glyph: parent.m[0] === "Monitor" ? "activity" : (parent.m[0] === "Aplikácie" ? "apps" : "cpu"); primaryStyle: true; onClicked: app.run(parent.m[2]) }
             Text { text: "Nastavenia ukazujú stav a odkaz; operácie vlastní " + parent.m[0] + " (jedna implementácia)."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
         }
     }

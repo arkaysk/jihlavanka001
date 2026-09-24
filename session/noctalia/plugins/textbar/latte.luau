@@ -28,6 +28,8 @@ local items = {
   { "Monitor (správca procesov)", "Ctrl+Shift+Esc · procesy, po štarte, telemetria", "activity", "monitor procesy task manager aktivita autorun", { "latte-app", "monitor" } },
   { "Aplikácie (App Manager)", "Objavovať, aktualizácie, nainštalované, NET", "apps", "aplikacie app manager instalovat obchod flathub aktualizacie", { "latte-app", "aplikacie" } },
   { "Aktualizovať systém a aplikácie", "App Manager › Aktualizácie", "refresh", "aktualizacie update upgrade", { "latte-app", "aplikacie", "aktualizacie" } },
+  { "Správca zariadení", "Obrazovky, grafika, zvuk, sieť, disky, vstup", "cpu", "zariadenia device manager hardver obrazovka rozlisenie", { "latte-app", "zariadenia" } },
+  { "Rozlíšenie obrazovky", "Správca zariadení › Obrazovky", "device-desktop", "obrazovka rozlisenie mierka monitor display", { "latte-app", "zariadenia", "obrazovky" } },
   { "Po štarte", "Čo sa spúšťa pri prihlásení (Monitor)", "player-play", "autorun autostart po starte sluzby", { "latte-app", "monitor", "autorun" } },
   { "AI", "Lokálne, domáci server, cloud (Nastavenia)", "sparkles", "ai llm lm studio ollama claude chatgpt", { "latte-app", "nastavenia", "ai" } },
   { "Kalendár", "Panel Čas · plánovač udalostí", "calendar", "kalendar udalosti planovac todo", { "noctalia", "msg", "panel-open", "latteos/time:panel" } },
