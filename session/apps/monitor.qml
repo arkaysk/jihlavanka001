@@ -11,7 +11,7 @@ ShellRoot {
     id: app
     LatteTheme { id: theme }
 
-    property string section: (Quickshell.env("LATTE_APP_ARGS") || "").trim() || "prehlad"
+    property string section: ({ strom: "procesy" })[(Quickshell.env("LATTE_APP_ARGS") || "").trim()] || (Quickshell.env("LATTE_APP_ARGS") || "").trim() || "prehlad"
     property string search: ""
     property string status: ""
     property var snap: ({ cpu: 0, cores: [], mem: { total: 1, used: 0 }, disk: {}, net: {}, load: [], temps: [], fs: [], procs: [] })
@@ -20,6 +20,7 @@ ShellRoot {
     property var netHist: []
     property string kindFilter: ""
     property string sortKey: "cpu"
+    property bool tree: (Quickshell.env("LATTE_APP_ARGS") || "").trim() === "strom"   // strom procesov (rodič → deti)
     property int selPid: -1
     property string confirm: ""           // "term:PID" | "kill:PID" čaká na druhé kliknutie
     property var autorun: []
@@ -107,8 +108,16 @@ ShellRoot {
         let list = (snap.procs || []).filter(p => (kindFilter === "" || p.kind === kindFilter)
             && (search === "" || (p.name + " " + (p.cmd || "") + " " + p.pid).toLowerCase().includes(search.toLowerCase())));
         const k = sortKey;
-        list = list.slice().sort((a, b) => k === "name" ? progName(a).localeCompare(progName(b)) : (k === "pid" ? a.pid - b.pid : (b[k] - a[k])));
-        return list;
+        const cmp = (a, b) => k === "name" ? progName(a).localeCompare(progName(b)) : (k === "pid" ? a.pid - b.pid : (b[k] - a[k]));
+        if (!tree) return list.slice().sort(cmp).slice(0, 150);
+        // strom: koreň = proces, ktorého rodič nie je v zozname; deti pod rodičom, poradie podľa triedenia
+        const byPid = {}, kids = {};
+        for (const p of list) byPid[p.pid] = p;
+        for (const p of list) { const pp = byPid[p.ppid] ? p.ppid : 0; (kids[pp] = kids[pp] || []).push(p); }
+        const out = [];
+        const walk = (pid, depth) => { for (const c of (kids[pid] || []).sort(cmp)) { out.push(Object.assign({ depth: depth }, c)); if (out.length < 400) walk(c.pid, depth + 1); } };
+        walk(0, 0);
+        return out;
     }
 
     // ── okno ─────────────────────────────────────────────────────────────────────
@@ -317,6 +326,14 @@ ShellRoot {
             Row {
                 id: filters
                 spacing: 6
+                Rectangle {
+                    width: tt.implicitWidth + 26; height: 32; radius: 10
+                    color: app.tree ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.18) : theme.field
+                    border { color: app.tree ? theme.primary : "transparent"; width: 1.5 }
+                    Text { id: tt; anchors.centerIn: parent; text: app.tree ? "Strom ✓" : "Strom"; color: theme.fg; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold } }
+                    MouseArea { anchors.fill: parent; onClicked: app.tree = !app.tree }
+                }
+                Item { width: 8; height: 1 }
                 Repeater {
                     model: [["", "Všetky"], ["app", "Aplikácie"], ["desktop", "Prostredie"], ["helper", "Pomocné"], ["system", "Systém"]]
                     Rectangle {
@@ -364,11 +381,11 @@ ShellRoot {
                         anchors.verticalCenter: parent.verticalCenter
                         Item {
                             width: head.nameW; height: 32
-                            Glyph { x: 8; anchors.verticalCenter: parent.verticalCenter; size: 15
+                            Glyph { x: 8 + (row.modelData.depth || 0) * 16; anchors.verticalCenter: parent.verticalCenter; size: 15
                                     name: ({ app: "window", desktop: "coffee", helper: "terminal-2", system: "shield" })[row.modelData.kind]
                                     color: row.modelData.kind === "app" ? theme.primary : theme.fgDim }
-                            Text { x: 32; width: parent.width - 40; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight
-                                   text: app.progName(row.modelData) + (row.modelData.window ? "  —  " + row.modelData.window : ""); color: theme.fg
+                            Text { x: 32 + (row.modelData.depth || 0) * 16; width: parent.width - 40 - (row.modelData.depth || 0) * 16; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight
+                                   text: ((row.modelData.depth || 0) > 0 ? "└ " : "") + app.progName(row.modelData) + (row.modelData.window ? "  —  " + row.modelData.window : ""); color: theme.fg
                                    font { family: theme.fontUi; pixelSize: 13; weight: row.modelData.kind === "app" ? Font.DemiBold : Font.Normal } }
                         }
                         Text { width: 110; leftPadding: 8; anchors.verticalCenter: parent.verticalCenter; text: app.kinds[row.modelData.kind]; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }

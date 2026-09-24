@@ -283,7 +283,8 @@ flowchart TD
 - [x] **Monitor** (Process Manager, prototyp v Quickshelli + `latte-sysmon`): Ctrl+Shift+Esc, živý stav s grafmi, procesy podľa
   druhu (aplikácia/prostredie/pomocný/systém) s varovaním a potvrdením, **Po štarte** (XDG autostart, systemd, časovače, cron,
   vypnutie pre vlastný účet), **telemetria** do `$XDG_RUNTIME_DIR/latteos/telemetry.json` (OLED, Stream Deck).
-- [ ] Monitor: stála služba telemetrie, HW info (vzor Mission Center), strom procesov, proces → aplikácia → zariadenie.
+- [x] Monitor: strom procesov (rodič → deti, prepínač Strom).
+- [ ] Monitor: stála služba telemetrie, HW info (vzor Mission Center), proces → aplikácia → zariadenie.
 - [x] Data Manager **prototyp** (Quickshell, `latte-app subory`): Tento počítač (lsblk), dva panely F3/F5/F6, detail, kôš.
 - [x] Data Manager: **kontextové menu** (pravý klik v zozname aj v bočnej lište), **farebné štítky** priečinkov a súborov
   (`~/.config/latteos/tags.json`), vlastné Obľúbené, premenovanie, nový priečinok, terminál tu.

@@ -198,9 +198,9 @@ def snapshot(state, with_procs=True):
             state["wins"], state["winT"] = window_pids(), t
         procs, ticks = processes(state.get("ticks", {}), dt, 0, state.get("wins", {}))
         procs.sort(key=lambda x: (-x["cpu"], -x["rss"]))
-        for x in procs[:60]:
+        for x in procs:                       # všetky (aj pre strom procesov v Monitore)
             x["cmd"] = cmdline(x["pid"])[:300]
-        snap["procs"] = procs[:60]
+        snap["procs"] = procs
         snap["procCount"] = len(procs)
         state["ticks"] = ticks
     state.update(t=t, cpus=cpus, io=(rd, wr, rx, tx))
