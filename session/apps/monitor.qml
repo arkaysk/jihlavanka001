@@ -6,10 +6,12 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import "common"
+import "data"
 
 ShellRoot {
     id: app
     LatteTheme { id: theme }
+    readonly property var th: theme          // pre súčasti v Component (tam by „theme: theme“ ukazovalo samo na seba)
 
     property string section: ({ strom: "procesy" })[(Quickshell.env("LATTE_APP_ARGS") || "").trim()] || (Quickshell.env("LATTE_APP_ARGS") || "").trim() || "prehlad"
     property string search: ""
@@ -656,220 +658,33 @@ ShellRoot {
 
     Component {
         id: pPohoda
-        Flickable {
-            id: wf
-            ScrollHint { flick: wf; colors: theme }
-            contentHeight: wcol.implicitHeight; clip: true
-            Column {
-                id: wcol
-                width: parent.width - 12; spacing: 16
-                readonly property var w: app.well
-                readonly property var days: w ? w.days : []
-                readonly property real todayS: days.length ? days[days.length - 1].s : 0
-                readonly property real yestS: days.length > 1 ? days[days.length - 2].s : 0
-                readonly property real weekS: w ? w.total : 0
-                Text { visible: !wcol.w; text: "Načítavam…"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 } }
-                // súhrn
-                Row {
-                    visible: !!wcol.w; width: parent.width; spacing: 12
-                    component Stat: Rectangle {
-                        id: st
-                        property string label; property string value; property string sub; property string icon: ""
-                        width: (wcol.width - 24) / 3; height: 108; radius: 18; color: theme.field
-                        Text { x: 18; y: 14; text: st.label.toUpperCase(); color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11; weight: Font.Bold; letterSpacing: 0.8 } }
-                        Row {
-                            x: 18; y: 36; spacing: 10
-                            Image { visible: st.icon !== ""; width: 34; height: 34; source: st.icon; sourceSize { width: 68; height: 68 } anchors.verticalCenter: parent.verticalCenter }
-                            Text { text: st.value; color: theme.fg; font { family: theme.fontDisplay; pixelSize: 28; weight: Font.DemiBold } }
-                        }
-                        Text { x: 18; anchors { bottom: parent.bottom; bottomMargin: 14 } width: parent.width - 36; elide: Text.ElideRight; text: st.sub; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
-                    }
-                    Stat { label: "Dnes"; value: app.dur(wcol.todayS)
-                           sub: wcol.yestS > 0 ? (wcol.todayS >= wcol.yestS ? "▲ " : "▼ ") + Math.abs(Math.round(100 * (wcol.todayS - wcol.yestS) / wcol.yestS)) + " % oproti včerajšku" : "včera bez záznamu" }
-                    Stat { label: "Posledných 7 dní"; value: app.dur(wcol.weekS); sub: "priemer " + app.dur(wcol.weekS / Math.max(1, wcol.days.filter(d => d.s > 0).length)) + " denne" }
-                    Stat { readonly property var best: app.wellTop[0]
-                           label: "Najviac dnes"; value: best ? best.name : "—"; sub: best ? app.dur(best.today) : "zatiaľ nič"
-                           icon: best && best.icon ? Quickshell.iconPath(best.icon, true) : "" }
+        // vzhľad podľa serpantinum (AGPL-3.0) je v samostatnom súbore data/PohodaView.qml
+        Item {
+            PohodaView {
+                id: pview
+                anchors { fill: parent; bottomMargin: 40 }
+                theme: app.th
+                limits: app.limits
+                onLimitMenu: (e, x, y) => {
+                    const c = e["class"], lim = app.limits[c], items = [];
+                    for (const mins of [15, 30, 60, 120, 180])
+                        items.push({ glyph: "clock", label: "Denný limit " + (mins < 60 ? mins + " min" : (mins / 60) + " h"), hint: lim === mins ? "✓" : "", action: () => app.setLimit(c, mins) });
+                    if (lim) items.push({ glyph: "x", label: "Zrušiť limit", action: () => app.setLimit(c, 0) });
+                    if (e.desktop) { items.push({ separator: true });
+                        items.push({ glyph: "apps", label: "Detail v App Manageri", action: () => app.run(["latte-app", "aplikacie", "detail", e.desktop]) }); }
+                    ctx.open(x, y, items, e.name);
                 }
-                // časová os dňa (hodiny, farba = aplikácia)
+            }
+            Row {
+                anchors { left: parent.left; bottom: parent.bottom } spacing: 12
                 Rectangle {
-                    visible: !!wcol.w; width: parent.width; height: 190; radius: 18; color: theme.field
-                    Text { x: 18; y: 14; text: "DNES PO HODINÁCH"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11; weight: Font.Bold; letterSpacing: 0.8 } }
-                    Row {
-                        id: bars
-                        x: 18; y: 40; width: parent.width - 36; height: 110; spacing: 3
-                        readonly property real bw: (width - 23 * 3) / 24
-                        Repeater {
-                            model: 24
-                            Item {
-                                required property int index
-                                readonly property var row: wcol.w ? wcol.w.hoursApps[index] : ({})
-                                readonly property real tot: wcol.w ? wcol.w.hours[index] : 0
-                                width: bars.bw; height: bars.height
-                                Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: parent.height; radius: 4; color: Qt.rgba(theme.fg.r, theme.fg.g, theme.fg.b, 0.05) }
-                                Column {
-                                    anchors.bottom: parent.bottom; width: parent.width
-                                    Repeater {
-                                        model: Object.keys(parent.parent.row).sort((a, b) => parent.parent.row[a] - parent.parent.row[b])
-                                        Rectangle {
-                                            required property string modelData
-                                            width: bars.bw; height: bars.height * parent.parent.row[modelData] / 3600
-                                            color: app.wellColor(modelData); radius: 2
-                                        }
-                                    }
-                                }
-                                MouseArea { id: hm; anchors.fill: parent; hoverEnabled: true }
-                                Rectangle {
-                                    visible: hm.containsMouse && parent.tot > 0; z: 5
-                                    x: Math.min(0, bars.width - parent.x - width); y: -34; width: tipT.implicitWidth + 16; height: 26; radius: 8; color: theme.surface; border { color: theme.outline; width: 1 }
-                                    Text { id: tipT; anchors.centerIn: parent; text: parent.parent.index + ":00 · " + app.dur(parent.parent.tot); color: theme.fg; font { family: theme.fontUi; pixelSize: 11 } }
-                                }
-                            }
-                        }
-                    }
-                    Row {
-                        x: 18; y: 156; width: parent.width - 36
-                        Repeater {
-                            model: ["00:00", "06:00", "12:00", "18:00", "23:00"]
-                            Text { required property string modelData; required property int index
-                                   width: index < 4 ? (parent.width - 30) / 4 : 30; text: modelData; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 10 } }
-                        }
-                    }
+                    width: 46; height: 26; radius: 13; anchors.verticalCenter: parent.verticalCenter
+                    color: !app.wellOff ? theme.primary : theme.field; border { color: theme.line; width: 1 }
+                    Rectangle { width: 20; height: 20; radius: 10; y: 3; x: !app.wellOff ? 23 : 3; color: !app.wellOff ? theme.fgOnPrimary : theme.fgDim }
+                    MouseArea { anchors.fill: parent; onClicked: app.setWellOff(!app.wellOff) }
                 }
-                Row {
-                    visible: !!wcol.w; width: parent.width; spacing: 12
-                    // koláč dňa
-                    Rectangle {
-                        width: 330; height: 260; radius: 18; color: theme.field
-                        Canvas {
-                            id: donut
-                            x: 18; y: 30; width: 160; height: 160
-                            readonly property var parts: app.wellTop
-                            onPartsChanged: requestPaint()
-                            onPaint: {
-                                const c = getContext("2d"); c.reset();
-                                const top = parts; const tot = top.reduce((s, a) => s + a.today, 0);
-                                const cx = width / 2, cy = height / 2, r = 72;
-                                c.lineWidth = 22; c.lineCap = "butt";
-                                c.strokeStyle = Qt.rgba(theme.fg.r, theme.fg.g, theme.fg.b, 0.08); c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.stroke();
-                                let a0 = -Math.PI / 2;
-                                for (let i = 0; i < top.length; i++) {
-                                    const a1 = a0 + Math.PI * 2 * top[i].today / Math.max(1, tot);
-                                    c.strokeStyle = app.wellColors[i]; c.beginPath(); c.arc(cx, cy, r, a0 + 0.02, a1 - 0.02); c.stroke();
-                                    a0 = a1;
-                                }
-                            }
-                        }
-                        Column {
-                            anchors.centerIn: donut
-                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: app.dur(wcol.todayS); color: theme.fg; font { family: theme.fontUi; pixelSize: 15; weight: Font.Bold } }
-                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "dnes"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } }
-                        }
-                        Column {
-                            x: 196; y: 36; width: parent.width - 210; spacing: 8
-                            Repeater {
-                                model: app.wellTop
-                                Row {
-                                    required property var modelData; required property int index
-                                    spacing: 6
-                                    Rectangle { width: 10; height: 10; radius: 5; color: app.wellColors[index]; anchors.verticalCenter: parent.verticalCenter }
-                                    Text { width: 110; elide: Text.ElideRight; text: modelData.name; color: theme.fg; font { family: theme.fontUi; pixelSize: 12 } }
-                                }
-                            }
-                        }
-                        Text { x: 18; y: 212; width: parent.width - 36; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 }
-                               text: app.wellTop.length ? "" : "Dnes zatiaľ žiadny čas v aplikáciách." }
-                    }
-                    // týždeň
-                    Rectangle {
-                        width: parent.width - 342; height: 260; radius: 18; color: theme.field
-                        Text { x: 18; y: 14; text: "POSLEDNÝCH 7 DNÍ"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11; weight: Font.Bold; letterSpacing: 0.8 } }
-                        Row {
-                            id: week
-                            x: 18; y: 40; width: parent.width - 36; height: 170; spacing: 12
-                            readonly property real mx: Math.max(3600, ...wcol.days.map(d => d.s))
-                            Repeater {
-                                model: wcol.days
-                                Item {
-                                    required property var modelData; required property int index
-                                    width: (week.width - 6 * 12) / 7; height: week.height
-                                    readonly property bool isToday: index === wcol.days.length - 1
-                                    Text { anchors { horizontalCenter: parent.horizontalCenter; bottom: bar.top; bottomMargin: 4 } text: modelData.s > 0 ? app.dur(modelData.s).replace(" min", "m").replace(" h ", "h ") : ""
-                                           color: theme.fgDim; font { family: theme.fontUi; pixelSize: 10 } }
-                                    Rectangle {
-                                        id: bar
-                                        anchors { bottom: dayL.top; bottomMargin: 6; horizontalCenter: parent.horizontalCenter }
-                                        width: Math.min(34, parent.width); height: Math.max(4, (parent.height - 40) * modelData.s / week.mx); radius: 8
-                                        color: parent.isToday ? theme.primary : Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.35)
-                                    }
-                                    Text { id: dayL; anchors { bottom: parent.bottom; horizontalCenter: parent.horizontalCenter }
-                                           text: Qt.locale("sk_SK").toString(new Date(modelData.date + "T12:00:00"), "ddd"); color: parent.isToday ? theme.fg : theme.fgDim
-                                           font { family: theme.fontUi; pixelSize: 11; weight: parent.isToday ? Font.Bold : Font.Normal } }
-                                }
-                            }
-                        }
-                    }
-                }
-                // aplikácie
-                Row {
-                    visible: !!wcol.w; spacing: 12
-                    Heading { text: "APLIKÁCIE  ·  7 DNÍ"; anchors.verticalCenter: parent.verticalCenter }
-                    Text { text: "pravý klik: denný limit"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 }
-                        anchors.verticalCenter: parent.verticalCenter }
-                }
-                Repeater {
-                    model: wcol.w ? wcol.w.apps.slice(0, 30) : []
-                    Rectangle {
-                        id: ar
-                        required property var modelData
-                        readonly property var lim: app.limits[modelData["class"]]
-                        width: wcol.width; height: 56; radius: 14; color: arm.containsMouse ? theme.hover : theme.field
-                        Image { id: aic; x: 14; anchors.verticalCenter: parent.verticalCenter; width: 32; height: 32
-                                source: ar.modelData.icon ? Quickshell.iconPath(ar.modelData.icon, true) : ""; sourceSize { width: 64; height: 64 } }
-                        Glyph { anchors.centerIn: aic; visible: aic.status !== Image.Ready; name: "app-window"; size: 22; color: theme.primary }
-                        Column {
-                            x: 60; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 60 - 260; spacing: 5
-                            Text { width: parent.width; elide: Text.ElideRight; text: ar.modelData.name + (ar.lim ? "   ·   limit " + ar.lim + " min/deň" : "")
-                                   color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.DemiBold } }
-                            Rectangle {
-                                width: parent.width; height: 6; radius: 3; color: Qt.rgba(theme.fg.r, theme.fg.g, theme.fg.b, 0.08)
-                                Rectangle { width: parent.width * ar.modelData.s / Math.max(1, wcol.w.apps[0].s); height: 6; radius: 3; color: app.wellColor(ar.modelData["class"]) }
-                                Rectangle { visible: !!ar.lim; x: parent.width * Math.min(1, (ar.lim || 0) * 60 / Math.max(1, wcol.w.apps[0].s)) - 1; y: -3; width: 2; height: 12; color: theme.error }
-                            }
-                        }
-                        Column {
-                            anchors { right: parent.right; rightMargin: 16; verticalCenter: parent.verticalCenter } width: 230
-                            Text { anchors.right: parent.right; text: "dnes " + app.dur(ar.modelData.today) + "  ·  7 dní " + app.dur(ar.modelData.s)
-                                   color: ar.lim && ar.modelData.today >= ar.lim * 60 ? theme.error : theme.fg; font { family: theme.fontUi; pixelSize: 12; weight: Font.DemiBold } }
-                            Text { anchors.right: parent.right; visible: ar.modelData.rss > 0; text: "obvykle " + app.human(ar.modelData.rss * 1024) + " RAM"
-                                   color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } }
-                        }
-                        MouseArea {
-                            id: arm; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.RightButton | Qt.LeftButton
-                            onClicked: (m) => {
-                                const c = ar.modelData["class"], q = mapToItem(null, m.x, m.y);
-                                const items = [];
-                                for (const mins of [15, 30, 60, 120, 180])
-                                    items.push({ glyph: "clock", label: "Denný limit " + (mins < 60 ? mins + " min" : (mins / 60) + " h"), hint: ar.lim === mins ? "✓" : "", action: () => app.setLimit(c, mins) });
-                                if (ar.lim) items.push({ glyph: "x", label: "Zrušiť limit", action: () => app.setLimit(c, 0) });
-                                if (ar.modelData.desktop) { items.push({ separator: true });
-                                    items.push({ glyph: "apps", label: "Detail v App Manageri", action: () => app.run(["latte-app", "aplikacie", "detail", ar.modelData.desktop]) }); }
-                                ctx.open(q.x, q.y, items, ar.modelData.name);
-                            }
-                        }
-                    }
-                }
-                Row {
-                    spacing: 12; topPadding: 6
-                    Rectangle {
-                        width: 46; height: 26; radius: 13; anchors.verticalCenter: parent.verticalCenter
-                        color: !app.wellOff ? theme.primary : theme.field; border { color: theme.line; width: 1 }
-                        Rectangle { width: 20; height: 20; radius: 10; y: 3; x: !app.wellOff ? 23 : 3; color: !app.wellOff ? theme.fgOnPrimary : theme.fgDim }
-                        MouseArea { anchors.fill: parent; onClicked: app.setWellOff(!app.wellOff) }
-                    }
-                    Text { anchors.verticalCenter: parent.verticalCenter; width: wcol.width - 70; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
-                           text: "Merať čas v aplikáciách. Ráta sa iba aktívne okno, keď nie si 5 minút nečinný (prehrávané video sa ráta). Údaje ostávajú v tomto PC (~/.local/share/latteos/pohoda)." }
-                }
+                Text { anchors.verticalCenter: parent.verticalCenter; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 }
+                       text: "Merať čas v aplikáciách · iba aktívne okno, nie pri 5 min nečinnosti · údaje ostávajú v PC · pravý klik na aplikáciu = denný limit · ←/→ deň" }
             }
         }
     }

@@ -4,7 +4,8 @@
 //   5 min; prehrávané video nečinnosť blokuje, takže sa ráta) a relácia nie je zamknutá,
 //   raz za minútu zmeria pamäť (RSS) aktívnej aplikácie aj s podprocesmi → „obvykle v RAM“,
 //   denné limity (~/.config/latteos/pohoda-limity.json: { trieda: minúty }) → oznámenie 5 min pred a pri limite.
-// Dáta: ~/.local/share/latteos/pohoda/RRRR-MM-DD.json  { apps: { trieda: { s, title, rss, rssN } }, hours: [24 × { trieda: s }] }
+// Dáta: ~/.local/share/latteos/pohoda/RRRR-MM-DD.json
+//        { apps: { trieda: { s, title, rss, rssN, rssMax } }, hours: [24 × { trieda: s }], halves: [48 × { trieda: s }] }
 // Vypnutie: ~/.config/latteos/pohoda = off. Spúšťa: latte-app pohoda (hyprland.lua). Zobrazuje: Monitor › Čas v aplikáciách.
 import QtQuick
 import Quickshell
@@ -28,7 +29,7 @@ ShellRoot {
     readonly property int step: 5
 
     function today() { return Qt.formatDate(new Date(), "yyyy-MM-dd"); }
-    function emptyDay() { const h = []; for (let i = 0; i < 24; i++) h.push({}); return { apps: {}, hours: h }; }
+    function emptyDay() { const h = [], hh = []; for (let i = 0; i < 24; i++) h.push({}); for (let i = 0; i < 48; i++) hh.push({}); return { apps: {}, hours: h, halves: hh }; }
 
     FileView { path: ph.cfg + "/pohoda"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: if (text().trim() === "off") Qt.quit() }
@@ -41,7 +42,7 @@ ShellRoot {
         id: store
         path: ph.day !== "" ? ph.dir + "/" + ph.day + ".json" : ""
         printErrors: false; atomicWrites: true
-        onLoaded: { try { const d = JSON.parse(text()); if (!d.hours || d.hours.length !== 24) d.hours = ph.emptyDay().hours; ph.data = d; } catch (e) { ph.data = ph.emptyDay(); } ph.loaded = true; }
+        onLoaded: { try { const d = JSON.parse(text()); if (!d.hours || d.hours.length !== 24) d.hours = ph.emptyDay().hours; if (!d.halves || d.halves.length !== 48) d.halves = ph.emptyDay().halves; ph.data = d; } catch (e) { ph.data = ph.emptyDay(); } ph.loaded = true; }
         onLoadFailed: { ph.data = ph.emptyDay(); ph.loaded = true; }
     }
     Process { id: mk; running: true; command: ["mkdir", "-p", ph.dir] }
@@ -74,8 +75,9 @@ ShellRoot {
         const a = d.apps[k] || { s: 0, title: "", rss: 0, rssN: 0 };
         a.s += step; a.title = title;
         d.apps[k] = a;
-        const h = new Date().getHours();
+        const now = new Date(), h = now.getHours(), hh = h * 2 + (now.getMinutes() >= 30 ? 1 : 0);
         d.hours[h][k] = (d.hours[h][k] || 0) + step;
+        d.halves[hh][k] = (d.halves[hh][k] || 0) + step;
         dirty = true;
         checkLimit(k, a.s);
     }

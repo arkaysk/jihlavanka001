@@ -8,6 +8,9 @@
                              senzory, batéria, systém)
   latte-sysmon once          jeden snímok (bez procesov)
   latte-sysmon rss PID       pamäť (RSS, kB) procesu aj s podprocesmi — pre Digitálnu pohodu
+  latte-sysmon pohoda-den DÁTUM [TRIEDA]   JSON pre stránku Čas v aplikáciách: deň (spolu, priemer, včera,
+                             týždeň, mesiac ako teplotná mapa, aplikácie, 48 polhodín), týždeň (mapa 7×24, najčastejšie
+                             hodiny, aplikácie týždňa); s TRIEDOU iba pre jednu aplikáciu
   latte-sysmon pohoda [DNI]  JSON: Digitálna pohoda za posledných DNI dní (predvolene 7) — súčty po dňoch,
                              po aplikáciách (s .desktop id, názvom a ikonou), dnešné hodiny, obvyklá RAM
 
@@ -550,6 +553,94 @@ def pohoda(days):
     return out
 
 
+def pohoda_day(date_s, only=None):
+    import datetime
+    base = os.path.join(os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")), "latteos", "pohoda")
+    idx = desktop_index()
+    target = datetime.date.fromisoformat(date_s)
+    cache = {}
+
+    def load(d):
+        k = d.isoformat()
+        if k not in cache:
+            try:
+                cache[k] = json.load(open(os.path.join(base, k + ".json")))
+            except (OSError, ValueError):
+                cache[k] = {"apps": {}, "hours": [], "halves": []}
+        return cache[k]
+
+    def secs(d, c=None):
+        j = load(d)
+        if c:
+            return j["apps"].get(c, {}).get("s", 0)
+        return sum(a.get("s", 0) for a in j["apps"].values())
+
+    def ident(c, title=""):
+        if c.startswith("latte:"):
+            t = c[6:]
+            hit = next((v for v in idx.values() if v[0].startswith("latteos-") and v[1] == t), None) or ("", t, "")
+        else:
+            hit = idx.get(c.lower()) or idx.get(c.split(".")[-1].lower()) or ("", c, "")
+        return {"class": c, "desktop": hit[0], "name": hit[1], "icon": hit[2]}
+
+    dn = ["po", "ut", "st", "št", "pi", "so", "ne"]
+    monday = target - datetime.timedelta(days=target.weekday())
+    week_days = [monday + datetime.timedelta(days=i) for i in range(7)]
+    week = [{"date": d.isoformat(), "day": dn[i], "total": secs(d, only), "isTarget": d == target} for i, d in enumerate(week_days)]
+    past = [w["total"] for w in week if datetime.date.fromisoformat(w["date"]) <= target and w["total"] > 0]
+    first = target.replace(day=1)
+    nxt = (first.replace(day=28) + datetime.timedelta(days=4)).replace(day=1)
+    month = [{"date": "", "total": -1, "isTarget": False}] * first.weekday()
+    d = first
+    while d < nxt:
+        month.append({"date": d.isoformat(), "total": secs(d, only) if d <= datetime.date.today() else 0, "isTarget": d == target})
+        d += datetime.timedelta(days=1)
+    j = load(target)
+    total = secs(target, only)
+    apps = []
+    for c, a in sorted(j["apps"].items(), key=lambda kv: -kv[1].get("s", 0)):
+        if a.get("s", 0) <= 0:
+            continue
+        e = ident(c, a.get("title", ""))
+        e.update(seconds=a["s"], percent=round(100 * a["s"] / max(1, sum(x.get("s", 0) for x in j["apps"].values()))), rss=a.get("rss", 0))
+        apps.append(e)
+    halves = [0] * 48
+    for i, row in enumerate((j.get("halves") or [])[:48]):
+        halves[i] = row.get(only, 0) if only else sum(row.values())
+    if not any(halves):                      # staré záznamy iba po hodinách → rozdeliť na polovice
+        for h, row in enumerate((j.get("hours") or [])[:24]):
+            v = row.get(only, 0) if only else sum(row.values())
+            halves[2 * h] = halves[2 * h + 1] = v / 2
+    heat, hour_sum = [], [0] * 24
+    wapps = {}
+    for wd in week_days:
+        jj = load(wd)
+        row = [0] * 24
+        for h, r in enumerate((jj.get("hours") or [])[:24]):
+            row[h] = r.get(only, 0) if only else sum(r.values())
+            hour_sum[h] += row[h]
+        heat.append(row)
+        for c, a in jj["apps"].items():
+            wapps[c] = wapps.get(c, 0) + a.get("s", 0)
+    peak = ""
+    best = max(range(23), key=lambda h: hour_sum[h] + hour_sum[h + 1]) if any(hour_sum) else -1
+    if best >= 0:
+        peak = "%02d:00 – %02d:00" % (best, best + 2)
+    wtot = max(1, sum(wapps.values()))
+    week_apps = []
+    for c, sec in sorted(wapps.items(), key=lambda kv: -kv[1]):
+        e = ident(c)
+        e.update(seconds=sec, percent=round(100 * sec / wtot))
+        week_apps.append(e)
+    prev = target - datetime.timedelta(days=1)
+    return {"date": target.isoformat(), "isToday": target == datetime.date.today(), "total": total,
+            "average": round(sum(past) / len(past)) if past else 0, "yesterday": secs(prev, only),
+            "weekRange": "%d. %d. – %d. %d." % (monday.day, monday.month, week_days[-1].day, week_days[-1].month),
+            "week": week, "month": month, "monthName": ["január", "február", "marec", "apríl", "máj", "jún", "júl", "august", "september", "október", "november", "december"][target.month - 1],
+            "apps": apps, "hourly": halves, "weekHeatmap": heat, "peak": peak, "weekApps": week_apps,
+            "app": ident(only) if only else None}
+
+
 def main(a):
     cmd = a[0] if a else "once"
     state = {}
@@ -561,6 +652,9 @@ def main(a):
         return 0
     if cmd == "rss" and len(a) == 2 and a[1].isdigit():
         print(tree_rss(int(a[1])))
+        return 0
+    if cmd == "pohoda-den" and len(a) >= 2:
+        print(json.dumps(pohoda_day(a[1], a[2] if len(a) > 2 else None), ensure_ascii=False))
         return 0
     if cmd == "pohoda":
         print(json.dumps(pohoda(int(a[1]) if len(a) > 1 and a[1].isdigit() else 7), ensure_ascii=False))

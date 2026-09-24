@@ -70,6 +70,26 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 21:00: Čas v aplikáciách vo vzhľade serpantinum ✅
+- Podľa tvojho rozhodnutia (AGPL nevadí, OS nebude platený) som prostredie Digitálnej pohody prevzal zo
+  serpantinum a upravil na LatteOS. Je v samostatnom súbore `session/apps/data/PohodaView.qml` pod
+  **AGPL-3.0-or-later** s uvedením pôvodu, zapísané aj v resources/MANIFEST.md. Zvyšok LatteOS tým nie je dotknutý.
+  - Pozor pri doplnkových službách: ak by upravený AGPL kód bežal na serveri, ku ktorému sa ľudia pripájajú,
+    jeho zdrojový kód musí byť pre nich dostupný.
+  - LatteOS zatiaľ **nemá vlastnú licenciu** (v repozitári chýba LICENSE). Pridal som to do „Čaká na tvoje
+    rozhodnutie“.
+- **Deň:**
+  - hlavička s dňom a šípkami (aj klávesy ←/→), Týždeň, Späť;
+  - karty **denný priemer | veľký súčet dňa | oproti včerajšku** (▲ oranžová / ▼ zelená);
+  - **týždeň** v stĺpcoch s gradientom na vybranom dni, klik prepne deň;
+  - **mesiac ako teplotná mapa**, klik = deň;
+  - **aplikácie** so štvorcovou ikonou, pruhom a časom. Klik = **deň aplikácie po polhodinách**,
+    pravý klik = denný limit.
+- **Týždeň:** mapa 7 dní × 24 hodín, denný priemer, **najčastejšie hodiny** (napr. 19:00 – 21:00), aplikácie týždňa.
+- Nábehové animácie (hlavička → karty → stred → zoznam, pružné stĺpce) sú zapnuté iba s GPU. Vo VM sa stránka
+  ukáže hneď.
+- Meranie teraz zapisuje aj polhodiny. Staršie záznamy (iba hodiny) sa rozdelia na polovice.
+
 ### 24. 9. 2026, 20:50: Digitálna pohoda — koľko času v ktorej aplikácii ✅
 - **Meranie** (latte-app pohoda, na pozadí): každých 5 s pripočíta čas aktívnemu oknu. Keď si 5 minút
   nečinný, nepočíta, ale prehrávané video sa ráta. Aplikácie LatteOS rozlišuje podľa názvu (Súbory, Monitor…).
@@ -724,6 +744,8 @@ nižšie):
 ---
 
 ## Čaká na tvoje rozhodnutie
+
+- **Licencia LatteOS** (repozitár nemá LICENSE). Ak ju nechceš riešiť hneď, najjednoduchšie je GPL-3.0 alebo AGPL-3.0 celého projektu — potom sa s prevzatým serpantinum (AGPL) nič nebije. MIT/Apache by znamenali, že PohodaView.qml ostane výnimkou pod AGPL.
 
 1. **Vypnúť 3D akceleráciu vo VirtualBoxe?** (Nastavenia VM → Obrazovka → „Zapnúť 3D akceleráciu“.)
    LatteOS vo VM aj tak kreslí softvérovo; so zapnutým 3D Mesa občas siahne na `svga` a kernel hlási

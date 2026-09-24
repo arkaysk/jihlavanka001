@@ -24,6 +24,7 @@ Stav k 23. 9. 2026: stiahnutých 31 repozitárov (~1,1 GB) a 10 článkov.
 | `aquamarine` | [aquamarine](https://github.com/hyprwm/aquamarine) | BSD-3 | Základ | DRM/KMS backend Hyprlandu (miesto pre prípadné VM opravy) |
 | `xdg-desktop-portal-hyprland` | [xdph](https://github.com/hyprwm/xdg-desktop-portal-hyprland) | BSD-3 | Prebrať | zdieľanie obrazovky (Discord, OBS) |
 | `hyprland-plugins` | [hyprland-plugins](https://github.com/hyprwm/hyprland-plugins) (commit podľa `hyprpm.toml`) | BSD-3 | Prebrať | plugin **hyprbars**: jednotné okenné tlačidlá – □ ✕ (`setup/f1/build-hyprbars.sh`, `latte/bars.lua`) |
+| `serpantinum` | [serpantinum](https://github.com/ilyamiro/serpantinum) (ilyamiro) | AGPL-3.0 | Prebrať | vzhľad Digitálnej pohody → `session/apps/data/PohodaView.qml` (samostatný súbor pod AGPL-3.0-or-later s uvedením pôvodu); meranie a dáta sú vlastné |
 | `hyprlock` | [hyprlock](https://github.com/hyprwm/hyprlock) | BSD-3 | Prebrať z | zamknutie obrazovky |
 | `hypr-darkwindow` | [Hypr-DarkWindow](https://github.com/micha4w/Hypr-DarkWindow) | MIT | Prebrať z | vzor pre shadery okien (témy) |
 | `hyprwindowshade` | [HyprWindowShade](https://github.com/ManofJELLO/HyprWindowShade) | MIT | Prebrať z | vzor pre shadery okien (témy) |
