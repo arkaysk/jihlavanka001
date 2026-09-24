@@ -70,6 +70,14 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 18:20: Ktulu (Cthulhu mačka) a maskoti, čo utekajú ✅ (bod 11)
+- **Ktulu:** zelenkavá mačka so žiariacimi očami a chápadlami pod bradou. Občas jej **z hrany lišty
+  vyrastú chápadlá** a chvíľu sa vlnia. Nový maskot: pravý klik na maskota alebo Nastavenia › Lišta.
+- **Útek:** keď si 5 minút preč (nepohneš myšou a nezmeníš okno), maskot po krokoch odíde z ostrova
+  a vráti sa, keď sa vrátiš. Keď ho dlho nepohladkáš, občas sa znudí a odíde na chvíľku. Klik ho zavolá späť.
+- **Vypnutie:** maskot „Žiadny“ skryje všetko. Samostatná voľba „Zostáva na lište“ vypne iba útek.
+- Tvojho maskota som nechal na Latte mačke. Ktulu som vyskúšal a vrátil.
+
 ### 24. 9. 2026, 18:10: Monitor — Win11 Správca úloh + Autoruns + CPU-Z/HWiNFO ✅ (bod 10)
 - **Prehľad (Výkon):** grafy procesora, pamäte, siete, **disku** a **grafiky** (keď ju ovládač hlási),
   súhrn ako vo Win11: rýchlosť procesora, procesy, vlákna, záťaž, doba behu, swap. Ďalej jadrá, disky a teploty.

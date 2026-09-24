@@ -63,6 +63,7 @@ ShellRoot {
     property string storage: ""
     property string mascot: "macka"
     property string barAnim: ""        // prázdne = podľa stupňa (VM: pod kurzorom)
+    property string mascotEscape: ""   // "off" = maskot neuteká
     property string cupQuick: ""       // prázdne = šálka ukazuje stupeň a režim okien, "off" = skryté
     property string deskIcons: ""      // prázdne = ikony na ploche s košom, "off" = bez ikon
     property string barScene: "para"
@@ -208,6 +209,8 @@ ShellRoot {
                onLoaded: app.barAnim = text().trim(); onLoadFailed: app.barAnim = "" }
     FileView { path: app.cfgHome + "/latteos/desktop-icons"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.deskIcons = text().trim(); onLoadFailed: app.deskIcons = "" }
+    FileView { path: app.cfgHome + "/latteos/mascot-escape"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.mascotEscape = text().trim(); onLoadFailed: app.mascotEscape = "" }
     FileView { path: app.cfgHome + "/latteos/cup-quick"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.cupQuick = text().trim(); onLoadFailed: app.cupQuick = "" }
     FileView { path: app.cfgHome + "/latteos/bar-scene"; printErrors: false; watchChanges: true; onFileChanged: reload()
@@ -1072,12 +1075,18 @@ ShellRoot {
             }
             Heading { text: "MASKOT" }
             Segments {
-                options: [["macka", "Latte mačka"], ["mokka", "Mokka"], ["zrnko", "Zrnko"], ["ziadny", "Žiadny"]]
+                options: [["macka", "Latte mačka"], ["mokka", "Mokka"], ["zrnko", "Zrnko"], ["ktulu", "Ktulu (Cthulhu)"], ["ziadny", "Žiadny"]]
                 value: app.mascot
                 onPicked: (v) => { app.mascot = v; app.writePref("mascot", v, "Maskot: " + v); }
             }
+            Segments {
+                visible: app.mascot !== "ziadny"
+                options: [["", "Uteká, keď sa nudí alebo si preč"], ["off", "Zostáva na lište"]]
+                value: app.mascotEscape
+                onPicked: (v) => { app.mascotEscape = v; app.writePref("mascot-escape", v, v === "off" ? "Maskot zostáva na lište" : "Maskot môže utiecť"); }
+            }
             Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
-                   text: "Maskot ťuká labkami do rytmu hudby, žmurká a v noci či pri Nerušiť spí. Pohyb stojí trochu CPU, preto je vo VM iba pri hudbe." }
+                   text: "Maskot ťuká labkami do rytmu hudby, žmurká a v noci či pri Nerušiť spí. Keď si 5 minút preč alebo sa nudí, odíde na prechádzku a vráti sa s tebou (klik ho zavolá). Ktulu občas vystrčí chápadlá z lišty. Pohyb stojí trochu CPU, preto je vo VM väčšinou iba pri hudbe." }
             Row {
                 spacing: 10
                 Button { label: "Predvolené LatteOS"; glyph: "refresh"

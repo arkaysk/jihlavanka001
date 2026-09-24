@@ -6,6 +6,8 @@
 Z ASCII predlôh nižšie vyrobí <maskot>-<snímka>.png (mierka 2). Snímky:
   sedi   obe labky na stole          lapka-l / lapka-p   ťukanie ľavou / pravou (hudba hrá)
   zmurk  zažmúrenie                  spi                 spánok (noc)            hlad    pohladkanie (klik)
+  odchod-1..3  maskot odchádza z ostrova (posun doľava)   prazdny  iba stôl (maskot je na prechádzke)
+  chapadla-1/2 (iba Ktulu) z hrany stola = lišty vyrastú chápadlá a vlnia sa
 """
 import os, struct, sys, zlib
 
@@ -15,6 +17,8 @@ PALETTES = {
     "macka": {"K": "2A1E16", "W": "F3EBDD", "C": "E4B283", "P": "E07A5F", "E": "2A1E16", "D": "8A5A3C", "d": "6B4430", "Z": "E4B283"},
     "mokka": {"K": "0E0B09", "W": "3A2D24", "C": "E4B283", "P": "E07A5F", "E": "F2C94C", "D": "8A5A3C", "d": "6B4430", "Z": "E4B283"},
     "zrnko": {"K": "2A160C", "W": "7A4A2A", "C": "B07A50", "P": "E07A5F", "E": "F3EBDD", "D": "8A5A3C", "d": "6B4430", "Z": "E4B283"},
+    # Ktulu: Cthulhu mačka — morská zeleň, žiariace oči, chápadlá pod bradou (T) a z hrany stola
+    "ktulu": {"K": "10201A", "W": "4F8A6E", "C": "2F6450", "P": "8FD3B0", "E": "F2E14C", "D": "8A5A3C", "d": "6B4430", "Z": "8FD3B0", "T": "3E7A5E"},
 }
 
 HEADS = {
@@ -46,12 +50,24 @@ HEADS = {
     ],
 }
 HEADS["mokka"] = HEADS["macka"]
+HEADS["ktulu"] = [
+    "....K..........K......",
+    "...KCK........KCK.....",
+    "...KCWK......KWCK.....",
+    "...KWWWKKKKKKWWWK.....",
+    "..KWWWEWWWWWWEWWWK....",
+    "..KWWWEWWWWWWEWWWK....",
+    "..KWWWWWWPPWWWWWWK....",
+    "..KWWTWWTWWTWWTWWK....",
+    "..KWWTWWTWWTWWTWWK....",
+    "...KKTKKTKKTKKTKKK....",
+]
 DESK = ["dddddddddddddddddddddd", "DDDDDDDDDDDDDDDDDDDDDD"]
 PAW = ["KKKK", "KWWK", "KPPK"]      # labka s ružovými vankúšikmi (viditeľná aj na tmavej mačke)
 W, H = 22, 18          # plátno: hlava (10), trup za stolom, labky, stôl (2)
 
 
-def frame(kind, left_up, right_up, eyes="open", z=False):
+def frame(kind, left_up, right_up, eyes="open", z=False, shift=0, empty=False, rise=0):
     g = [["." for _ in range(W)] for _ in range(H)]
     head = HEADS[kind]
     top = 1
@@ -74,6 +90,13 @@ def frame(kind, left_up, right_up, eyes="open", z=False):
             for dx in (-1, 0, 1):
                 if g[top + low][x + dx] == "W":
                     g[top + low][x + dx] = "K"
+    if kind == "ktulu":                            # chápadlá pod bradou visia až na stôl (vlnka)
+        for i, x0 in enumerate((5, 8, 11, 14)):
+            for y in range(top + len(head), H - 2):
+                x = x0 + (1 if (y + i) % 3 == 0 else 0)
+                g[y][x] = "T"
+                if y == H - 3:
+                    g[y][x + 1] = "T"               # koniec chápadla sa stáča po stole
     for i, row in enumerate(DESK):
         g[H - 2 + i] = list(row)
 
@@ -87,6 +110,20 @@ def frame(kind, left_up, right_up, eyes="open", z=False):
     if z:
         for (x, y) in [(18, 0), (19, 0), (20, 0), (21, 0), (20, 1), (19, 2), (18, 3), (19, 3), (20, 3), (21, 3)]:   # „z“ nad uchom
             g[y][x] = "Z"
+    if rise:                                      # chápadlá vyrastajú z hrany stola (lišty) po stranách
+        for side, x0 in ((0, 0), (1, 20)):
+            for k in range(8):
+                y = H - 3 - k
+                wig = (1 if ((k + rise + side) % 4) < 2 else 0)
+                x = x0 + (wig if side == 0 else -wig)
+                g[y][x] = "T"; g[y][x + 1] = "T" if k < 6 else g[y][x + 1]
+            g[H - 3 - 8][x0 + (1 if side == 0 else 0)] = "P"   # prísavka na špičke
+    if shift or empty:                            # maskot odchádza: posun postavy doľava, stôl ostáva
+        body = [row[:] for row in g[:H - 2]]
+        for y in range(H - 2):
+            for x in range(W):
+                sx = x + shift
+                g[y][x] = "." if empty or sx >= W else body[y][sx]
     return g
 
 
@@ -97,6 +134,14 @@ FRAMES = {
     "zmurk":   dict(left_up=False, right_up=False, eyes="closed"),
     "spi":     dict(left_up=False, right_up=False, eyes="closed", z=True),
     "hlad":    dict(left_up=True, right_up=True, eyes="closed"),
+    "odchod-1": dict(left_up=True, right_up=False, shift=6),
+    "odchod-2": dict(left_up=False, right_up=True, shift=12),
+    "odchod-3": dict(left_up=True, right_up=False, shift=18),
+    "prazdny":  dict(left_up=False, right_up=False, empty=True),
+}
+KTULU_ONLY = {
+    "chapadla-1": dict(left_up=False, right_up=False, rise=1),
+    "chapadla-2": dict(left_up=False, right_up=False, rise=3),
 }
 
 
@@ -123,7 +168,7 @@ def png(path, grid, pal):
 def main(out):
     os.makedirs(out, exist_ok=True)
     for kind, pal in PALETTES.items():
-        for name, kw in FRAMES.items():
+        for name, kw in list(FRAMES.items()) + (list(KTULU_ONLY.items()) if kind == "ktulu" else []):
             png(os.path.join(out, "%s-%s.png" % (kind, name)), frame(kind, **kw), pal)
     print("maskoti:", ", ".join(PALETTES), "·", len(FRAMES), "snímok →", out)
 
