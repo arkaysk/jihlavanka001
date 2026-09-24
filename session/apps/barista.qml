@@ -41,14 +41,35 @@ ShellRoot {
     FileView { id: doneFile; path: app.cfg + "/barista-done"; printErrors: false }
     Process { id: runner }
     function run(cmd) { runner.command = cmd; runner.running = true; }
-    Process { id: installer; onExited: app.status = "Aplikácie sa inštalujú na pozadí (App Manager ukáže stav)." }
-
-    function finish() {
-        // aplikácie z Flathubu (pre účet, bez hesla) — na pozadí, jedna po druhej
+    // inštalácia vybraných aplikácií priamo v Baristovi (krok Hotovo), jedna po druhej, so stavom každej
+    property var instState: ({})          // id → "caka" | "bezi" | "ok" | "chyba"
+    property var queue: []
+    property bool installing: false
+    Process {
+        id: installer
+        onExited: (code) => {
+            const s = Object.assign({}, app.instState); s[app.queue[0]] = code === 0 ? "ok" : "chyba"; app.instState = s;
+            app.queue = app.queue.slice(1); app.nextInstall();
+        }
+    }
+    function startInstalls() {
+        if (installing) return;
         const ids = Object.keys(picks).filter(k => picks[k]);
-        if (ids.length) {
-            installer.command = ["sh", "-c", "for id in \"$@\"; do latte-apps install flatpak \"$id\" >/dev/null 2>&1; done; notify-send -a LatteOS Barista 'Aplikácie sú nainštalované'", "sh"].concat(ids);
-            installer.startDetached();
+        const s = {}; for (const i of ids) s[i] = "caka"; instState = s;
+        queue = ids; installing = ids.length > 0; nextInstall();
+    }
+    function nextInstall() {
+        if (queue.length === 0) { installing = false; status = Object.keys(instState).length ? "Aplikácie sú nainštalované — nájdeš ich v Text Bare a v App Manageri." : ""; return; }
+        const s = Object.assign({}, instState); s[queue[0]] = "bezi"; instState = s;
+        installer.command = ["latte-apps", "install", "flatpak", queue[0]]; installer.running = true;
+    }
+    function finish() {
+        // zvyšok (ak ešte beží) dokončí proces na pozadí s oznámením po každej aplikácii
+        if (queue.length > 1 || (queue.length === 1 && !installer.running)) {
+            const rest = installer.running ? queue.slice(1) : queue;
+            const bg = Qt.createQmlObject('import Quickshell.Io; Process {}', app);
+            bg.command = ["sh", "-c", "for id in \"$@\"; do latte-apps install flatpak \"$id\" >/dev/null 2>&1 && notify-send -a Barista 'Nainštalované' \"$id\" || notify-send -a Barista 'Inštalácia zlyhala' \"$id\"; done", "sh"].concat(rest);
+            bg.startDetached();
         }
         doneFile.setText(new Date().toISOString() + "\n");      // Barista sa už sám neukáže
         Qt.callLater(Qt.quit);
@@ -133,7 +154,7 @@ ShellRoot {
             NavBtn { visible: app.step === 0; label: "Preskočiť"; onClicked: { app.picks = {}; app.finish(); } }
             NavBtn { visible: app.step > 0; label: "Späť"; onClicked: app.step-- }
             NavBtn { label: app.step === app.steps.length - 1 ? "Začať používať LatteOS" : "Ďalej"; primaryStyle: true
-                     onClicked: { if (app.step === app.steps.length - 1) app.finish(); else { app.step++; if (app.step === 4) aiProc.running = true; } } }
+                     onClicked: { if (app.step === app.steps.length - 1) app.finish(); else { app.step++; if (app.step === 4) aiProc.running = true; if (app.step === 6) app.startInstalls(); } } }
         }
         Text { anchors { left: rail.right; bottom: parent.bottom; margins: 30; leftMargin: 34 } text: app.status; color: theme.primary; font { family: theme.fontUi; pixelSize: 12 } }
     }
@@ -261,7 +282,18 @@ ShellRoot {
         id: sDone
         Column {
             spacing: 12
-            H { text: "Hotovo, dobrú chuť ☕" }
+            H { text: app.installing ? "Chystám ti aplikácie…" : "Hotovo, dobrú chuť ☕" }
+            Repeater {
+                model: Object.keys(app.instState)
+                Row {
+                    required property string modelData
+                    spacing: 10
+                    readonly property string st: app.instState[modelData]
+                    Text { width: 24; text: ({ caka: "○", bezi: "◐", ok: "✓", chyba: "×" })[parent.st]; color: parent.st === "chyba" ? theme.error : theme.primary; font { family: theme.fontUi; pixelSize: 15; weight: Font.Bold } }
+                    Text { text: ((app.apps.find(a => a[0] === modelData) || [, modelData])[1]) + "  ·  " + ({ caka: "čaká", bezi: "inštalujem z Flathubu…", ok: "nainštalované", chyba: "nepodarilo sa (skús v App Manageri)" })[parent.st]
+                           color: theme.fg; font { family: theme.fontUi; pixelSize: 14 } }
+                }
+            }
             P { text: "Pár skratiek na začiatok:" }
             Repeater {
                 model: [["Super + Medzerník", "Text Bar: hľadaj, spúšťaj, pýtaj sa"], ["Super + Tab", "Prehľad pásky"], ["Super + Z", "Rozloženie okna"],

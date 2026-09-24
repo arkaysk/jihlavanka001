@@ -10,7 +10,7 @@
   latte-apps install flatpak ID      inštalácia z Flathubu pre používateľa (bez roota)
   latte-apps remove flatpak ID       odinštalovanie Flatpaku používateľa
 
-RPM (systém) sa inštaluje a odinštaluje v termináli cez sudo dnf, aby bolo vidieť, čo sa deje.
+RPM (systém) inštaluje a odinštaluje grafický Inštalátor (latte-app instalator) cez sudo dnf.
 """
 import glob, json, os, re, shutil, subprocess, sys
 
@@ -192,7 +192,7 @@ def check(path):
         reasons.append("problém so závislosťami: " + problem.string[problem.start():].strip().splitlines()[0][:160] if problem else "závislosti sa dajú splniť")
         good = arch in (machine, "noarch") and not problem
         v.update(verdict="ano" if good else "nie", title="RPM balík pre Fedoru" if good else "RPM sa nedá nainštalovať",
-                 reasons=reasons + ["inštaluje sa do systému (heslo správcu), nie je izolovaný"], action=["sudo", "dnf", "install", path])
+                 reasons=reasons + ["inštaluje sa do systému (heslo správcu), nie je izolovaný"], action=["latte-app", "instalator", "install", path])
     elif low.endswith(".appimage"):
         fuse2 = sh(["rpm", "-q", "fuse-libs"])[0] == 0
         v.update(verdict="ano" if fuse2 else "podmienecne", title="AppImage",

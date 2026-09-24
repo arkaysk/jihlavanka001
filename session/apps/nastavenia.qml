@@ -1293,7 +1293,7 @@ ShellRoot {
                         width: 190; height: 62; title: modelData[1]; sub: installed ? modelData[0] : "treba doinštalovať (klikni)"
                         selected: (app.localeConf.LANG || "sk_SK.UTF-8") === modelData[0]
                         onClicked: {
-                            if (!installed) { app.run(["foot", "-e", "sh", "-c", "sudo dnf install glibc-langpack-" + modelData[2] + "; read -p 'Enter zavrie okno…' x"], "Inštalácia jazyka v termináli"); return; }
+                            if (!installed) { app.run(["latte-app", "instalator", "--nazov=Jazyk_" + modelData[1].replace(/ /g, "_"), "install", "glibc-langpack-" + modelData[2]], "Inštalácia jazyka"); return; }
                             app.setLocale("LANG", modelData[0] === "sk_SK.UTF-8" ? "" : modelData[0]);
                         }
                     }

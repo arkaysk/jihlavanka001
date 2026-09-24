@@ -52,6 +52,30 @@ local function eventsOn(date)
   return out
 end
 
+-- počasie (Open-Meteo, bez účtu): poloha z Nastavení (settings.toml [location]), mesto z greeter.conf
+local weather, weatherAt = nil, 0
+local function wmo(c)
+  c = tonumber(c) or 0
+  if c == 0 then return "Jasno", "sun" elseif c <= 2 then return "Polojasno", "cloud" elseif c == 3 then return "Zamračené", "cloud"
+  elseif c <= 48 then return "Hmla", "cloud" elseif c <= 67 then return "Dážď", "cloud-rain" elseif c <= 77 then return "Sneh", "snowflake"
+  elseif c <= 82 then return "Prehánky", "cloud-rain" elseif c <= 86 then return "Snehové prehánky", "snowflake" end
+  return "Búrka", "cloud-storm"
+end
+local function loadWeather()
+  if os.time() - weatherAt < 900 and weather then return end
+  local st = noctalia.readFile((noctalia.getenv("XDG_STATE_HOME") or (home .. "/.local/state")) .. "/noctalia/settings.toml") or ""
+  local loc = string.match(st, "%[location%]([^%[]*)") or ""
+  local lat = string.match(loc, "latitude%s*=%s*([%d%.%-]+)") or "48.74"
+  local lon = string.match(loc, "longitude%s*=%s*([%d%.%-]+)") or "19.15"
+  local place = string.match(noctalia.readFile("/var/lib/latteos/greeter/greeter.conf") or "", 'place = "([^"]*)"') or ""
+  local url = "https://api.open-meteo.com/v1/forecast?latitude=" .. lat .. "&longitude=" .. lon
+    .. "&current=temperature_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto&forecast_days=4"
+  noctalia.runAsync({ "curl", "-s", "-m", "6", url }, function(r)
+    local ok, d = pcall(noctalia.json.decode, r.stdout or "")
+    if ok and type(d) == "table" and d.current then weather = d; weather.place = place; weatherAt = os.time(); render() end
+  end, 8000)
+end
+
 local function refresh()
   -- ďalšie časové pásma
   local conf = noctalia.readFile(cfgHome .. "/latteos/clock.conf") or ""
@@ -111,6 +135,32 @@ local function tabTime()
       ui.label({ text = z.hm, fontSize = 18, fontWeight = "bold" }),
     }))
   end
+  -- počasie
+  table.insert(body, ui.separator({}))
+  table.insert(body, heading("POČASIE" .. ((weather and weather.place ~= "") and (" · " .. weather.place) or "")))
+  if weather and weather.current then
+    local txt, g = wmo(weather.current.weather_code)
+    table.insert(body, ui.row({ gap = 12, align = "center" }, {
+      ui.glyph({ name = g, size = 34, color = "primary" }),
+      ui.label({ text = string.format("%d °C", math.floor(weather.current.temperature_2m + 0.5)), fontSize = 26, fontWeight = "bold" }),
+      ui.label({ text = txt .. " · vietor " .. math.floor(weather.current.wind_speed_10m + 0.5) .. " km/h", fontSize = 12, color = "on_surface_variant", flexGrow = 1 }),
+    }))
+    local days = { "ne", "po", "ut", "st", "št", "pi", "so" }
+    local row = {}
+    for i = 2, math.min(4, #(weather.daily.time or {})) do
+      local y, mo, dd = string.match(weather.daily.time[i], "(%d+)-(%d+)-(%d+)")
+      local wd = os.date("*t", os.time({ year = tonumber(y), month = tonumber(mo), day = tonumber(dd), hour = 12 })).wday
+      local _, dg = wmo(weather.daily.weather_code[i])
+      table.insert(row, ui.column({ fill = "surface_variant", radius = 12, padding = 10, gap = 2, flexGrow = 1, align = "center" }, {
+        ui.label({ text = days[wd], fontSize = 12, color = "on_surface_variant" }),
+        ui.glyph({ name = dg, size = 20, color = "primary" }),
+        ui.label({ text = math.floor(weather.daily.temperature_2m_min[i] + 0.5) .. "° / " .. math.floor(weather.daily.temperature_2m_max[i] + 0.5) .. "°", fontSize = 12 }),
+      }))
+    end
+    table.insert(body, ui.row({ gap = 8 }, row))
+  else
+    table.insert(body, note("Počasie sa načítava… (potrebuje internet)"))
+  end
   table.insert(body, ui.button({ text = "Upraviť pásma a polohu", glyph = "settings", variant = "ghost", contentAlign = "start",
                                  onClick = function() panel.close(); noctalia.runAsync({ "latte-app", "nastavenia", "cas" }) end }))
   return body
@@ -135,7 +185,7 @@ local function tabNotifications()
       ui.label({ text = "KDE Connect nie je nainštalovaný", fontSize = 13, fontWeight = "bold" }),
       note("Android: aplikácia KDE Connect → oznámenia, SMS, schránka a súbory na PC. iPhone: KDE Connect pre iOS (Apple obmedzuje oznámenia)."),
       ui.button({ text = "Nainštalovať (dnf install kde-connect)", glyph = "download", variant = "ghost", contentAlign = "start",
-                  onClick = function() panel.close(); noctalia.runInTerminal("sudo dnf install kde-connect") end }),
+                  onClick = function() panel.close(); noctalia.runAsync({ "latte-app", "instalator", "--nazov=KDE_Connect", "install", "kde-connect" }) end }),
     }))
   elseif st.phone == "" then
     table.insert(body, card({ ui.label({ text = "Žiadny spárovaný mobil", fontSize = 13, fontWeight = "bold" }),
@@ -249,6 +299,7 @@ function onAdd(_t)
 end
 
 function onOpen(_ctx)
+  loadWeather()
   local saved = trim(noctalia.readFile(tabFile) or "")
   if saved == "cas" or saved == "oznamenia" or saved == "kalendar" then st.tab = saved end
   loadEvents()

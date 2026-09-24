@@ -84,13 +84,13 @@ ShellRoot {
         if (src === "flatpak") {
             busyId = id; status = "Inštalujem " + (name || id) + " z Flathubu…";
             installProc.command = ["latte-apps", "install", "flatpak", id]; installProc.running = true;
-        } else run(["foot", "-e", "sh", "-c", "sudo dnf install \"$1\"; echo; read -p 'Enter zavrie okno…' x", "sh", id], "Inštalácia v termináli: " + id);
+        } else run(["latte-app", "instalator", "install", id], "Inštalácia: " + id);
     }
     function uninstall(a) {
         if (a.source === "flatpak") {
             busyId = a.id; status = "Odinštalujem " + a.name + "…";
             installProc.command = ["latte-apps", "remove", "flatpak", a.id]; installProc.running = true;
-        } else if (a.package) run(["foot", "-e", "sh", "-c", "sudo dnf remove \"$1\"; echo; read -p 'Enter zavrie okno…' x", "sh", a.package], "Odinštalovanie v termináli: " + a.package);
+        } else if (a.package) run(["latte-app", "instalator", "--nazov=Odinštalovať_" + a.name.replace(/ /g, "_"), "remove", a.package], "Odinštalovanie: " + a.name);
     }
     function launch(a) {
         const ex = (a.exec || "").replace(/%[fFuUdDnNickvm]/g, "").trim();
@@ -298,7 +298,7 @@ ShellRoot {
             Row {
                 spacing: 10
                 Pill { label: "Aktualizovať všetko"; primaryStyle: true; on: app.updatesList.length > 0
-                       onClicked: app.run(["foot", "-e", "sh", "-c", "sudo dnf upgrade; flatpak update --user -y; echo; read -p 'Enter zavrie okno…' x"], "Aktualizácia v termináli") }
+                       onClicked: { app.run(["sh", "-c", "flatpak update --user -y --noninteractive >/dev/null 2>&1; latte-app instalator upgrade"], "Aktualizácia: aplikácie (Flatpak) a potom systém"); } }
                 Pill { label: app.updatesLoading ? "Zisťujem…" : "Skontrolovať znova"; on: !app.updatesLoading
                        onClicked: { app.updatesLoading = true; updProc.running = true; } }
             }
@@ -439,7 +439,9 @@ ShellRoot {
                         visible: !!app.verdict && app.verdict.action.length > 0 && app.verdict.verdict !== "nie"
                         label: "Inštalovať / spustiť"; primaryStyle: true
                         // argv sa odovzdá ako argumenty ("$@"), názov súboru sa nikdy nevkladá do príkazu shellu
-                        onClicked: app.run(["foot", "-e", "sh", "-c", "\"$@\"; echo; read -p 'Enter zavrie okno…' x", "sh"].concat(app.verdict.action), "V termináli: " + app.verdict.action.join(" "))
+                        onClicked: app.verdict.action[0] === "latte-app"
+                                   ? app.run(app.verdict.action, "Inštalátor: " + app.verdict.name)          // grafický Inštalátor (RPM)
+                                   : app.run(["foot", "-e", "sh", "-c", "\"$@\"; echo; read -p 'Enter zavrie okno…' x", "sh"].concat(app.verdict.action), "V termináli: " + app.verdict.action.join(" "))
                     }
                 }
             }

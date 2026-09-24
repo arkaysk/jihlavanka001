@@ -212,7 +212,7 @@ ShellRoot {
                     visible: !app.hasPandoc
                     width: pt2.implicitWidth + 18; height: 32; radius: 8; color: theme.primary
                     Text { id: pt2; anchors.centerIn: parent; text: "Doinštalovať dokumenty (pandoc)"; color: theme.fgOnPrimary; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold } }
-                    MouseArea { anchors.fill: parent; onClicked: { inst.command = ["foot", "-e", "sh", "-c", "sudo dnf install pandoc-cli; read -p 'Enter zavrie okno…' x"]; inst.running = true; } }
+                    MouseArea { anchors.fill: parent; onClicked: { inst.command = ["latte-app", "instalator", "--nazov=Podpora_dokumentov_(pandoc)", "install", "pandoc-cli"]; inst.running = true; } }
                     Process { id: inst; onExited: pandocCheck.running = true }
                 }
             }

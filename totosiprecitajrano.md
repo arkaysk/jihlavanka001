@@ -70,6 +70,19 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 15:30: grafický Inštalátor, Barista ukazuje inštaláciu, počasie v paneli Čas ✅
+- **Inštalátor** (`latte-app instalator`) namiesto terminálu: názov a popis balíka, veľkosť, pole na heslo
+  správcu (ide iba cez stdin do sudo), pruh priebehu s krokmi, log pod „Podrobnosti“. Zlé heslo ohlási
+  hneď. Používa ho App Manager (inštalácia, odinštalovanie, Aktualizovať všetko, .rpm z „Bude to
+  fungovať?“), Heidelberg (pandoc), jazyky a KDE Connect v paneli Čas.
+- **Barista:** tvoje aplikácie sa **nainštalovali** (Firefox, VLC, Steam, Discord, z Flathubu o 15:04).
+  Barista ich však inštaloval potichu až po zatvorení, takže to vyzeralo, že nič neurobil. Teraz
+  inštaluje v poslednom kroku a pri každej aplikácii ukáže stav; ak ho zavrieš skôr, zvyšok dobehne
+  na pozadí s oznámením. `latte-session` pripraví priečinok Flatpak spúšťačov, aby ich lišta videla hneď.
+- **Počasie** v paneli Čas (teraz + 3 dni), poloha z Nastavení.
+- Poznámka k Noctalii (Super+A): jej riadiace centrum má vlastné oznámenia, kalendár a počasie. Naše
+  panely ich postupne nahradia; Super+A ostáva ako záloha, kým nebude hotový bod 2 zo zadania.
+
 ### 24. 9. 2026, 12:15: zvuk v Správcovi zariadení, strom procesov ✅
 - **Správca zariadení › Zvuk:** výber predvoleného výstupu a mikrofónu, hlasitosť −/+, stlmenie a
   **hlasitosť jednotlivých aplikácií**, ktoré práve hrajú. Overené na tvojej relácii; hlasitosť som
