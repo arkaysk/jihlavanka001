@@ -35,6 +35,7 @@ ShellRoot {
     property var location: ({})       // prepisy [location]
     property var notif: ({})          // prepisy [notification]
     property var access: ({})         // prepisy [accessibility]
+    property var idle: ({})           // [idle.behavior.*] → { lock: {enabled, timeout}, … }
     property var shellAnim: ({})      // prepisy [shell.animation]
     property bool noAnim: false
     property string cursorSize: "24"
@@ -83,7 +84,7 @@ ShellRoot {
             { key: "mojucet", label: "Môj účet", glyph: "user", status: "planned" },
             { key: "pouzivatelia", label: "Používatelia", glyph: "users", status: "planned" },
             { key: "prihlasovanie", label: "Prihlasovanie", glyph: "login", status: "ready" },
-            { key: "uzamknutie", label: "Uzamknutie", glyph: "lock", status: "planned" } ] },
+            { key: "uzamknutie", label: "Uzamknutie a nečinnosť", glyph: "lock", status: "ready" } ] },
         { key: "prostredie", title: "Prostredie", glyph: "palette", summary: theme.themeName + " · " + modeName(modePref), owner: "Prispôsobenie",
           pages: [
             { key: "motiv", label: "Motív a farby", glyph: "palette", status: "ready" },
@@ -170,7 +171,8 @@ ShellRoot {
                 const h = l.match(/^\s*\[([^\]]+)\]\s*$/); if (h) { sec = h[1]; continue; }
                 const r = l.match(/^\s*(\w+)\s*=\s*"?([^"]*)"?\s*$/); if (r) { (t[sec] = t[sec] || {})[r[1]] = r[2]; }
             }
-            app.bar = t["bar.main"] || {}; app.location = t["location"] || {}; app.notif = t["notification"] || {}; app.access = t["accessibility"] || {}; app.shellAnim = t["shell.animation"] || {};
+            app.bar = t["bar.main"] || {}; app.location = t["location"] || {}; app.notif = t["notification"] || {}; app.access = t["accessibility"] || {};
+            app.idle = { lock: t["idle.behavior.lock"] || {}, screen: t["idle.behavior.screen-off"] || {}, suspend: t["idle.behavior.lock-and-suspend"] || {} }; app.shellAnim = t["shell.animation"] || {};
         }
     }
     FileView {
@@ -190,6 +192,13 @@ ShellRoot {
                onLoaded: app.noAnim = true; onLoadFailed: app.noAnim = false }
     FileView { path: app.cfgHome + "/latteos/cursor-size"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.cursorSize = text().trim() || "24"; onLoadFailed: app.cursorSize = "24" }
+    // nečinnosť: Noctalia prepíše celé správanie, preto sa vždy zapíše enabled + timeout + action
+    function setIdle(name, action, minutes, msg) {
+        const k = "idle.behavior." + name + ".";
+        run(["sh", "-c", "latte-shellset set \"$1enabled\" \"$2\" && latte-shellset set \"$1timeout\" \"$3\" && latte-shellset set \"$1action\" \"$4\"",
+             "sh", k, minutes > 0 ? "true" : "false", String(Math.max(60, minutes * 60)), action], msg);
+    }
+    function idleMin(b) { return b && b.enabled === "true" ? Math.round((parseFloat(b.timeout) || 0) / 60) : 0; }
     function setNoAnim(on) {
         app.noAnim = on;
         app.writePref("no-animations", on ? "1" : "", on ? "Animácie vypnuté" : "Animácie podľa stupňa výkonu");
@@ -366,6 +375,7 @@ ShellRoot {
             start: "Režim NORMAL (Hyprland) alebo SAFE (labwc bez GPU). SAFE naskočí sám po dvoch pádoch za sebou.",
             cas: "Poloha určuje východ a západ slnka pre automatický svetlý/tmavý režim a nočné svetlo. Ďalšie časové pásma ukáže panel Čas.",
             o: "Verzie častí systému, z ktorých sa LatteOS skladá.",
+            uzamknutie: "Čo sa stane, keď počítač chvíľu nepoužívaš. Pred akciou obrazovka 2 s pomaly stmavne — pohyb myšou to zruší.",
             pristupnost: "Väčšie rozhranie, vyšší kontrast, žiadny pohyb, väčší kurzor.",
             oznamenia: "Kde a ako sa ukazujú oznámenia. História a Nerušiť sú aj v paneli Čas na lište.",
             klavesnica: "Rozloženia klávesnice sk a us, prepínanie Alt+Shift. Skratky LatteOS:"
@@ -386,7 +396,6 @@ ShellRoot {
         napajanie: ["profil výkonu", "uspávanie a vypnutie obrazovky", "batéria"],
         mojucet: ["meno, obrázok", "prihlásenie mobilom"],
         pouzivatelia: ["pridať a odstrániť účet", "rodičovská kontrola"],
-        uzamknutie: ["automatické zamknutie", "obrazovka zámku (Noctalia)"],
         jazyk: ["jazyk systému", "formáty dátumu a čísel"]
     })
     function stateText(k) {
@@ -400,6 +409,7 @@ ShellRoot {
         if (k === "prihlasovanie") return "Greeter: " + greeter + " · panel " + greeterConf.panel;
         if (k === "lista") return "Hrúbka " + (bar.thickness || 56) + " · okraje " + (bar.margin_ends || 12) + " · spodok " + (bar.margin_edge || 10);
         if (k === "cas") return "Poloha " + (location.latitude || "48.74") + ", " + (location.longitude || "19.15") + (clockZones.length ? "\nPásma: " + clockZones.join(", ") : "");
+        if (k === "uzamknutie") return "Zamknúť: " + (idleMin(idle.lock) ? idleMin(idle.lock) + " min" : "nikdy") + "\nObrazovka: " + (idleMin(idle.screen) ? idleMin(idle.screen) + " min" : "nikdy") + "\nUspať: " + (idleMin(idle.suspend) ? idleMin(idle.suspend) + " min" : "nikdy");
         if (k === "pristupnost") return "Mierka rozhrania " + Math.round((parseFloat(access.ui_scale) || 1) * 100) + " %" + (access.high_contrast === "true" ? " · vysoký kontrast" : "") + (noAnim ? " · bez animácií" : "") + "\nKurzor " + cursorSize + " px";
         if (k === "oznamenia") return (dnd ? "Nerušiť: zapnuté" : "Nerušiť: vypnuté") + "\nPoloha: " + ({ top_right: "vpravo hore", top_center: "hore v strede", top_left: "vľavo hore", bottom_right: "vpravo dole", bottom_left: "vľavo dole" })[notif.position || "top_right"];
         if (k === "klavesnica") return "Rozloženia sk, us (Alt+Shift)\nEditor skratiek: plán";
@@ -415,6 +425,7 @@ ShellRoot {
             prihlasovanie: "/var/lib/latteos/greeter/greeter.conf", diagnostika: "/var/lib/latteos/greeter/last-crash.log\n/var/lib/latteos/crash-count",
             subory: "~/.config/latteos/subory.json\n~/.config/latteos/tags.json",
             oznamenia: "~/.local/state/noctalia/settings.toml [notification]",
+            uzamknutie: "~/.local/state/noctalia/settings.toml [idle.behavior.*]",
             pristupnost: "~/.local/state/noctalia/settings.toml [accessibility]\n~/.config/latteos/no-animations, cursor-size",
             klavesnica: "/usr/share/latteos/hypr/hyprland.lua\n~/.config/latteos/hyprland.lua"
         })[k] || "—";
@@ -533,7 +544,8 @@ ShellRoot {
         if (managed[k]) return pManaged;
         return ({ domov: pDomov, ai: pAi, subory: pSubory, ulozisko: pUlozisko, vykon: pVykon, diagnostika: pDiag,
                   prihlasovanie: pGreeter, motiv: pMotiv, pozadie: pPozadie, okna: pOkna, lista: pLista, efekty: pEfekty,
-                  start: pStart, cas: pCas, o: pO, klavesnica: pKlavesy, oznamenia: pOznamenia, pristupnost: pPristupnost })[k] || pPlan;
+                  start: pStart, cas: pCas, o: pO, klavesnica: pKlavesy, oznamenia: pOznamenia, pristupnost: pPristupnost,
+                  uzamknutie: pUzamknutie })[k] || pPlan;
     }
 
     // ── stránky ──────────────────────────────────────────────────────────────────
@@ -963,6 +975,33 @@ ShellRoot {
                     Text { text: modelData.split("|")[1] || "—"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.DemiBold } }
                 }
             }
+        }
+    }
+    Component {
+        id: pUzamknutie
+        Column {
+            spacing: 14
+            Heading { text: "ZAMKNÚŤ OBRAZOVKU PO" }
+            Segments {
+                options: [["0", "Nikdy"], ["5", "5 min"], ["10", "10 min"], ["15", "15 min"], ["30", "30 min"]]
+                value: String(app.idleMin(app.idle.lock))
+                onPicked: (v) => app.setIdle("lock", "lock", parseInt(v), v === "0" ? "Automatické zamknutie vypnuté" : "Zamknúť po " + v + " min")
+            }
+            Heading { text: "VYPNÚŤ OBRAZOVKU PO" }
+            Segments {
+                options: [["0", "Nikdy"], ["5", "5 min"], ["10", "10 min"], ["20", "20 min"], ["60", "1 h"]]
+                value: String(app.idleMin(app.idle.screen))
+                onPicked: (v) => app.setIdle("screen-off", "screen_off", parseInt(v), v === "0" ? "Obrazovka sa nevypína" : "Vypnúť obrazovku po " + v + " min")
+            }
+            Heading { text: "USPAŤ PO (pred uspaním zamkne)" }
+            Segments {
+                options: [["0", "Nikdy"], ["30", "30 min"], ["60", "1 h"], ["120", "2 h"]]
+                value: String(app.idleMin(app.idle.suspend))
+                onPicked: (v) => app.setIdle("lock-and-suspend", "lock_and_suspend", parseInt(v), v === "0" ? "Uspávanie vypnuté" : "Uspať po " + v + " min")
+            }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Vo VM uspanie nemusí fungovať. Počas hry na celú obrazovku a pri prehrávaní videa sa nečinnosť nepočíta (aplikácia to hlási sama)." }
+            Button { label: "Zamknúť teraz (Super+L)"; glyph: "lock"; onClicked: app.run(["noctalia", "msg", "session", "lock"]) }
         }
     }
     Component {
