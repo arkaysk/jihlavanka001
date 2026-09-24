@@ -8,6 +8,42 @@ Denník práce, kým si spal. Najnovšie hore. Na konci sú **veci, ktoré čaka
 
 ---
 
+## Zadanie 24. 9. popoludní (tvoje pripomienky) — poradie práce
+
+Odpovede:
+- **kitty:** nie je náš, prišiel ako závislosť. Pod Hyprlandom nemá žiadne okenné tlačidlá, ani žiadne
+  iné okno ich teraz nemá. Zavrieš ho Super+Q alebo Ctrl+Shift+W. Riešenie je bod 1 nižšie.
+- **KDE Connect:** oznámenia z mobilu na PC (aj odpoveď na SMS), spoločná schránka PC ↔ mobil,
+  posielanie súborov oboma smermi, ovládanie hudby, „nájdi mobil“, mobil ako touchpad a prezentér.
+  Potrebuje aplikáciu na mobile a rovnakú sieť, na PC ~150 MB knižníc KDE.
+- **Gestá 4 prstami** sú teraz iba pre touchpad. Dotykový monitor potrebuje plugin hyprgrass (swipe,
+  dlhé podržanie); príde s reálnym HW (VirtualBox dotyk nepreposiela).
+- **Ikony na ploche** zatiaľ nie sú (Noctalia to nemá). Príde vlastná vrstva plochy s Košom.
+
+Poradie (začnem od 1):
+1. **Okná:** jednotná lišta vpravo pre všetky aplikácie: NET (iba ak aplikácia použila internet), minimalizovať,
+   zväčšiť, zavrieť; Electron cez pripnutý pruh zvonku. Všetky popupy „vyrastajú“ z lišty (L-tvar).
+2. **Lišta:** široká šálka; dlaždica aplikácií iba normálny klik (App Manager, bez duplicity so spúšťačom);
+   Hodiny = hodiny, zóny, stopky, budík, časovač; Dátum = kalendár + úlohy, počet úloh „št 24. 9. (3)“;
+   medzi nimi zvonček s počtom oznámení; Zariadenia úplne vpravo.
+3. **Ovál pásky za šálkou:** živý obraz otvorených okien (páska / dlaždice / vedľa seba) s ikonou aplikácie,
+   náhľad pri prejdení myšou, ľavý klik prepne, pravý kontextové menu (ako Windows).
+4. **Šálka popup:** hore účet + typ + Odhlásiť vedľa; Nastavenia; Monitor; rýchly stupeň výkonu a režim okien
+   (dajú sa vypnúť v Nastaveniach); Nastavenia shellu presunúť do Nastavení.
+5. **Text Bar:** širší riadok s textom, ikona režimu na okraji (koliesko/šípky prepínajú), pravý klik rýchle voľby.
+   AI odpoveď v popupe s **pinom** → pripnuté sa zmení na okno. AI cez prihlásenie (ako widget Claude/ChatGPT
+   na mobile, bez API kľúča) a voľba **„Bez AI“** už v Baristovi (potom sú AI voľby skryté).
+6. **Kapsa:** široká plocha ako hodiny, hore „kontajner“ na jeden odložený súbor (drag & drop, živá ikona),
+   dole 8 slotov schránky (nastaviteľné), náhľad pri prejdení myšou.
+7. **Súbory:** 2 režimy — Forklift (náhľad vpravo vypínateľný, veľkosť ikon ako Win11, nový súbor/priečinok,
+   „Otvoriť v…“ s odporúčanými aplikáciami z App Managera) a **Total Commander** (plná funkčnosť, FTP/SFTP).
+   Kôš na ploche a v bočnom menu.
+8. **Heidelberg:** plnohodnotný editor (písma, formátovanie, príprava pred tlačou, kontrola textu), pandoc v základe.
+9. **Greeter:** varovania Caps Lock / Num Lock, zobraziť heslo, písma ako v systéme.
+10. **Monitor:** ako Správca úloh Win11 + Autoruns + CPU-Z/HWiNFO.
+11. **Maskot:** Cthulhu mačka s chápadlami cez lištu, pet uniká pri nečinnosti (vypínateľné).
+12. **Živá tapeta:** ako Live Wallpaper (video/animované tapety); textúry naviazané na tému (para zo šálky ikonky…).
+
 ## Odpovede na tvoje otázky (24. 9.)
 
 ### Dajú sa položky lišty prerozdeliť inam, ako súčasť iných menu?
@@ -450,7 +486,7 @@ nižšie):
 1. **Vypnúť 3D akceleráciu vo VirtualBoxe?** (Nastavenia VM → Obrazovka → „Zapnúť 3D akceleráciu“.)
    LatteOS vo VM aj tak kreslí softvérovo; so zapnutým 3D Mesa občas siahne na `svga` a kernel hlási
    `vmw_msg_ioctl Failed to open channel` (aj dnes ráno 4×). Odporúčam **vypnúť**.
-2. **KDE Connect pre oznámenia z mobilu?** Balík `kde-connect` z Fedory stiahne časť knižníc KDE
+2. **KDE Connect pre oznámenia z mobilu?** (čo dá: pozri „Zadanie 24. 9. popoludní“) Balík `kde-connect` z Fedory stiahne časť knižníc KDE
    (~150 MB). Alternatíva bez KDE je `valent` (GTK, menej zrelý). Nenainštaloval som nič; tlačidlo je
    v paneli Čas › Oznámenia.
 3. **Cloudové AI:** ak chceš Claude, ChatGPT alebo Gemini, vlož API kľúč v Nastaveniach › Softvér › AI.
