@@ -43,6 +43,7 @@ ShellRoot {
     property string mascot: "macka"
     property string barAnim: ""        // prázdne = podľa stupňa (VM: pod kurzorom)
     property string barScene: "para"
+    property bool wsWallpaper: false
 
     // ── strom Nastavení (kanonický, main_setting_v2.md §58) ──────────────────────
     // status: ready = funguje · partial = časť · planned = zatiaľ len plán
@@ -175,6 +176,8 @@ ShellRoot {
                onLoaded: app.barAnim = text().trim(); onLoadFailed: app.barAnim = "" }
     FileView { path: app.cfgHome + "/latteos/bar-scene"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.barScene = text().trim() || "para"; onLoadFailed: app.barScene = "para" }
+    FileView { path: app.cfgHome + "/latteos/wallpaper-per-workspace"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.wsWallpaper = true; onLoadFailed: app.wsWallpaper = false }
     function writePref(name, value, msg) {
         if (value === "") run(["rm", "-f", app.cfgHome + "/latteos/" + name], msg);
         else run(["sh", "-c", "mkdir -p \"$(dirname \"$1\")\" && printf '%s\\n' \"$2\" > \"$1\"", "sh", app.cfgHome + "/latteos/" + name, value], msg);
@@ -769,7 +772,20 @@ ShellRoot {
     }
     Component {
         id: pPozadie
-        Flow {
+        Column {
+          spacing: 14
+          Row {
+            spacing: 10
+            Rectangle {
+                width: 46; height: 26; radius: 13; anchors.verticalCenter: parent.verticalCenter
+                color: app.wsWallpaper ? theme.primary : theme.field; border { color: theme.line; width: 1 }
+                Rectangle { width: 20; height: 20; radius: 10; y: 3; x: app.wsWallpaper ? 23 : 3; color: app.wsWallpaper ? theme.fgOnPrimary : theme.fgDim }
+                MouseArea { anchors.fill: parent; onClicked: { app.wsWallpaper = !app.wsWallpaper; app.writePref("wallpaper-per-workspace", app.wsWallpaper ? "1" : "", app.wsWallpaper ? "Tapeta podľa plochy: zapnuté" : "Tapeta podľa plochy: vypnuté"); } }
+            }
+            Text { anchors.verticalCenter: parent.verticalCenter; text: "Každá plocha má inú tapetu (poradie tapiet LatteOS)"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 } }
+          }
+          Flow {
+            width: parent.width
             spacing: 10
             Repeater {
                 model: app.wallpapers
@@ -780,6 +796,7 @@ ShellRoot {
                     MouseArea { anchors.fill: parent; onClicked: app.run(["noctalia", "msg", "wallpaper-set", parent.modelData], "Tapeta zmenená") }
                 }
             }
+          }
         }
     }
     Component {

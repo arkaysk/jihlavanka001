@@ -206,7 +206,8 @@ flowchart TD
 - [x] Vlastné úpravy používateľa: `~/.config/latteos/hyprland.lua` (pcall, chyba sa ukáže ako notifikácia).
 - [ ] Prehľad pásky ako vlastný panel (návrh: celá páska v jednom rade, filtrovanie písaním).
 - [ ] Ťahanie okna k okraju: pri páske posun pásky, pri dlaždiciach ponuka rozložení (Windows 11).
-- [ ] Gesto 4 prsty = prehľad; tapeta podľa plochy; herný režim (vypnúť efekty počas hry).
+- [x] Gesto 4 prsty hore = prehľad pásky, dole = prázdna plocha; tapeta podľa plochy (voliteľné, Nastavenia › Pozadie);
+  herný režim (`latte.game`).
 
 ### F3 — Shell
 - [x] Porovnať **troch kandidátov** vo VM (cesta A a SAFE): RAM, CPU v pokoji, plynulosť, čas štartu. Rozhodnúť a forknúť.

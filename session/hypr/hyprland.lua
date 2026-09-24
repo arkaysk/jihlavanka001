@@ -149,6 +149,18 @@ bind("XF86MonBrightnessDown",hl.dsp.exec_cmd("brightnessctl set 5%-"),          
 
 -- ── gestá (touchpad) ──────────────────────────────────────────────────────────
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+-- 4 prsty hore = prehľad pásky, dole = plocha (radar: „gesto 4 prsty = prehľad“)
+hl.gesture({ fingers = 4, direction = "up", action = function() hl.exec_cmd("noctalia msg panel-toggle latteos/overview:panel") end })
+hl.gesture({ fingers = 4, direction = "down", action = function() hl.dispatch(hl.dsp.focus({ workspace = "empty" })) end })
+
+-- tapeta podľa plochy (Nastavenia › Prostredie › Pozadie; predvolene vypnuté — každá zmena tapety stojí CPU)
+do
+    local pref = (os.getenv("XDG_CONFIG_HOME") or ((os.getenv("HOME") or "") .. "/.config")) .. "/latteos/wallpaper-per-workspace"
+    hl.on("workspace.active", function(ws)
+        local f = io.open(pref, "r")
+        if f and ws and ws.id then f:close(); hl.exec_cmd("latte-theme workspace " .. math.floor(ws.id)) end
+    end)
+end
 
 -- ── pravidlá okien ────────────────────────────────────────────────────────────
 hl.window_rule({ name = "latte-bez-maximalizacie", match = { class = ".*" }, suppress_event = "maximize" })
