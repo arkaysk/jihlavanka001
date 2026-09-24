@@ -36,6 +36,8 @@ ShellRoot {
     property var notif: ({})          // prepisy [notification]
     property var access: ({})         // prepisy [accessibility]
     property string fullName: ""
+    property var accounts: []         // [{ name, full, admin, me }]
+    property string newUser: ""
     property var backup: ({})        // latte-backup status
     property var backupDrives: []
     property var backupList: []
@@ -91,7 +93,7 @@ ShellRoot {
         { key: "ucet", title: "Účet", glyph: "user", summary: user, owner: "Session Manager",
           pages: [
             { key: "mojucet", label: "Môj účet", glyph: "user", status: "ready" },
-            { key: "pouzivatelia", label: "Používatelia", glyph: "users", status: "planned" },
+            { key: "pouzivatelia", label: "Používatelia", glyph: "users", status: "ready" },
             { key: "prihlasovanie", label: "Prihlasovanie", glyph: "login", status: "ready" },
             { key: "uzamknutie", label: "Uzamknutie a nečinnosť", glyph: "lock", status: "ready" } ] },
         { key: "prostredie", title: "Prostredie", glyph: "palette", summary: theme.themeName + " · " + modeName(modePref), owner: "Prispôsobenie",
@@ -130,6 +132,7 @@ ShellRoot {
         if (key === "oznamenia") dndProc.running = true;
         if (key === "mojucet") accountProc.running = true;
         if (key === "jazyk") localeProc.running = true;
+        if (key === "pouzivatelia") usersProc.running = true;
         if (key === "zalohy" || key === "domov") backupProc.running = true;
         if (key === "ulozisko" || key === "domov") storageProc.running = true;
     }
@@ -286,6 +289,17 @@ ShellRoot {
         stdout: SplitParser { onRead: (line) => { const m = line.match(/^pct=(\d+)/); if (m) app.backupPct = parseInt(m[1]); const e = line.match(/^error=(.*)/); if (e) app.status = e[1]; } }
         onExited: (code) => { app.backupPct = -1; if (code === 0) app.status = "Záloha hotová"; backupProc.running = true; }
     }
+    Cmd {
+        id: usersProc
+        command: ["sh", "-c", "getent passwd | awk -F: '$3>=1000 && $3<60000 && $7 !~ /nologin|false/ {print $1\"|\"$5}'; echo '#wheel'; getent group wheel | cut -d: -f4"]
+        onDone: (out) => {
+            const [list, wheel] = out.split("#wheel");
+            const admins = (wheel || "").trim().split(",");
+            app.accounts = list.split("\n").filter(l => l).map(l => { const p = l.split("|"); return { name: p[0], full: (p[1] || "").split(",")[0], admin: admins.indexOf(p[0]) >= 0, me: p[0] === app.user }; });
+        }
+    }
+    function term(cmd, msg) { run(["foot", "-e", "sh", "-c", cmd + "; echo; read -p 'Enter zavrie okno…' x"], msg); usersRefresh.restart(); }
+    Timer { id: usersRefresh; interval: 15000; onTriggered: usersProc.running = true }
     Cmd { id: localeProc; command: ["sh", "-c", "locale -a"]; onDone: (out) => app.locales = out.split("\n").map(l => l.toLowerCase()) }
     FileView {
         id: localeFile
@@ -430,6 +444,7 @@ ShellRoot {
             start: "Režim NORMAL (Hyprland) alebo SAFE (labwc bez GPU). SAFE naskočí sám po dvoch pádoch za sebou.",
             cas: "Poloha určuje východ a západ slnka pre automatický svetlý/tmavý režim a nočné svetlo. Ďalšie časové pásma ukáže panel Čas.",
             o: "Verzie častí systému, z ktorých sa LatteOS skladá.",
+            pouzivatelia: "Účty na tomto počítači. Každý má vlastný domov, nastavenia a kôš; obrazovka prihlásenia ukáže posledné dva.",
             zalohy: "Záloha domovského priečinka na USB disk alebo do priečinka. Každá záloha vyzerá ako celá kópia, nezmenené súbory zaberajú miesto iba raz.",
             jazyk: "Jazyk aplikácií a formáty dátumu, času, čísel a mien. Aplikácie LatteOS sú po slovensky; shell Noctalia zatiaľ nemá slovenský preklad (anglicky).",
             mojucet: "Meno, heslo a obrázok, ktorý ukáže obrazovka prihlásenia.",
@@ -451,7 +466,6 @@ ShellRoot {
         siet: ["Wi-Fi a káblové pripojenia", "VPN", "zdieľanie pripojenia"],
         bluetooth: ["párovanie", "ovládače a periférie"],
         napajanie: ["profil výkonu", "uspávanie a vypnutie obrazovky", "batéria"],
-        pouzivatelia: ["pridať a odstrániť účet", "rodičovská kontrola"],
     })
     function stateText(k) {
         const m = app.mode;
@@ -464,6 +478,7 @@ ShellRoot {
         if (k === "prihlasovanie") return "Greeter: " + greeter + " · panel " + greeterConf.panel;
         if (k === "lista") return "Hrúbka " + (bar.thickness || 56) + " · okraje " + (bar.margin_ends || 12) + " · spodok " + (bar.margin_edge || 10);
         if (k === "cas") return "Poloha " + (location.latitude || "48.74") + ", " + (location.longitude || "19.15") + (clockZones.length ? "\nPásma: " + clockZones.join(", ") : "");
+        if (k === "pouzivatelia") return accounts.length + (accounts.length === 1 ? " účet" : " účty") + " · správcovia: " + accounts.filter(a => a.admin).map(a => a.name).join(", ");
         if (k === "zalohy") return backup.target ? ("Cieľ: " + backup.target + "\nPosledná: " + (backup.last || "zatiaľ žiadna") + "\nSnímok: " + (backup.count || 0) + (backup.free ? " · voľné " + backup.free : "") + (backup.schedule === "on" ? "\nDenne automaticky" : "")) : "Cieľ zálohy nie je nastavený";
         if (k === "jazyk") return "Jazyk: " + (localeConf.LANG || "systémový (sk_SK.UTF-8)") + (localeConf.LC_TIME ? "\nFormáty: " + localeConf.LC_TIME : "");
         if (k === "mojucet") return (fullName || user) + " (" + user + ")";
@@ -560,6 +575,7 @@ ShellRoot {
         id: fld
         property string text; property string placeholder; property bool secret: false; property bool multiline: false
         signal committed(string t)
+        signal edited(string t)          // každá zmena (pre tlačidlá vedľa poľa)
         width: 420; height: multiline ? 110 : 38; radius: 10; color: theme.field
         border { color: inp.activeFocus ? theme.primary : "transparent"; width: 1 }
         TextEdit {
@@ -579,6 +595,7 @@ ShellRoot {
             echoMode: fld.secret ? TextInput.Password : TextInput.Normal
             font { family: theme.fontUi; pixelSize: 13 }
             onAccepted: { fld.committed(text); focus = false; }
+            onTextChanged: fld.edited(text)
             onActiveFocusChanged: if (!activeFocus) fld.committed(text)
         }
         Text {
@@ -606,7 +623,7 @@ ShellRoot {
         return ({ domov: pDomov, ai: pAi, subory: pSubory, ulozisko: pUlozisko, vykon: pVykon, diagnostika: pDiag,
                   prihlasovanie: pGreeter, motiv: pMotiv, pozadie: pPozadie, okna: pOkna, lista: pLista, efekty: pEfekty,
                   start: pStart, cas: pCas, o: pO, klavesnica: pKlavesy, oznamenia: pOznamenia, pristupnost: pPristupnost,
-                  uzamknutie: pUzamknutie, mojucet: pUcet, jazyk: pJazyk, zalohy: pZalohy })[k] || pPlan;
+                  uzamknutie: pUzamknutie, mojucet: pUcet, jazyk: pJazyk, zalohy: pZalohy, pouzivatelia: pPouzivatelia })[k] || pPlan;
     }
 
     // ── stránky ──────────────────────────────────────────────────────────────────
@@ -1036,6 +1053,49 @@ ShellRoot {
                     Text { text: modelData.split("|")[1] || "—"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.DemiBold } }
                 }
             }
+        }
+    }
+    Component {
+        id: pPouzivatelia
+        Column {
+            spacing: 12
+            Repeater {
+                model: app.accounts
+                Rectangle {
+                    required property var modelData
+                    width: Math.min(parent.width, 620); height: 64; radius: 12; color: theme.field
+                    Rectangle {
+                        id: av; x: 12; anchors.verticalCenter: parent.verticalCenter; width: 42; height: 42; radius: 11; color: theme.primary; clip: true
+                        Text { anchors.centerIn: parent; visible: ai.status !== Image.Ready; text: parent.parent.modelData.name.charAt(0).toUpperCase(); color: theme.fgOnPrimary; font { family: theme.fontUi; pixelSize: 18; weight: Font.Bold } }
+                        Image { id: ai; anchors.fill: parent; smooth: false; fillMode: Image.PreserveAspectCrop; source: "file:///var/lib/latteos/greeter/avatars/" + parent.parent.modelData.name + ".png" }
+                    }
+                    Column {
+                        anchors { left: av.right; leftMargin: 12; verticalCenter: parent.verticalCenter }
+                        Text { text: (parent.parent.modelData.full || parent.parent.modelData.name) + (parent.parent.modelData.me ? "  (ty)" : ""); color: theme.fg; font { family: theme.fontUi; pixelSize: 14; weight: Font.Bold } }
+                        Text { text: parent.parent.modelData.name + " · " + (parent.parent.modelData.admin ? "správca" : "bežný účet"); color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+                    }
+                    Button {
+                        visible: !parent.modelData.me
+                        anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
+                        label: "Odstrániť"; glyph: "trash"; danger: true
+                        onClicked: app.term("echo 'Odstrániť účet " + parent.modelData.name + " aj s domovom? (Ctrl+C = nie)'; read x; sudo userdel -r " + parent.modelData.name, "Odstránenie účtu v termináli")
+                    }
+                }
+            }
+            Heading { text: "PRIDAŤ ÚČET" }
+            Row {
+                spacing: 10
+                Field { width: 260; placeholder: "prihlasovacie meno (malé písmená)"; onEdited: (t) => app.newUser = t.trim().toLowerCase() }
+                Button {
+                    label: "Pridať"; glyph: "plus"; primaryStyle: true
+                    onClicked: {
+                        if (!/^[a-z_][a-z0-9_-]{0,30}$/.test(app.newUser)) { app.status = "Meno: malé písmená, číslice, - a _ (napr. anna)"; return; }
+                        app.term("sudo useradd -m '" + app.newUser + "' && sudo passwd '" + app.newUser + "'", "Nový účet " + app.newUser + " v termináli");
+                    }
+                }
+            }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Nový účet je bežný (bez práv správcu), domov má súkromný. Pridanie a odstránenie vyžaduje heslo správcu. Rodičovskú kontrolu pripravujeme." }
         }
     }
     Component {
