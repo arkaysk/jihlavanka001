@@ -304,7 +304,8 @@ flowchart TD
 ### F5 — Stabilita a pamäť
 - [x] OOM politika podľa Ubuntu 26.10 ([session/oom](session/oom/README.md)): `user@` −500 a `ManagedOOMMemoryPressure=auto`,
   služby správcu +100, dbus/PipeWire/portály/gvfs −500, okná aplikácií +300 (Lua `window.open` → `choom`).
-- [ ] Profil „hra má prednosť“ (zatiaľ len konfigurácia).
+- [x] Profil „hra má prednosť“: hra z Herne beží vo vlastnom systemd scope s CPUWeight=1000 (ostatné 100), profil Výkon,
+  herný režim; po hre sa vráti pôvodný profil.
 - [ ] Test: zaplniť RAM vo VM, relácia musí prežiť.
 
 ### F6 — Bezpečnostný model *(hlavný diferenciátor)*

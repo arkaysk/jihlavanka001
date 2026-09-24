@@ -2,7 +2,7 @@
 """latte-games — herná knižnica LatteOS (Herňa, Super+G): nainštalované hry zo Steamu a Heroicu.
 
   latte-games list          JSON: [{id, name, source, cover, size, launch: [argv]}]
-  latte-games play ID       zapne herný režim (latte.game) a spustí hru; po skončení ho vypne
+  latte-games play ID       zapne herný režim (latte.game), profil Výkon a vyššiu váhu CPU pre hru; po hre všetko vráti
 
 Steam: steamapps/appmanifest_*.acf v knižniciach (aj Flatpak Steam), obal z appcache/librarycache.
 Heroic (Epic, GOG, Amazon): ~/.config/heroic/*/installed.json (aj Flatpak). Nič sa nesťahuje z internetu.
@@ -108,7 +108,14 @@ def main(a):
             print("hra sa nenašla: " + a[1], file=sys.stderr)
             return 1
         hypr("latte.game(true)")
-        subprocess.Popen(g["launch"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        # „hra má prednosť“ (F5): vlastný scope s vyššou váhou CPU (ostatné aplikácie majú 100) a profil Výkon
+        prof = subprocess.run(["powerprofilesctl", "get"], capture_output=True, text=True).stdout.strip()
+        subprocess.run(["powerprofilesctl", "set", "performance"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        unit = "latte-hra-" + re.sub(r"[^A-Za-z0-9]", "-", g["id"])
+        launch = ["systemd-run", "--user", "--scope", "--collect", "-q", "--unit=" + unit, "-p", "CPUWeight=1000", "--"] + g["launch"]
+        if subprocess.run(["systemd-run", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
+            launch = g["launch"]
+        subprocess.Popen(launch, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         # herný režim vypnúť, keď hra skončí: Steam/Heroic spúšťajú hru ako vlastný proces → čakať na
         # okno na celú obrazovku a potom na jeho zatvorenie (najviac 12 h)
         time.sleep(20)
@@ -123,6 +130,8 @@ def main(a):
                 break
             time.sleep(10)
         hypr("latte.game(false)")
+        if prof:
+            subprocess.run(["powerprofilesctl", "set", prof], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return 0
     print(__doc__.strip(), file=sys.stderr)
     return 2
