@@ -45,7 +45,7 @@ clipboard_placement      = "floating"
 control_center_placement = "attached"
 
 # ── Lišta: ostrovy zľava doprava ───────────────────────────────────────────────
-# Aplikácie · Čas a dátum+oznámenia · Systém+páska · Hľadanie · Schránka · Súbory+zariadenia
+# Aplikácie · Čas a dátum+oznámenia · Systém+páska · Hľadanie · Maskot · Kapsa · Súbory+zariadenia
 [bar.main]
 position           = "bottom"
 thickness          = 56
@@ -67,7 +67,7 @@ font_scale         = 1.05
 
 start  = ["group:apps", "group:time", "group:system"]
 center = ["group:search"]
-end    = ["latte-cat", "clipboard", "group:devices"]
+end    = ["latte-cat", "latte-kapsa", "group:devices"]
 
 [[bar.main.capsule_group]]
 id      = "apps"
@@ -134,6 +134,10 @@ type = "latteos/textbar:bar"
 [widget.latte-cat]
 type = "latteos/cat:mascot"
 
+# Kapsa = schránka LatteOS (plugin latteos/kapsa, história cez cliphist); nahrádza widget clipboard Noctalie
+[widget.latte-kapsa]
+type = "latteos/kapsa:pocket"
+
 [widget.files]
 type  = "custom_button"
 glyph = "folder"
@@ -153,7 +157,7 @@ path = "/usr/share/backgrounds/latteos/latteos-wallpaper2.jpg"
 
 # pluginy LatteOS (/usr/share/latteos/noctalia/plugins/<plugin>/plugin.toml)
 [plugins]
-enabled     = ["latteos/system", "latteos/textbar", "latteos/devices", "latteos/time", "latteos/apps", "latteos/cat", "latteos/overview"]
+enabled     = ["latteos/system", "latteos/textbar", "latteos/devices", "latteos/time", "latteos/apps", "latteos/cat", "latteos/overview", "latteos/kapsa"]
 auto_update = "none"
 
 [[plugins.source]]

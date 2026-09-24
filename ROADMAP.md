@@ -248,8 +248,9 @@ flowchart TD
   s panelom Čas · Oznámenia · Kalendár (časové pásma, plánovač, účty kalendárov a to-do cez kalendár Noctalie,
   mobil cez KDE Connect), Latte a páska, Text Bar, **maskot** (vlastná pixel mačka, ťuká do rytmu hudby), schránka, súbory a zariadenia.
   Šírka, odsadenie, hrúbka, pohyb dlaždice a maskot sú v Nastaveniach › Prostredie › Lišta.
-- [ ] Kapsa (schránka) ako vlastný ostrov.
-- [ ] Prehľad pásky (Super+Tab) nad IPC Hyprlandu.
+- [x] **Kapsa** (schránka, plugin latteos/kapsa): na lište posledná odložená vec, v paneli „Navrchu“ + sloty histórie
+  (text aj obrázky, cliphist), klik vytiahne navrch, × vyhodí, Vysypať. Drag and drop do kapsy ostáva (vyžaduje zdroj ťahania v shelli).
+- [x] **Prehľad pásky** (Super+Tab, plugin latteos/overview): okná po plochách v poradí pásky, filtrovanie písaním, Enter/klik zameria.
 - [ ] Fork Noctalie v5 (`latte-shell`), vlastný repozitár.
 - [ ] Téma **Latte** a **Úsporná**, farby z tapety (Noctalia má vlastný generátor, matugen ako záloha).
 - [ ] Prvky pre stupeň Plný podľa Caelestie: dashboard s výkonom, vizualizér, animované widgety.
@@ -266,7 +267,8 @@ flowchart TD
 - [x] Greeter: posledné dva účty na klik, ľavý panel s prvým logom posledného pádu (vývoj) alebo vlastným textom,
   pozadie a farba z Nastavení (`/var/lib/latteos/greeter/`, SELinux `xdm_var_lib_t`).
 - [ ] Materiály tém (mráz, kov, kameň, jantár, fazety) ako shadery vo forku Noctalie, iba pri stupni Plný.
-- [ ] Schránka „kapsa“, prehľad pásky, AI panel, inštalácia aplikácie („Bude to fungovať?“).
+- [x] Schránka „kapsa“, prehľad pásky, inštalácia aplikácie („Bude to fungovať?“ v App Manageri).
+- [ ] AI panel (rozhovor, nie iba výsledky Text Baru).
 
 ### F4 — Systémové služby (Rust)
 - [x] **Správca zariadení** (prototyp `latte-app zariadenia` + `latte-devices`): dlaždice po skupinách (obrazovky, grafika, zvuk,
