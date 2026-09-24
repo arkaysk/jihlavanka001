@@ -34,6 +34,39 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 08:20: Monitor, Aplikácie, Správca zariadení ✅ (podľa starých dokumentov)
+Prečítal som staré dokumenty (`old/IDEAS.md`, `old/main_setting_v2.md` §63–64, `old/docs/nastavenia.md`,
+`old/docs/lista-a-rohy.md`). Nové prototypy na spoločnej kostre aplikácií:
+- **Monitor** (Process Manager, **Ctrl+Shift+Esc**):
+  - živý stav s grafmi (CPU, jadrá, RAM, sieť, disky, teploty),
+  - **procesy** podľa druhu: aplikácia (má okno), prostredie (lišta, kompozitor, zvuk), pomocný, systém.
+    Ukončiť a Vynútiť sa potvrdzujú druhým klikom a pri procesoch plochy je varovanie. Systémové procesy
+    ukončí iba správca. Pravý klik otvorí ponuku.
+  - **Po štarte:** XDG autostart, služby tvojho účtu, časovače, systémové služby a cron, s pôvodom a
+    príkazom. Položky tvojho účtu sa dajú vypnúť jedným klikom.
+  - **Telemetria** pre OLED displej chladenia a Stream Deck: `$XDG_RUNTIME_DIR/latteos/telemetry.json`.
+- **Aplikácie** (App Manager), pravý klik na dlaždicu aplikácií na lište:
+  - **Objavovať:** Flathub a Fedora, odporúčané Základ / Hry / Tvorba / Komunikácia a čas: Firefox, VLC,
+    LibreOffice, Kalkulačka, Steam, Heroic, GZDoom, Quake II, GIMP, Krita, OBS, Kdenlive, Discord,
+    Signal, Planify (úlohy), Kalendár. ID som overil na Flathube.
+  - **Aktualizácie:** dnf aj Flatpak, „Aktualizovať všetko“.
+  - **Nainštalované:** zdroj, veľkosť, odinštalovanie.
+  - **Oprávnenia a NET:** Flatpak aplikácii vypneš internet jedným klikom (prvý kus F6).
+  - **„Bude to fungovať?“** pre .rpm, .flatpakref, .AppImage, .exe, .apk a .deb. Dostaneš verdikt s
+    dôvodmi (napr. .exe potrebuje Proton, .apk Waydroid, ktorý vo VM nepôjde). Je to aj v pravom kliku v
+    Súboroch a App Manager je predvolená aplikácia pre tieto typy súborov.
+  - Nainštaloval som **Flatpak** a pridal Flathub pre tvoj účet (inštalácia bez hesla, v izolácii).
+- **Správca zariadení:**
+  - Dlaždice po skupinách (veľká ikona v zaoblenom štvorci). Zariadenie je vždy v jednej skupine
+    (USB myš je Vstup, nie USB).
+  - **Obrazovky:** rozlíšenie a mierka, zmena sa vráti, ak ju do 15 s nepotvrdíš (Enter / Esc).
+    Overené na tvojej relácii: 1600×900 a späť.
+  - Poznámka: VM má výšku 967 px (prvočíslo), preto sa dá iba mierka 100 %; na reálnom monitore
+    budú aj 125/150 %.
+- Nastavenia › Softvér a Hardvér ukazujú stav a tlačidlo do príslušného manažéra, takže každá funkcia
+  má jednu implementáciu (pravidlo zo starej špecifikácie).
+- Screenshoty: `setup/f1/results/f4-monitor-*.png`, `f4-aplikacie-*.png`, `f4-zariadenia.png`.
+
 ### 24. 9. 2026, 07:50: F5, OOM politika ✅ a oprava inštalátora
 - Pri nedostatku pamäte padne najprv **aplikácia**, nie lišta ani celá plocha (nápad z Ubuntu 26.10,
   `session/oom/`). Okná aplikácií dostanú +300, Hyprland a Noctalia ostávajú na 0, dbus, PipeWire a

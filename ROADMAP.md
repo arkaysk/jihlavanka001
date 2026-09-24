@@ -269,7 +269,9 @@ flowchart TD
 - [ ] Schránka „kapsa“, prehľad pásky, AI panel, inštalácia aplikácie („Bude to fungovať?“).
 
 ### F4 — Systémové služby (Rust)
-- [ ] Device Manager: stavia na crate `latte-hw`, udisks2, NetworkManager, PipeWire.
+- [x] **Správca zariadení** (prototyp `latte-app zariadenia` + `latte-devices`): dlaždice po skupinách (obrazovky, grafika, zvuk,
+  sieť, disky, vstup, USB, kamery, Bluetooth, napájanie, počítač), obrazovky s potvrdením do 15 s a uložením pre Hyprland.
+- [ ] Device Manager v Ruste nad `latte-hw`, udisks2, NetworkManager, PipeWire; Wi-Fi a VPN priamo; ovládače NVIDIA/AMD (H).
 - [x] **Monitor** (Process Manager, prototyp v Quickshelli + `latte-sysmon`): Ctrl+Shift+Esc, živý stav s grafmi, procesy podľa
   druhu (aplikácia/prostredie/pomocný/systém) s varovaním a potvrdením, **Po štarte** (XDG autostart, systemd, časovače, cron,
   vypnutie pre vlastný účet), **telemetria** do `$XDG_RUNTIME_DIR/latteos/telemetry.json` (OLED, Stream Deck).
