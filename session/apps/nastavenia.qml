@@ -331,7 +331,7 @@ ShellRoot {
         if (root.length >= 5 && parseInt(root[4]) >= 90) w.push(["database", "Systémový disk je plný na " + root[4], "uprac v Súboroch alebo Monitore", "ulozisko"]);
         if (!backup.target) w.push(["history", "Zálohy nie sú nastavené", "pripoj USB disk a zapni zálohu", "zalohy"]);
         else if (!backup.last) w.push(["history", "Ešte žiadna záloha", "Zálohovať teraz", "zalohy"]);
-        if (ai.ok === "0") w.push(["robot-off", "AI teraz neodpovedá", ai.target || "", "ai"]);
+        if (ai.ok === "0" && ai.disabled !== "1") w.push(["robot-off", "AI teraz neodpovedá", ai.target || "", "ai"]);
         return w;
     }
     Cmd { id: localeProc; command: ["sh", "-c", "locale -a"]; onDone: (out) => app.locales = out.split("\n").map(l => l.toLowerCase()) }
@@ -730,13 +730,27 @@ ShellRoot {
                 Repeater {
                     model: [["lokalne", "Tento počítač", "Ollama, malý model; bez internetu", "device-desktop"],
                             ["domaci", "Domáci server", "LM Studio, llama.cpp, Ollama v sieti alebo cez SSH", "server"],
-                            ["cloud", "Veľké AI (cloud)", "Claude, ChatGPT, Gemini, Mistral — s API kľúčom", "cloud"]]
+                            ["web", "Prihlásenie v prehliadači", "Claude, ChatGPT, Perplexity, Copilot s tvojím účtom, bez kľúča", "world"],
+                            ["cloud", "Veľké AI (cloud)", "Claude, ChatGPT, Gemini, Mistral — s API kľúčom", "cloud"],
+                            ["ziadna", "Bez AI", "LatteOS AI nikde neponúka (Text Bar, Super+I)", "robot-off"]]
                     Card {
                         required property var modelData
                         width: 250; glyph: modelData[3]; title: modelData[1]; sub: modelData[2]; selected: app.ai.provider === modelData[0]
                         onClicked: app.aiSet("provider", modelData[0])
                     }
                 }
+            }
+            // webová AI s prihlásením
+            Column {
+                visible: app.ai.provider === "web"; spacing: 10; width: parent.width
+                Heading { text: "KTORÁ WEBOVÁ AI" }
+                Segments {
+                    options: [["claude", "Claude"], ["chatgpt", "ChatGPT"], ["perplexity", "Perplexity"], ["copilot", "Copilot"]]
+                    value: ((app.ai.model || "Claude").toLowerCase())
+                    onPicked: (v) => app.aiSet("web", v)
+                }
+                Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                       text: "Ako widget v mobile: otázka z Text Baru sa otvorí na stránke AI v prehliadači, kde si prihlásený (Firefox si prihlásenie pamätá). LatteOS nepotrebuje žiadny kľúč a nevidí tvoj účet." }
             }
             // domáci server
             Column {

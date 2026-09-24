@@ -248,17 +248,22 @@ ShellRoot {
             spacing: 14
             H { text: "AI" }
             P { text: "Text Bar (/ai) a panel Super+I sa pýtajú AI. Kde má bežať?" }
-            Row {
-                spacing: 12
+            Flow {
+                width: parent.width; spacing: 12
                 Repeater {
                     model: [["domaci", "Domáci server", "LM Studio alebo Ollama na inom PC v sieti", "server"],
                             ["lokalne", "Tento počítač", "Malý model v Ollame, bez internetu", "device-desktop"],
-                            ["cloud", "Veľké AI", "Claude, ChatGPT, Gemini (API kľúč v Nastaveniach)", "cloud"]]
+                            ["web", "Prihlásenie v prehliadači", "Claude, ChatGPT… s tvojím účtom, bez API kľúča", "world"],
+                            ["cloud", "Veľké AI cez API", "Claude, ChatGPT, Gemini (kľúč v Nastaveniach)", "cloud"],
+                            ["ziadna", "Bez AI", "LatteOS AI nikde neponúka ani nezobrazí", "robot-off"]]
                     Choice { required property var modelData; width: 240; height: 100; title: modelData[1]; sub: modelData[2]; glyph: modelData[3]; on: app.aiChoice === modelData[0]
                              onPicked: { app.aiChoice = modelData[0]; app.run(["latte-ai", "set", "provider", modelData[0]]); } }
                 }
             }
-            P { text: app.aiChoice === "domaci" ? (app.aiState || "Zisťujem domáci server…") : "Podrobnosti nastavíš v Nastaveniach › Softvér › AI." }
+            P { text: app.aiChoice === "domaci" ? (app.aiState || "Zisťujem domáci server…")
+                    : app.aiChoice === "ziadna" ? "AI bude vypnutá: Text Bar nemá režim AI a panel Super+I nič neponúka. Zapneš ju kedykoľvek v Nastaveniach."
+                    : app.aiChoice === "web" ? "Otázka z Text Baru sa otvorí na stránke AI (predvolene Claude), kde si prihlásený. Zmeníš pravým klikom na Text Bar."
+                    : "Podrobnosti nastavíš v Nastaveniach › Softvér › AI." }
         }
     }
     Component {

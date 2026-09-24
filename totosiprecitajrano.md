@@ -70,6 +70,19 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 17:25: Text Bar, AI cez prihlásenie, Bez AI ✅ (bod 5)
+- **Text Bar** je širší riadok s textom. Ikona režimu je na okraji, režim sa mení **kolieskom** alebo
+  **šípkami ‹ ›** (bodky ukazujú, kde si). Klik na text otvorí hľadanie v danom režime.
+  **Pravý klik = rýchle nastavenia**: režim, kde beží AI, ktorá webová AI.
+- **Odpoveď AI** z Text Baru: Enter ju otvorí vo **vyskakovacom okne** (panel AI) a **pripínačik 📌** z neho spraví
+  samostatné okno „AI rozhovor“. Rozhovor pokračuje, panel aj okno ho zdieľajú.
+- **AI cez prihlásenie** (ako widget Claude/ChatGPT v mobile): voľba „Prihlásenie v prehliadači“ otvorí otázku na
+  claude.ai / chatgpt.com / perplexity / copilot, kde si prihlásený. Nepotrebuje žiadny kľúč.
+- **Bez AI** (ako „No AI“ v LibreOffice) je v Baristovi, v Nastaveniach aj v rýchlych nastaveniach. Režim AI
+  potom zmizne z Text Baru a panel Super+I nič neponúka.
+- ⚠ **Tvoj kľúč Mistral** (Veľké AI) vracia chybu 401 „Invalid API Key“. Vymeň ho v Nastaveniach › AI, alebo
+  prepni na Domáci server (LM Studio beží a odpovedá) či na prihlásenie v prehliadači. Nastavenie som ti nemenil.
+
 ### 24. 9. 2026, 17:15: ponuka šálky ✅ (bod 4)
 - Navrchu je **účet**: meno, **typ účtu** (Správca / Štandardný) a hneď vedľa **Odhlásiť** a zámok. Pod tým
   **Nastavenia** a **Monitor**, **Rýchlo** (stupeň výkonu, režim okien, stav NORMAL/SAFE) a **Napájanie**.

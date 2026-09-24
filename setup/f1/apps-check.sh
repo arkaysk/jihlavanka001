@@ -5,7 +5,7 @@
 #   setup/f1/apps-check.sh subory     len vybrané
 repo="$(cd "$(dirname "$0")/../.." && pwd)"
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
-apps=("$@"); [ ${#apps[@]} -gt 0 ] || apps=(subory nastavenia monitor aplikacie zariadenia heidelberg barista zivatapeta instalator netznak kapsavyrez nahlad greeter)
+apps=("$@"); [ ${#apps[@]} -gt 0 ] || apps=(subory nastavenia monitor aplikacie zariadenia heidelberg barista zivatapeta instalator netznak kapsavyrez nahlad aichat greeter)
 fail=0
 for a in "${apps[@]}"; do
     qml="$repo/session/apps/$a.qml"; env="QT_QUICK_BACKEND=software"

@@ -80,6 +80,9 @@ function update()
   noctalia.setUpdateInterval(60000)
   if not watching then
     watching = true
+    -- po štarte shellu môže byť rozloženie lišty iné: stará poloha výrezu by blokovala kliky inde,
+    -- preto sa zahodí a zistí znova pri prvom prechode myšou nad Kapsou
+    noctalia.removeFile(posFile)
     -- každá zmena schránky vypíše riadok → obnoviť (cliphist store beží zvlášť v relácii)
     noctalia.runStream("wl-paste --watch echo zmena", function(_line) refresh() end)
   end

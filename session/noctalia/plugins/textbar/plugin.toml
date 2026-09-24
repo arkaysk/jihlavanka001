@@ -1,4 +1,5 @@
-# LatteOS — Text Bar (návrh plochy: „Text Bar“). Jedno pole na lište, štyri režimy prepínané ikonou:
+# LatteOS — Text Bar (návrh plochy: „Text Bar“). Široký riadok na lište, režimy prepína ikona na okraji,
+# koliesko alebo šípky ‹ ›; pravý klik = rýchle nastavenia. Štyri režimy (AI zmizne pri „Bez AI“):
 #   Lokálne (funkcie, nastavenia, programy, súbory) · Web · AI · Linux príkaz
 # Výsledky zobrazuje spúšťač Noctalie; tento plugin dodáva poskytovateľov výsledkov pre LatteOS.
 # Radar: lokálne výsledky bez webu, web až v režime Web; pred deštruktívnym príkazom náhľad a potvrdenie.
@@ -17,6 +18,19 @@ description = "Text Bar LatteOS: režimy Lokálne, Web, AI a Linux príkaz nad s
 [[widget]]
 id    = "bar"
 entry = "widget.luau"
+
+[widget.actions]
+middle = "none"
+
+# pravý klik na Text Bar: rýchle nastavenia (režim, AI, Bez AI)
+[[panel]]
+id        = "rychle"
+entry     = "rychle.luau"
+width     = 400
+height    = 520
+placement = "floating"
+position  = "auto"
+open_near_click = true
 
 # Lokálne: nastavenia a akcie LatteOS aj v bežnom (neprefixovanom) hľadaní
 [[launcher_provider]]

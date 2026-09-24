@@ -1,10 +1,15 @@
 --!nonstrict
--- AI rozhovor: história v pluginDataDir/chat.json (najviac 40 správ), odpoveď cez `latte-ai chat`.
-local file = noctalia.pluginDataDir() .. "/chat.json"
+-- AI rozhovor (vyskakovací panel, Super+I alebo Enter na odpovedi v Text Bare): história v
+-- ~/.local/share/latteos/ai-rozhovor.json (spoločná s oknom latte-app aichat, najviac 40 správ), odpoveď cez
+-- `latte-ai chat`. Pripínačik 📌 otvorí rozhovor ako samostatné okno.
+local home = noctalia.getenv("HOME") or ""
+local dataDir = (noctalia.getenv("XDG_DATA_HOME") or (home .. "/.local/share")) .. "/latteos"
+local file = dataDir .. "/ai-rozhovor.json"
+local disabled = false
 local msgs, draft, busy, target = {}, "", false, ""
 
 local function save()
-  noctalia.mkdirAll(noctalia.pluginDataDir())
+  noctalia.mkdirAll(dataDir)
   while #msgs > 40 do table.remove(msgs, 1) end
   noctalia.writeFile(file, noctalia.json.encode(msgs))
 end
@@ -27,7 +32,9 @@ end
 
 function render()
   local body = {}
-  if #msgs == 0 then
+  if disabled then
+    table.insert(body, ui.label({ text = "AI je vypnutá (Bez AI). Zapneš ju v Nastaveniach › Softvér › AI.", fontSize = 13, color = "on_surface_variant", maxWidth = 500, maxLines = 3 }))
+  elseif #msgs == 0 then
     table.insert(body, ui.label({ text = "Opýtaj sa čokoľvek. Rozhovor si pamätá predošlé správy.", fontSize = 13, color = "on_surface_variant", maxWidth = 500, maxLines = 3 }))
   end
   for _, m in ipairs(msgs) do table.insert(body, bubble(m)) end
@@ -39,6 +46,8 @@ function render()
         ui.label({ text = "AI", fontSize = 17, fontWeight = "bold" }),
         ui.label({ text = target ~= "" and target or "latte-ai", fontSize = 11, color = "on_surface_variant", maxWidth = 360, maxLines = 1 }),
       }),
+      ui.button({ glyph = "pin", variant = "ghost", tooltip = "Pripnúť ako okno",
+                  onClick = function() panel.close(); noctalia.runAsync({ "latte-app", "aichat" }) end }),
       ui.button({ glyph = "settings", variant = "ghost", tooltip = "Nastavenia AI", onClick = function() panel.close(); noctalia.runAsync({ "latte-app", "nastavenia", "ai" }) end }),
       ui.button({ text = "Nový", glyph = "plus", variant = "ghost", onClick = function() msgs = {}; save(); render() end }),
       ui.button({ glyph = "close", variant = "ghost", onClick = function() panel.close() end }),
@@ -83,6 +92,7 @@ function onOpen(_ctx)
     local model = string.match(r.stdout or "", "model=([^\n]*)") or ""
     local tgt = string.match(r.stdout or "", "target=([^\n]*)") or ""
     target = (model ~= "" and (model .. " · ") or "") .. tgt
+    disabled = string.find(r.stdout or "", "disabled=1") ~= nil
     render()
   end)
 end
