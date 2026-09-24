@@ -34,6 +34,22 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 09:00: Môj účet, Kôš, Heidelberg ✅
+- **Nastavenia › Účet › Môj účet:** meno, zmena hesla a **obrázok účtu**. Vyberieš si maskota LatteOS
+  alebo obrázok z priečinka Obrázky. Obrázok sa ukáže aj na **obrazovke prihlásenia** v karte
+  posledného účtu.
+- **Súbory:**
+  - **Kôš** je v Obľúbených s počtom položiek. Pravý klik na položku v koši ponúkne Obnoviť na pôvodné
+    miesto alebo Odstrániť natrvalo, na koši Vysypať.
+  - **F5 kopíruje s priebehom** (percentá a pruh v stavovom riadku, nič neprepíše).
+- **Heidelberg**, editor dokumentov z tvojich nápadov (`old/IDEAS.md`):
+  - Markdown, HTML a text s **živým náhľadom** vedľa editora.
+  - Tlačidlá B, I, Nadpis, Zoznam, Citát, Kód a Odkaz; Ctrl+S uloží (nový dokument ide do
+    ~/Dokumenty); nedávne dokumenty, hľadanie v texte, počet slov.
+  - Je predvolený pre .md súbory. Otvorenie, úprava a uloženie sú overené.
+  - rtf, odt, docx, epub a PDF prídu neskôr (cez pandoc).
+- Systémové menu (šálka) má teraz aj Aplikácie a Správcu zariadení.
+
 ### 24. 9. 2026, 08:45: okná a Nastavenia doplnené ✅
 - **Super+Z = rozloženie okna** ako vo Windows 11: mini obrazovky (polovice, štvrtiny, tretiny, stred,
   celá plocha). Klik presunie aktívne okno a lište nechá miesto. Overené na tvojej relácii.
