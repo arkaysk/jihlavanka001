@@ -175,6 +175,14 @@ ShellRoot {
         findProc.running = true;
     }
 
+    // pripojené cloudové priečinky (~/Cloud/*, latte-cloud)
+    property var cloudDirs: []
+    Process {
+        id: cloudScan; running: true
+        command: ["sh", "-c", "for d in \"$HOME\"/Cloud/*/; do [ -d \"$d\" ] && mountpoint -q \"$d\" && basename \"$d\"; done"]
+        stdout: StdioCollector { onStreamFinished: app.cloudDirs = this.text.split("\n").filter(l => l !== "") }
+    }
+
     // test bez myši (setup/f1/headless.sh): LATTE_APP_TEST=menu otvorí kontextové menu prvej položky
     Timer {
         running: Quickshell.env("LATTE_APP_TEST") === "menu"; interval: 2500
@@ -244,7 +252,7 @@ ShellRoot {
             }
         }
     }
-    Timer { interval: 15000; running: true; repeat: true; onTriggered: lsblk.running = true }
+    Timer { interval: 15000; running: true; repeat: true; onTriggered: { lsblk.running = true; cloudScan.running = true; } }
 
     function human(b) {
         if (b < 1024) return b + " B";
@@ -266,6 +274,8 @@ ShellRoot {
             { key: "fav:trash", path: app.trashDir, glyph: "trash", label: "Kôš", sub: app.trashCount ? app.trashCount + " položiek · pravý klik: vysypať" : "prázdny" }
         ].concat(app.favorites.map(f => ({ key: "fav+:" + f, path: f, glyph: "folder", label: f.split("/").pop() || f, custom: true })))
          .map(it => Object.assign({}, it, { tag: app.tags[it.path] || "" })) },
+        { title: "Cloud", items: app.cloudDirs.map(c => ({ key: "cloud:" + c, path: app.home + "/Cloud/" + c, glyph: "cloud", label: c, sub: "cloudový účet" }))
+                                  .concat([{ key: "cloud:add", path: "", glyph: "plus", label: "Pridať cloudový účet", sub: "Nastavenia › Dáta", dim: app.cloudDirs.length > 0 }]) },
         { title: "Aplikácie", items: [
             { key: "apps:flatpak", path: "/var/lib/flatpak/app", glyph: "package", label: "Flatpak (systém)", sub: "každá appka vo vlastnom priečinku" },
             { key: "apps:flatpak-user", path: app.home + "/.local/share/flatpak/app", glyph: "package", label: "Flatpak (používateľ)" },
@@ -338,7 +348,7 @@ ShellRoot {
                     for (const s of app.sidebarModel) for (const it of s.items) if (it.path === p) return it.key;
                     return "";
                 }
-                onActivated: (it) => { app.activePane.go(it.path); root.forceActiveFocus(); }
+                onActivated: (it) => { if (it.key === "cloud:add") { app.run(["latte-app", "nastavenia", "synchronizacia"]); return; } app.activePane.go(it.path); root.forceActiveFocus(); }
                 onContextRequested: (it, x, y) => app.showSideMenu(it, x, y)
             }
 

@@ -34,6 +34,15 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 24. 9. 2026, 11:55: Cloud a synchronizácia ✅
+- **Nastavenia › Dáta › Cloud a synchronizácia:** Google Drive, OneDrive, Dropbox, Nextcloud/WebDAV,
+  domáci server cez SFTP a ďalšie (rclone):
+  - „Pridať účet“ otvorí sprievodcu rclone (prihlásenie v prehliadači).
+  - Účet sa pripojí ako priečinok **~/Cloud/<názov>**, voliteľne automaticky po prihlásení.
+  - Pripojené účty sú v Súboroch v novej sekcii **Cloud**.
+  - Overené na testovacom účte (pripojenie, čítanie, odpojenie), test som potom zmazal.
+- Nainštaloval som `rclone` (Fedora, 109 MB).
+
 ### 24. 9. 2026, 11:50: greeter s počasím a novinkami, NET v hlavičkách, hľadanie všade ✅
 - **Ľavý panel obrazovky prihlásenia** má teraz aj režimy **Počasie** (teraz + 3 dni, Open-Meteo bez
   účtu, mesto z Dátum, čas a poloha) a **Novinky (RSS)** (Aktuality.sk, STVR, Root.cz, Phoronix alebo

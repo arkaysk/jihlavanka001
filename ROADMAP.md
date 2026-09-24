@@ -299,6 +299,8 @@ flowchart TD
 - [x] **Zálohovanie** (`latte-backup`, Nastavenia › Dáta): snímky domova cez rsync --link-dest na USB disk alebo do priečinka,
   denný systemd --user časovač, 14 najnovších, obnova cez Súbory. Overené (pevné odkazy, vynechaná .cache).
 - [x] Nastavenia: Jazyk a región, Môj účet (obrázok aj v greeteri), Oznámenia, Prístupnosť, Uzamknutie, Klávesnica a skratky.
+- [x] **Cloud a synchronizácia** (`latte-cloud`, rclone): Google Drive, OneDrive, Dropbox, Nextcloud/WebDAV, SFTP… ako
+  priečinky ~/Cloud/<účet> (systemd --user latte-cloud@, voliteľne po prihlásení), sekcia Cloud v Súboroch. Overené na alias účte.
 - [x] **Barista** — sprievodca prvým spustením (vzhľad, okná, maskot, AI, aplikácie).
 
 ### F5 — Stabilita a pamäť

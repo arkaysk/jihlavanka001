@@ -22,7 +22,7 @@ sudo usermod -aG latte "$user"
 
 echo "== binárky a skripty → /usr/bin"
 sudo install -Dm755 "$repo/target/release/latte-boot" /usr/bin/latte-boot
-for f in latte-session latte-safe latte-greeter latte-theme latte-app latte-ai latte-shellset latte-sysmon latte-apps latte-devices latte-backup latte-games latte-net; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
+for f in latte-session latte-safe latte-greeter latte-theme latte-app latte-ai latte-shellset latte-sysmon latte-apps latte-devices latte-backup latte-games latte-net latte-cloud; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
 
 echo "== konfigurácie relácií → /usr/share/latteos"
 # bežiaci Hyprland sleduje svoje súbory a pri zmene sa znovu načíta: súbor sa preto vymieňa atomicky
@@ -71,6 +71,7 @@ sudo install -d -m2775 -o root -g latte /var/lib/latteos/greeter /var/lib/latteo
 
 echo "== App Manager: Flatpak a Flathub (inštalácia aplikácií pre používateľa bez roota)"
 rpm -q flatpak >/dev/null || sudo dnf -y -q install flatpak
+rpm -q rclone >/dev/null || sudo dnf -y -q install rclone        # Synchronizácia (cloudové priečinky)
 flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
 echo "== aplikácie LatteOS (Quickshell QML): Súbory, Nastavenia, Monitor, Aplikácie"

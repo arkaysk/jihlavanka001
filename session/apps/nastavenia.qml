@@ -36,6 +36,7 @@ ShellRoot {
     property var notif: ({})          // prepisy [notification]
     property var access: ({})         // prepisy [accessibility]
     property string fullName: ""
+    property var clouds: []           // latte-cloud list
     property var accounts: []         // [{ name, full, admin, me }]
     property string newUser: ""
     property var backup: ({})        // latte-backup status
@@ -81,7 +82,7 @@ ShellRoot {
             { key: "subory", label: "Súbory a priečinky", glyph: "folder", status: "ready" },
             { key: "ulozisko", label: "Úložisko", glyph: "database", status: "partial" },
             { key: "zalohy", label: "Zálohovanie a obnova", glyph: "history", status: "ready" },
-            { key: "synchronizacia", label: "Synchronizácia", glyph: "cloud", status: "planned" } ] },
+            { key: "synchronizacia", label: "Cloud a synchronizácia", glyph: "cloud", status: "ready" } ] },
         { key: "hardver", title: "Hardvér", glyph: "cpu", summary: (mode.renderer || "?") + " · stupeň " + (mode.tier || "?"), owner: "Device Manager",
           pages: [
             { key: "vykon", label: "Výkon a grafika", glyph: "bolt", status: "ready" },
@@ -134,6 +135,7 @@ ShellRoot {
         if (key === "mojucet") accountProc.running = true;
         if (key === "jazyk") localeProc.running = true;
         if (key === "pouzivatelia") usersProc.running = true;
+        if (key === "synchronizacia") cloudProc.running = true;
         if (key === "zalohy" || key === "domov") backupProc.running = true;
         if (key === "ulozisko" || key === "domov") storageProc.running = true;
     }
@@ -301,6 +303,9 @@ ShellRoot {
     }
     function term(cmd, msg) { run(["foot", "-e", "sh", "-c", cmd + "; echo; read -p 'Enter zavrie okno…' x"], msg); usersRefresh.restart(); }
     Timer { id: usersRefresh; interval: 15000; onTriggered: usersProc.running = true }
+    Cmd { id: cloudProc; command: ["latte-cloud", "list"]
+          onDone: (out) => app.clouds = out.split("\n").filter(l => l.includes("|")).map(l => { const p = l.split("|"); return { name: p[0], type: p[1], mounted: p[2] === "1", auto: p[3] === "1" }; }) }
+    Timer { id: cloudRefresh; interval: 1500; onTriggered: cloudProc.running = true }
     Cmd { id: localeProc; command: ["sh", "-c", "locale -a"]; onDone: (out) => app.locales = out.split("\n").map(l => l.toLowerCase()) }
     FileView {
         id: localeFile
@@ -446,6 +451,7 @@ ShellRoot {
             start: "Režim NORMAL (Hyprland) alebo SAFE (labwc bez GPU). SAFE naskočí sám po dvoch pádoch za sebou.",
             cas: "Poloha určuje východ a západ slnka pre automatický svetlý/tmavý režim a nočné svetlo. Ďalšie časové pásma ukáže panel Čas.",
             o: "Verzie častí systému, z ktorých sa LatteOS skladá.",
+            synchronizacia: "Cloudové účty (Google Drive, OneDrive, Dropbox, Nextcloud…) ako priečinky v ~/Cloud. Súbory sa stiahnu pri otvorení, zmeny sa odošlú na pozadí.",
             pouzivatelia: "Účty na tomto počítači. Každý má vlastný domov, nastavenia a kôš; obrazovka prihlásenia ukáže posledné dva.",
             zalohy: "Záloha domovského priečinka na USB disk alebo do priečinka. Každá záloha vyzerá ako celá kópia, nezmenené súbory zaberajú miesto iba raz.",
             jazyk: "Jazyk aplikácií a formáty dátumu, času, čísel a mien. Aplikácie LatteOS sú po slovensky; shell Noctalia zatiaľ nemá slovenský preklad (anglicky).",
@@ -462,7 +468,6 @@ ShellRoot {
         aktualizacie: ["systém (Atomic: celý obraz naraz s návratom)", "aplikácie", "firmware (fwupd)", "„Aktualizovať všetko“"],
         spustanie: ["aplikácie pri prihlásení", "služby na pozadí", "Latte System Monitor: autorun položky s pôvodom"],
         sukromie: ["tlačidlo NET pre každú aplikáciu", "dôveryhodné / nedôveryhodné aplikácie", "kamera, mikrofón, poloha"],
-        synchronizacia: ["priečinky v cloude", "dáta aplikácií medzi PC", "prenos profilu cez USB"],
         obrazovky: ["rozlíšenie, frekvencia, mierka, otočenie", "potvrdenie do 15 s, inak návrat", "HDR a VRR na reálnom HW"],
         zvuk: ["výstup a vstup", "hlasitosť aplikácií", "Bluetooth slúchadlá"],
         siet: ["Wi-Fi a káblové pripojenia", "VPN", "zdieľanie pripojenia"],
@@ -480,6 +485,7 @@ ShellRoot {
         if (k === "prihlasovanie") return "Greeter: " + greeter + " · panel " + greeterConf.panel;
         if (k === "lista") return "Hrúbka " + (bar.thickness || 56) + " · okraje " + (bar.margin_ends || 12) + " · spodok " + (bar.margin_edge || 10);
         if (k === "cas") return "Poloha " + (location.latitude || "48.74") + ", " + (location.longitude || "19.15") + (clockZones.length ? "\nPásma: " + clockZones.join(", ") : "");
+        if (k === "synchronizacia") return clouds.length ? clouds.length + (clouds.length === 1 ? " účet" : (clouds.length <= 4 ? " účty" : " účtov")) + " · pripojené: " + clouds.filter(c => c.mounted).length : "Žiadny cloudový účet";
         if (k === "pouzivatelia") return accounts.length + (accounts.length === 1 ? " účet" : " účty") + " · správcovia: " + accounts.filter(a => a.admin).map(a => a.name).join(", ");
         if (k === "zalohy") return backup.target ? ("Cieľ: " + backup.target + "\nPosledná: " + (backup.last || "zatiaľ žiadna") + "\nSnímok: " + (backup.count || 0) + (backup.free ? " · voľné " + backup.free : "") + (backup.schedule === "on" ? "\nDenne automaticky" : "")) : "Cieľ zálohy nie je nastavený";
         if (k === "jazyk") return "Jazyk: " + (localeConf.LANG || "systémový (sk_SK.UTF-8)") + (localeConf.LC_TIME ? "\nFormáty: " + localeConf.LC_TIME : "");
@@ -502,6 +508,7 @@ ShellRoot {
             oznamenia: "~/.local/state/noctalia/settings.toml [notification]",
             uzamknutie: "~/.local/state/noctalia/settings.toml [idle.behavior.*]",
             mojucet: "/var/lib/latteos/greeter/avatars/<meno>.png\n~/.face",
+            synchronizacia: "~/.config/rclone/rclone.conf\n~/Cloud/<účet>\nsystemd --user latte-cloud@<účet>",
             zalohy: "~/.config/latteos/backup.conf\n<cieľ>/LatteOS-zaloha-<meno>/<dátum>\n~/.config/systemd/user/latte-backup.timer",
             jazyk: "~/.config/latteos/locale (načíta latte-session)\n/etc/locale.conf (systém)",
             pristupnost: "~/.local/state/noctalia/settings.toml [accessibility]\n~/.config/latteos/no-animations, cursor-size",
@@ -625,7 +632,7 @@ ShellRoot {
         return ({ domov: pDomov, ai: pAi, subory: pSubory, ulozisko: pUlozisko, vykon: pVykon, diagnostika: pDiag,
                   prihlasovanie: pGreeter, motiv: pMotiv, pozadie: pPozadie, okna: pOkna, lista: pLista, efekty: pEfekty,
                   start: pStart, cas: pCas, o: pO, klavesnica: pKlavesy, oznamenia: pOznamenia, pristupnost: pPristupnost,
-                  uzamknutie: pUzamknutie, mojucet: pUcet, jazyk: pJazyk, zalohy: pZalohy, pouzivatelia: pPouzivatelia })[k] || pPlan;
+                  uzamknutie: pUzamknutie, mojucet: pUcet, jazyk: pJazyk, zalohy: pZalohy, pouzivatelia: pPouzivatelia, synchronizacia: pCloud })[k] || pPlan;
     }
 
     // ── stránky ──────────────────────────────────────────────────────────────────
@@ -1078,6 +1085,46 @@ ShellRoot {
                     Text { text: modelData.split("|")[1] || "—"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.DemiBold } }
                 }
             }
+        }
+    }
+    Component {
+        id: pCloud
+        Column {
+            id: cloudPage
+            spacing: 12
+            readonly property var types: ({ drive: "Google Drive", onedrive: "OneDrive", dropbox: "Dropbox", webdav: "Nextcloud / WebDAV", s3: "S3", sftp: "SFTP (domáci server)", pcloud: "pCloud", mega: "MEGA", box: "Box", protondrive: "Proton Drive", alias: "priečinok" })
+            Text { visible: app.clouds.length === 0; width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 }
+                   text: "Zatiaľ žiadny účet. Klikni Pridať účet — otvorí sa sprievodca rclone (n = nový, potom vyber službu a prihlás sa v prehliadači)." }
+            Repeater {
+                model: app.clouds
+                Rectangle {
+                    required property var modelData
+                    width: Math.min(parent.width, 680); height: 64; radius: 12; color: theme.field
+                    Glyph { x: 14; anchors.verticalCenter: parent.verticalCenter; name: "cloud"; size: 24; color: modelData.mounted ? theme.primary : theme.fgDim }
+                    Column {
+                        x: 50; anchors.verticalCenter: parent.verticalCenter
+                        Text { text: parent.parent.modelData.name; color: theme.fg; font { family: theme.fontUi; pixelSize: 14; weight: Font.Bold } }
+                        Text { text: (cloudPage.types[parent.parent.modelData.type] || parent.parent.modelData.type) + " · " + (parent.parent.modelData.mounted ? "● pripojené v ~/Cloud/" + parent.parent.modelData.name : "○ odpojené")
+                               color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+                    }
+                    Row {
+                        anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
+                        spacing: 6
+                        Button { visible: parent.parent.modelData.mounted; label: "Otvoriť"; glyph: "folder"; onClicked: app.run(["latte-app", "subory", app.home + "/Cloud/" + parent.parent.modelData.name]) }
+                        Button { label: parent.parent.modelData.mounted ? "Odpojiť" : "Pripojiť"; glyph: "cloud"; primaryStyle: !parent.parent.modelData.mounted
+                                 onClicked: { app.run(["latte-cloud", parent.parent.modelData.mounted ? "unmount" : "mount", parent.parent.modelData.name]); cloudRefresh.restart(); } }
+                        Button { label: parent.parent.modelData.auto ? "Po prihlásení: áno" : "Po prihlásení: nie"
+                                 onClicked: { app.run(["latte-cloud", "auto", parent.parent.modelData.name, parent.parent.modelData.auto ? "off" : "on"]); cloudRefresh.restart(); } }
+                    }
+                }
+            }
+            Row {
+                spacing: 10
+                Button { label: "Pridať účet"; glyph: "plus"; primaryStyle: true; onClicked: { app.run(["latte-cloud", "add"]); cloudRefresh.interval = 20000; cloudRefresh.restart(); } }
+                Button { label: "Obnoviť"; glyph: "refresh"; onClicked: cloudProc.running = true }
+            }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Tip: domáci server cez SSH pridáš ako typ sftp. Pripojené účty sú aj v Súboroch v sekcii Cloud." }
         }
     }
     Component {
