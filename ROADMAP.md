@@ -205,7 +205,9 @@ flowchart TD
 - [x] Vzhľad Latte: karamelový gradient okraja, rohy 14 px, mierka 1 (auto vo VM dávalo 2).
 - [x] Vlastné úpravy používateľa: `~/.config/latteos/hyprland.lua` (pcall, chyba sa ukáže ako notifikácia).
 - [ ] Prehľad pásky ako vlastný panel (návrh: celá páska v jednom rade, filtrovanie písaním).
-- [ ] Ťahanie okna k okraju: pri páske posun pásky, pri dlaždiciach ponuka rozložení (Windows 11).
+- [x] **Rozloženie okna** (Super+Z, ako Win+Z): mini obrazovky pre polovice, štvrtiny, tretiny, stred, celú plochu
+  (`latte/snap.lua`, rešpektuje lištu). Overené na živej relácii.
+- [ ] Ťahanie okna k okraju s ponukou rozložení (Lua API zatiaľ nemá udalosť konca ťahania).
 - [x] Gesto 4 prsty hore = prehľad pásky, dole = prázdna plocha; tapeta podľa plochy (voliteľné, Nastavenia › Pozadie);
   herný režim (`latte.game`).
 
