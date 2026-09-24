@@ -167,6 +167,53 @@ def app_of(procs, wins):
         x.pop("_cg", None)
 
 
+def device_use(procs):
+    """pid → zariadenia, ktoré proces práve používa: gpu, kamera, mikrofón, zvuk (fd na /dev + streamy PipeWire)."""
+    use = {}
+    for x in procs:
+        if not x["mine"]:
+            continue
+        d = "/proc/%d/fd" % x["pid"]
+        try:
+            fds = os.listdir(d)
+        except OSError:
+            continue
+        s = set()
+        for fd in fds:
+            try:
+                t = os.readlink(d + "/" + fd)
+            except OSError:
+                continue
+            if t.startswith("/dev/dri/renderD"):
+                s.add("gpu")
+            elif t.startswith("/dev/video"):
+                s.add("camera")
+            elif t.startswith("/dev/snd/pcm"):
+                s.add("mic" if t.endswith("c") else "sound")
+        if s:
+            use[x["pid"]] = s
+    for kind, what in (("sink-inputs", "sound"), ("source-outputs", "mic")):
+        try:
+            r = subprocess.run(["pactl", "-f", "json", "list", kind], capture_output=True, text=True, timeout=2)
+            for st in json.loads(r.stdout or "[]"):
+                pr = st.get("properties", {})
+                if pr.get("media.class", "").startswith("Stream/Input/Video"):
+                    what = "camera"
+                if st.get("corked") and what == "sound":
+                    continue                         # pozastavené prehrávanie sa neráta
+                app_id = pr.get("pipewire.access.portal.app_id") or ""
+                try:
+                    pid = int(pr.get("application.process.id") or 0)
+                except ValueError:
+                    pid = 0
+                key = pid if pid in {x["pid"] for x in procs} else ("app:" + app_id if app_id else None)
+                if key is not None:
+                    use.setdefault(key, set()).add(what)
+        except Exception:
+            pass
+    return use
+
+
 _APPNAMES = {}
 
 
@@ -287,9 +334,15 @@ def snapshot(state, with_procs=True):
         "freq": cpu_freq(), "gpu": gpu_busy(),
     }
     if with_procs:
-        if state.get("winT", 0) + 5 < t:          # okná z Hyprlandu raz za 5 s
+        fresh = state.get("winT", 0) + 5 < t
+        if fresh:                                 # okná z Hyprlandu raz za 5 s
             state["wins"], state["winT"] = window_pids(), t
         procs, ticks = processes(state.get("ticks", {}), dt, 0, state.get("wins", {}))
+        if fresh or "devs" not in state:          # zariadenia tiež raz za 5 s
+            state["devs"] = device_use(procs)
+        devs = state["devs"]
+        for x in procs:
+            x["dev"] = sorted(devs.get(x["pid"], ()))
         procs.sort(key=lambda x: (-x["cpu"], -x["rss"]))
         for x in procs:                       # všetky (aj pre strom procesov v Monitore)
             x["cmd"] = cmdline(x["pid"])[:300]
@@ -298,11 +351,12 @@ def snapshot(state, with_procs=True):
         apps = {}                              # aplikácia → súčet procesov (Monitor › Procesy › podľa aplikácií)
         for x in procs:
             if x["app"]:
-                a = apps.setdefault(x["app"], {"key": x["app"], "cpu": 0.0, "rss": 0, "n": 0})
-                a["cpu"] += x["cpu"]; a["rss"] += x["rss"]; a["n"] += 1
+                a = apps.setdefault(x["app"], {"key": x["app"], "cpu": 0.0, "rss": 0, "n": 0, "dev": set()})
+                a["cpu"] += x["cpu"]; a["rss"] += x["rss"]; a["n"] += 1; a["dev"].update(x["dev"])
         names = app_names(apps.keys())
         for a in apps.values():
             a["name"] = names.get(a["key"], a["key"]); a["cpu"] = round(a["cpu"], 1)
+            a["dev"] = sorted(a["dev"] | devs.get("app:" + a["key"], set()))
         snap["apps"] = sorted(apps.values(), key=lambda a: (-a["cpu"], -a["rss"]))
         snap["threads"] = sum(int(read("/proc/%d/stat" % x["pid"], "0 " * 20).rsplit(")", 1)[-1].split()[17] or 0) for x in procs) if procs else 0
         state["ticks"] = ticks

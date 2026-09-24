@@ -81,6 +81,11 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
   Aplikácie LatteOS sa rozlíšia podľa titulku. Procesy bez aplikácie sú v „Ostatné procesy“.
 - Aplikácia bez okna má pri názve „· na pozadí“ (napr. Discord v tray). Detail procesu ukazuje, ku ktorej aplikácii patrí.
 - Tlačidlo „Strom“ ostáva; prepína sa medzi stromom a zoskupením.
+- **Zariadenia:** pri aplikácii a procese sa ukazuje, čo práve používa:
+  - mikrofón a kamera sú červené (súkromie), prehrávanie zvuku je oranžové, grafická karta sivá;
+  - detail ukazuje riadok „Práve používa“.
+  Zisťuje sa z otvorených /dev zariadení a streamov PipeWire (pactl), raz za 5 s (~55 ms).
+  Otestované: `parecord` vo `foot` ukázal mikrofón pri Foot, Discord ukazuje GPU.
 
 ### 24. 9. 2026, 21:30: Setup Plan pred inštaláciou (F6, vzor Flatseal) ✅
 - **Inštalovať** v obchode najprv otvorí **Setup Plan** so zoznamom toho, čo si aplikácia žiada, v zrozumiteľnej reči

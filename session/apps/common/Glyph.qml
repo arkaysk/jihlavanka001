@@ -41,6 +41,8 @@ Text {
         "files": 0xEDEF,
         "arrow-up": 0xEA25,
         "cpu": 0xEF8E,
+        "microphone": 0xEAF0,
+        "camera": 0xEA54,
         "package": 0xEAFF,
         "external-link": 0xEA99,
         "info-circle": 0xEAC5,

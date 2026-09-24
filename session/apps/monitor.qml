@@ -72,6 +72,10 @@ ShellRoot {
     property var expanded: ({})                  // kľúč aplikácie → rozbalená
     property string selApp: "-"                  // vybraná skupina ("-" = žiadna, "" = ostatné procesy)
     readonly property var selGroup: selApp === "-" ? null : (shown.find(r => r.group && r.key === selApp) || null)
+    function devText(d) {
+        const n = { mic: "mikrofón", camera: "kamera", sound: "prehráva zvuk", gpu: "grafická karta" };
+        return d && d.length ? d.map(x => n[x] || x).join(", ") : "žiadne zariadenie";
+    }
     function toggleGroup(k) { const e = Object.assign({}, expanded); e[k] = !e[k]; expanded = e; }
     function stopApp(g) {
         if (!g || g.key === "") return;
@@ -185,7 +189,8 @@ ShellRoot {
             for (const a of (snap.apps || [])) names[a.key] = a.name;
             for (const p of list) {
                 const key = p.app || "";
-                const g = groups[key] = groups[key] || { group: true, key: key, name: key === "" ? "Ostatné procesy" : (names[key] || key), cpu: 0, rss: 0, pid: 0, n: 0, procs: [], hasWin: false, kind: "app" };
+                const g = groups[key] = groups[key] || { group: true, key: key, name: key === "" ? "Ostatné procesy" : (names[key] || key), cpu: 0, rss: 0, pid: 0, n: 0, procs: [], hasWin: false, kind: "app",
+                                                         dev: key === "" ? [] : (((snap.apps || []).find(a => a.key === key) || {}).dev || []) };
                 g.cpu += p.cpu; g.rss += p.rss; g.n++; g.procs.push(p); if (p.window) g.hasWin = true;
             }
             const gcmp = (a, b) => k === "name" ? a.name.localeCompare(b.name) : (k === "pid" || k === "kind" ? a.name.localeCompare(b.name) : (b[k] - a[k]));
@@ -288,6 +293,7 @@ ShellRoot {
                     }
                     Repeater {
                         model: parent.g && !parent.p ? [["Procesy", String(parent.g.n)], ["CPU spolu", parent.g.cpu.toFixed(1).replace(".", ",") + " %"], ["Pamäť spolu", app.human(parent.g.rss)],
+                                                        ["Práve používa", app.devText(parent.g.dev)],
                                                         ["Kľúč", parent.g.key || "—"]] : []
                         Column {
                             required property var modelData
@@ -315,7 +321,7 @@ ShellRoot {
                         color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
                     }
                     Repeater {
-                        model: parent.p ? [["Aplikácia", parent.p.app ? ((app.snap.apps || []).find(a => a.key === parent.p.app) || { name: parent.p.app }).name : "žiadna"],
+                        model: parent.p ? [["Používa", app.devText(parent.p.dev)], ["Aplikácia", parent.p.app ? ((app.snap.apps || []).find(a => a.key === parent.p.app) || { name: parent.p.app }).name : "žiadna"],
                                            ["PID / rodič", parent.p.pid + " / " + parent.p.ppid], ["Vlastník", parent.p.user],
                                            ["CPU", parent.p.cpu.toFixed(1).replace(".", ",") + " %"], ["Pamäť", app.human(parent.p.rss)],
                                            ["Príkaz", parent.p.cmd || parent.p.name]] : []
@@ -543,7 +549,18 @@ ShellRoot {
                                     name: row.modelData.group ? (app.expanded[row.modelData.key] ? "chevron-up" : "chevron-right")
                                                               : ({ app: "window", desktop: "coffee", helper: "terminal-2", system: "shield" })[row.modelData.kind]
                                     color: row.modelData.kind === "app" ? theme.primary : theme.fgDim }
-                            Text { x: 32 + (row.modelData.depth || 0) * 16; width: parent.width - 40 - (row.modelData.depth || 0) * 16; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight
+                            Row {                                                            // zariadenia, ktoré aplikácia práve používa
+                                id: devIcons
+                                anchors { right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
+                                spacing: 6
+                                Repeater {
+                                    model: row.modelData.dev || []
+                                    Glyph { required property string modelData; size: 14
+                                            name: ({ mic: "microphone", camera: "camera", sound: "volume", gpu: "cpu" })[modelData] || "cpu"
+                                            color: modelData === "mic" || modelData === "camera" ? theme.error : (modelData === "sound" ? theme.primary : theme.fgDim) }
+                                }
+                            }
+                            Text { x: 32 + (row.modelData.depth || 0) * 16; width: parent.width - 40 - (row.modelData.depth || 0) * 16 - devIcons.width; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight
                                    text: row.modelData.group ? row.modelData.name + (row.modelData.key !== "" && !row.modelData.hasWin ? "   · na pozadí" : "")
                                          : ((row.modelData.depth || 0) > 0 && !app.byApp ? "└ " : "") + app.progName(row.modelData) + (row.modelData.window && !app.byApp ? "  —  " + row.modelData.window : "")
                                    color: row.modelData.group && row.modelData.key === "" ? theme.fgDim : theme.fg
