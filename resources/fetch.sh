@@ -34,6 +34,7 @@ page() {   # uloží web stránku (článok z radaru) ako referenciu; $3 = príp
 clone hyprland            https://github.com/hyprwm/Hyprland.git
 clone aquamarine          https://github.com/hyprwm/aquamarine.git
 clone xdg-desktop-portal-hyprland https://github.com/hyprwm/xdg-desktop-portal-hyprland.git
+clone hyprland-plugins    https://github.com/hyprwm/hyprland-plugins.git   # hyprbars: okenné tlačidlá
 clone hyprlock            https://github.com/hyprwm/hyprlock.git
 clone hypr-darkwindow     https://github.com/micha4w/Hypr-DarkWindow.git
 clone hyprwindowshade     https://github.com/ManofJELLO/HyprWindowShade.git

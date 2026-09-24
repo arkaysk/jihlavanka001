@@ -41,6 +41,13 @@ for f in latteos.desktop latteos-safe.desktop; do
     sudo install -Dm644 "$S/wayland-sessions/$f" "/usr/share/latteos/sessions/$f"
 done
 
+echo "== okenné tlačidlá: plugin hyprbars (postavený proti hyprland-devel)"
+if rpm -q hyprland-devel >/dev/null 2>&1 && "$repo/setup/f1/build-hyprbars.sh" | sed 's/^/   /'; then
+    sudo install -Dm755 "$repo/resources/upstream/hyprland-plugins/hyprbars/hyprbars.so" /usr/lib64/latteos/hyprbars.so
+else
+    echo "   hyprbars sa nepostavil (chýba hyprland-devel?) — okná bez vlastnej hlavičky budú bez tlačidiel"
+fi
+
 echo "== vzhľad: Noctalia (téma Latte), písma Manrope/Fraunces (OFL), tapety LatteOS"
 put "$S/noctalia/config.toml" /usr/share/latteos/noctalia/config.toml   # Noctalia sleduje priečinok (hot reload)
 sudo install -Dm644 "$S/noctalia/palettes/Latte.json" /usr/share/latteos/noctalia/palettes/Latte.json

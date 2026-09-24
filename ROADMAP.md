@@ -207,6 +207,9 @@ flowchart TD
 - [ ] Prehľad pásky ako vlastný panel (návrh: celá páska v jednom rade, filtrovanie písaním).
 - [x] **Rozloženie okna** (Super+Z, ako Win+Z): mini obrazovky pre polovice, štvrtiny, tretiny, stred, celú plochu
   (`latte/snap.lua`, rešpektuje lištu). Overené na živej relácii.
+- [x] **Jednotné okenné tlačidlá** (hyprbars, `latte/bars.lua`): – □ ✕ v titulku okien bez vlastnej hlavičky, farby z palety;
+  CSD aplikácie bez druhého pruhu; minimalizovať = `special:minimized` (Super+N / Super+Shift+N); aplikácie LatteOS rovnaké tlačidlá, NET iba pri spojení.
+- [ ] NET indikátor pre cudzie okná (iba ak aplikácia použila sieť), pripnutý pruh pre Electron.
 - [ ] Ťahanie okna k okraju s ponukou rozložení (Lua API zatiaľ nemá udalosť konca ťahania).
 - [x] Gesto 4 prsty hore = prehľad pásky, dole = prázdna plocha; tapeta podľa plochy (voliteľné, Nastavenia › Pozadie);
   herný režim (`latte.game`).
