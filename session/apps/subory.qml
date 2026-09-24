@@ -153,6 +153,28 @@ ShellRoot {
         ctx.open(x, y, items, it.label);
     }
 
+    // hľadanie všade (Enter v hľadaní): find v aktívnom priečinku a podpriečinkoch, bez skrytých, najviac 300
+    property var found: []
+    property string foundQuery: ""
+    property bool finding: false
+    Process {
+        id: findProc
+        stdout: StdioCollector {
+            onStreamFinished: {
+                app.finding = false;
+                app.found = this.text.split("\n").filter(l => l !== "").map(l => { const i = l.indexOf("|"); return { dir: l.slice(0, 1) === "d", path: l.slice(i + 1) }; });
+                app.status = app.found.length + (app.found.length >= 300 ? "+" : "") + " nájdených pre „" + app.foundQuery + "“";
+            }
+        }
+    }
+    function findAll(q) {
+        q = (q || "").trim();
+        if (q.length < 2) { found = []; foundQuery = ""; return; }
+        foundQuery = q; finding = true; status = "Hľadám „" + q + "“ v " + activePane.path + "…";
+        findProc.command = ["sh", "-c", "find \"$1\" -mindepth 1 \\( -name '.*' -prune \\) -o -iname \"*$2*\" -printf '%y|%p\\n' 2>/dev/null | head -300", "sh", activePane.path, q];
+        findProc.running = true;
+    }
+
     // test bez myši (setup/f1/headless.sh): LATTE_APP_TEST=menu otvorí kontextové menu prvej položky
     Timer {
         running: Quickshell.env("LATTE_APP_TEST") === "menu"; interval: 2500
@@ -328,10 +350,11 @@ ShellRoot {
                 title: app.activePane ? (app.activePane.path === app.trashDir ? "Kôš" : app.activePane.path) : ""
                 canBack: app.activePane && app.activePane.historyIndex > 0
                 canForward: app.activePane && app.activePane.historyIndex < app.activePane.history.length - 1
-                searchPlaceholder: "Hľadať v priečinku"
+                searchPlaceholder: "Hľadať (Enter = všade)"
                 onBack: app.activePane.back()
                 onForward: app.activePane.forward()
-                onSearchChanged: (t) => app.activePane.filter = t
+                onSearchChanged: (t) => { app.activePane.filter = t; if (t === "") app.found = []; }
+                onSearchSubmitted: (t) => app.findAll(t)
                 onCloseRequested: Qt.quit()
 
                 IconButton { theme: theme; glyph: "arrow-up"; tip: "O úroveň vyššie (Backspace)"; onClicked: app.activePane.up() }
@@ -464,6 +487,41 @@ ShellRoot {
                     anchors { right: parent.right; rightMargin: 14; verticalCenter: parent.verticalCenter }
                     text: "Pravý klik: menu a farba · F3 dva panely · F5 kopírovať · F6 presunúť · Del kôš · Ctrl+H skryté"
                     color: theme.fgDim; opacity: 0.8; font { family: theme.fontUi; pixelSize: 11 }
+                }
+            }
+
+            // výsledky hľadania všade — prekryjú panely, klik otvorí priečinok s nájdenou položkou
+            Rectangle {
+                visible: app.found.length > 0 || app.finding
+                anchors { left: side.right; top: header.bottom; bottom: statusBar.top; right: parent.right; margins: 10; rightMargin: 300 }
+                radius: 10; color: theme.surface; border { color: theme.primary; width: 1 }
+                Row {
+                    id: fhead; x: 14; y: 10; spacing: 10
+                    Glyph { name: "search"; size: 16; color: theme.primary; anchors.verticalCenter: parent.verticalCenter }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: app.finding ? "Hľadám…" : "Nájdené „" + app.foundQuery + "“ · " + app.found.length; color: theme.fg; font { family: theme.fontUi; pixelSize: 14; weight: Font.Bold } }
+                }
+                IconButton { anchors { right: parent.right; rightMargin: 8; top: parent.top; topMargin: 6 } theme: theme; glyph: "x"; tip: "Zavrieť výsledky"; onClicked: app.found = [] }
+                ListView {
+                    anchors { left: parent.left; right: parent.right; top: fhead.bottom; bottom: parent.bottom; margins: 8; topMargin: 10 }
+                    clip: true; model: app.found; boundsBehavior: Flickable.StopAtBounds
+                    delegate: Rectangle {
+                        id: fr
+                        required property var modelData
+                        width: ListView.view.width; height: 40; radius: 8; color: frm.containsMouse ? theme.hover : "transparent"
+                        readonly property string name: modelData.path.split("/").pop()
+                        readonly property string dir: modelData.path.substring(0, modelData.path.lastIndexOf("/"))
+                        Glyph { x: 10; anchors.verticalCenter: parent.verticalCenter; name: fr.modelData.dir ? "folder" : "file"; size: 17; color: fr.modelData.dir ? theme.primary : theme.fgDim }
+                        Column {
+                            x: 36; width: parent.width - 46; anchors.verticalCenter: parent.verticalCenter
+                            Text { width: parent.width; elide: Text.ElideRight; text: fr.name; color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.DemiBold } }
+                            Text { width: parent.width; elide: Text.ElideMiddle; text: fr.dir.replace(app.home, "~"); color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } }
+                        }
+                        MouseArea {
+                            id: frm; anchors.fill: parent; hoverEnabled: true
+                            onClicked: { app.activePane.filter = ""; header.searchText = ""; app.activePane.go(fr.modelData.dir ? fr.modelData.path : fr.dir); app.found = []; }
+                            onDoubleClicked: if (!fr.modelData.dir) app.openPath(fr.modelData.path)
+                        }
+                    }
                 }
             }
 

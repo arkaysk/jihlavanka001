@@ -22,6 +22,7 @@ Rectangle {
     signal back()
     signal forward()
     signal searchChanged(string text)
+    signal searchSubmitted(string text)    // Enter v hľadaní
     signal closeRequested()
     signal netToggled(bool on)
     property alias searchText: search.text
@@ -67,6 +68,7 @@ Rectangle {
                 color: hb.theme.fg; selectionColor: hb.theme.primary
                 font { family: hb.theme.fontUi; pixelSize: 13 }
                 onTextChanged: hb.searchChanged(text)
+                onAccepted: hb.searchSubmitted(text)
                 Keys.onEscapePressed: { text = ""; focus = false }
             }
             Text {
