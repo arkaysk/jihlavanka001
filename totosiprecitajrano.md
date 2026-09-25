@@ -79,6 +79,22 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 25. 9. 2026 večer: Alfatest 1 (Windows / macOS / Linux, myš a klávesnica) + rám okna L ✅ · ⚠ čaká na teba
+- **[alfatest.md](alfatest.md)**: porovnanie, ako ovláda systém človek z Windows 10/11, macOS a Linuxu:
+  - klávesnica (skratky aj kláves ako zariadenie: Num Lock, Menu, opakovanie, XF86 klávesy);
+  - myš s 5 a viac tlačidlami a kolieskom (Späť/Dopredu, stredný klik, Ctrl/Shift + koliesko, G-tlačidlá, DPI);
+  - ťahanie súborov vrátane **pravého tlačidla** (Windows ponuka Kopírovať/Presunúť/Odkaz; KDE, Thunar, Nautilus).
+- Stav LatteOS pri každej akcii (✅ 🟡 ❌ ⚠) a vybrané riešenia s licenciami a alternatívami.
+- **Nájdené nebezpečné konflikty** (opravím po tvojom potvrdení):
+  - Super+Shift+M okamžite odhlási;
+  - Super+Q zavrie okno (vo Windows hľadanie);
+  - fokus ide za myšou.
+- Veľa vecí už Noctalia vie, iba nie sú naviazané: Alt+Tab, snímky obrazovky s kreslením, emoji, horúce rohy, médiá.
+- **Nič z alfatestu som ešte nerobil**, čakám na tvoje odpovede v časti 9.
+- **Okno L s GIF / obrázkom** (tvoja pripomienka): ostrov na lište nemá ikonu, iba pekný rám. Pri otvorení sa rám
+  plynulo roztiahne z ostrova na celé okno, pri zatvorení sa vráti. Platí aj pre Zariadenia a náhľad v Nastaveniach.
+  Nasadené; na lište sa ukáže po prihlásení (alebo po reštarte `latte-app spustac` / `rychle`).
+
 ## Zadanie 24. 9. večer (22:04): Monitor ako HWiNFO/CPU-Z, pohoda ako Pulse, maskot ako tamagoči s útekmi
 Poradie: 1. Monitor (hotové nižšie) → 2. Digitálna pohoda podľa Pulse → 3. maskot (nové postavy, potreby, útek z ostrova).
 
