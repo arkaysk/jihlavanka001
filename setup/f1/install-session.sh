@@ -107,6 +107,8 @@ done
 
 echo "== systemd + tmpfiles + /etc/latteos"
 sudo install -Dm644 "$S/systemd/latte-boot.service" /usr/lib/systemd/system/latte-boot.service
+sudo install -Dm755 "$S/bin/latte-netd" /usr/libexec/latteos/latte-netd                     # okamžité tlačidlo NET (root)
+sudo install -Dm644 "$S/systemd/latte-netd.service" /usr/lib/systemd/system/latte-netd.service
 sudo install -Dm644 "$S/systemd/latteos.tmpfiles" /usr/lib/tmpfiles.d/latteos.conf
 sudo install -Dm644 "$S/systemd/latte-session.target" /usr/lib/systemd/user/latte-session.target
 # SELinux: greeter beží v doméne xdm_t a smie čítať iba xdm_var_run_t → štítok pre /run/latteos
@@ -129,6 +131,7 @@ grep -v '^#' "$S/oom/services.list" | while read -r svc; do
     [ -n "$svc" ] && sudo install -Dm644 "$S/oom/user-service-50-latteos-oom.conf" "/usr/lib/systemd/user/$svc.service.d/50-latteos-oom.conf"
 done
 sudo systemctl daemon-reload
+sudo systemctl enable --now latte-netd.service || echo "   latte-netd sa nespustil (NET bude platiť až po reštarte aplikácie)"
 
 echo "== greetd → latte-greeter (záloha pôvodnej konfigurácie raz)"
 [ -f /etc/greetd/config.toml.pre-latteos ] || sudo cp -a /etc/greetd/config.toml /etc/greetd/config.toml.pre-latteos

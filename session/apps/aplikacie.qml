@@ -123,6 +123,9 @@ ShellRoot {
             installProc.command = ["sh", "-c", "latte-apps install flatpak \"$1\" && latte-apps plan-apply \"$1\" \"$2\"", "sh", id, denied]; installProc.running = true;
         } else { planApply.command = ["latte-apps", "plan-apply", id, denied]; planApply.running = true; }
     }
+    // okamžité NET potrebuje systémovú službu latte-netd (nftables podľa cgroup)
+    property bool netd: true
+    Process { running: true; command: ["systemctl", "is-active", "--quiet", "latte-netd"]; onExited: (c) => app.netd = c === 0 }
     Process { id: runner }
     function run(cmd, msg) { runner.command = cmd; runner.running = true; if (msg) app.status = msg; }
 
@@ -814,7 +817,7 @@ ShellRoot {
         Column {
             spacing: 10
             Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 }
-                   text: "NET = smie aplikácia na internet. Vypnutie platí pri každom spustení z LatteOS (lišta, Text Bar, App Manager): Flatpak cez jeho izoláciu, ostatné aplikácie bežia bez siete (bubblewrap). Zmena platí po reštarte aplikácie." }
+                   text: "NET = smie aplikácia na internet. Vypnutie platí **hneď**: bežiaca aplikácia okamžite stratí spojenie (Discord sa odpojí, video dohrá iba to, čo má načítané) a platí aj pri ďalšom spustení. Stará sa o to služba latte-netd."; textFormat: Text.MarkdownText }
             Repeater {
                 model: app.installedApps.filter(a => !a.latteos)
                 AppRow {
@@ -855,7 +858,8 @@ ShellRoot {
                             Text { width: pc.width - 120; wrapMode: Text.WrapAnywhere; text: modelData[1]; color: theme.fg; font { family: theme.fontUi; pixelSize: 12 } }
                         }
                     }
-                    Text { text: "Zmena platí po reštarte aplikácie."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } }
+                    Text { text: app.netd ? "NET platí hneď, aj pre bežiacu aplikáciu. Ostatné oprávnenia po reštarte aplikácie." : "Služba latte-netd nebeží — NET platí až po reštarte aplikácie."
+                           color: app.netd ? theme.fgDim : theme.error; font { family: theme.fontUi; pixelSize: 11 } }
                 }
                 Timer { id: refreshPerm; interval: 600; onTriggered: { permProc.command = ["latte-apps", "permissions", app.perms.app]; permProc.running = true; } }
             }

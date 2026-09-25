@@ -100,6 +100,28 @@ Poradie: 1. Monitor (hotové nižšie) → 2. Digitálna pohoda podľa Pulse →
     alebo animácie Hyprlandu;
   - pri stupni Softvér ostanú vypnuté (pravidlo „každý prvok má variant bez shaderov“).
 
+### 25. 9. 2026, 2:35: tlačidlo NET vypína internet okamžite ✅ (tvoja otázka)
+- **Prečo to predtým nefungovalo ani po reštarte:** Discord sa v skutočnosti nereštartoval. Zavretie okna ho iba
+  schová do tray a proces bežal nepretržite od 23. 9. Starý NET sa uplatnil až pri novom spustení aplikácie.
+- **Teraz** vypnutie NET funguje hneď aj pre bežiacu aplikáciu:
+  - `latte-net` zapíše aplikáciu do `~/.config/latteos/net-vypnute`;
+  - nová systémová služba **latte-netd** (root) do sekundy nájde cgroup aplikácie a cez **nftables** jej zahodí
+    všetku prevádzku (okrem lo);
+  - otvorené spojenia hneď ukončí (`ss -K`). Discord sa okamžite odpojí a video dohrá iba to, čo má načítané.
+  - Zapnutie NET pravidlá zmaže a aplikácia sa sama znova pripojí.
+- Flatpak aplikácie majú vlastnú cgroup (scope) už od systemd. **Natívne** bežiace aplikácie (Firefox z RPM, foot…)
+  `latte-net` pri vypnutí presunie aj s podprocesmi do vlastného scope `app-latte-<id>-<pid>.scope`, bez hesla.
+- Bezpečnosť: služba berie zoznam iba zo súboru, ktorý patrí danému používateľovi, a pravidlá kladie iba na cgroup
+  pod jeho `user@UID.service`. Nikto teda nemôže vypnúť internet cudzej aplikácii.
+- **Otestované naživo:**
+  - tvoj bežiaci Discord mal 1 otvorené spojenie; po vypnutí NET 0 do 2 sekúnd, po zapnutí sa znova pripojil;
+  - vo foot bežal curl každú sekundu: 200, 200, 200, potom FAIL, FAIL, FAIL a po zapnutí znova 200.
+
+  NET pre Discord som ti nechal zapnutý ako predtým.
+- App Manager už nepíše „platí po reštarte“, ale „platí hneď“. Ak by služba nebežala, upozorní na to.
+- Nová služba je v install-session (`latte-netd.service`, zapnutá). Zatiaľ chýba NET pre jednotlivé hry v Steame
+  (dnes sa vypína celý Steam).
+
 ### 25. 9. 2026, 2:25: Súbory ako Total Commander — 2. časť ✅
 - **F3 Lister** v samostatnom okne:
   - text s automatickým kódovaním (UTF-8 / CP1250 / ISO-8859-2, dá sa prepnúť), **3 hex**, obrázky, W zalamovanie;

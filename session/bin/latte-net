@@ -10,6 +10,9 @@
   latte-net exec -- PRÍKAZ…        spustí príkaz bez siete (bubblewrap --unshare-net; zostane iba lo)
 
 APP_ID je názov .desktop súboru bez prípony (napr. org.mozilla.firefox, foot).
+Okamžite (25. 9.): vypnutie zapíše aplikáciu do ~/.config/latteos/net-vypnute a služba latte-netd (root) jej cgroup
+hneď odreže internet cez nftables a ukončí otvorené spojenia — bežiaci Discord hneď stratí spojenie, video dohrá
+iba to, čo má načítané. Natívne bežiace procesy presunie latte-net do vlastného scope app-latte-<ID>-<pid>.scope.
 - Flatpak aplikácia: flatpak override --user --unshare=network (izolácia Flatpaku).
 - Natívna aplikácia: NET je položka jej Setup Planu (~/.config/latteos/plany/APP.json). Prekrytie .desktop
   v ~/.local/share/applications spúšťa aplikáciu cez `latte-sandbox run APP --` (bubblewrap podľa plánu);
@@ -60,6 +63,68 @@ def override_path(app):
 
 
 PLANS = os.path.join(os.environ.get("XDG_CONFIG_HOME") or HOME + "/.config", "latteos", "plany")
+OFFLIST = os.path.join(os.environ.get("XDG_CONFIG_HOME") or HOME + "/.config", "latteos", "net-vypnute")
+
+
+def offlist():
+    try:
+        return [l.strip() for l in open(OFFLIST, encoding="utf-8") if l.strip() and not l.startswith("#")]
+    except OSError:
+        return []
+
+
+def set_offlist(app, off):
+    ids = [x for x in offlist() if x != app] + ([app] if off else [])
+    os.makedirs(os.path.dirname(OFFLIST), exist_ok=True)
+    with open(OFFLIST + ".tmp", "w", encoding="utf-8") as f:
+        f.write("# aplikácie s vypnutým NET (latte-net); latte-netd im okamžite odreže internet\n" + "".join(x + "\n" for x in ids))
+    os.replace(OFFLIST + ".tmp", OFFLIST)
+
+
+def exec_names(app):
+    """Mená programov z Exec .desktop súboru (napr. firefox, foot)."""
+    src = find_desktop(app)
+    names = {app.split(".")[-1].lower()}
+    if src:
+        for line in open(src, encoding="utf-8", errors="replace"):
+            m = re.match(r"^Exec=(.*)$", line.strip())
+            if m:
+                toks = [t for t in m.group(1).split() if not t.startswith("%") and "=" not in t.split("/")[0]]
+                toks = [t for t in toks if t not in ("env", "latte-net", "latte-sandbox", "exec", "--", "run") and not t.startswith("-")]
+                if toks:
+                    names.add(os.path.basename(toks[0]).lower())
+    return names
+
+
+def adopt(app):
+    """Bežiace natívne procesy aplikácie (aj potomkov) presunie do vlastného scope, aby ich latte-netd zasiahol."""
+    names, me = exec_names(app), os.getuid()
+    roots = []
+    for d in os.listdir("/proc"):
+        if not d.isdigit():
+            continue
+        try:
+            if os.stat("/proc/" + d).st_uid != me:
+                continue
+            cg = open("/proc/%s/cgroup" % d).read()
+            if "/app-flatpak-" in cg or "/app-latte-" in cg:
+                continue
+            exe = os.path.basename(os.readlink("/proc/%s/exe" % d)).lower()
+            comm = open("/proc/%s/comm" % d).read().strip().lower()
+        except OSError:
+            continue
+        if exe in names or comm in names:
+            roots.append(d)
+    if not roots:
+        return 0
+    pids = sorted({int(p) for r in roots for p in descendants(r)})
+    unit = "app-latte-%s-%d.scope" % (re.sub(r"[^A-Za-z0-9:_.]", "_", app), pids[0])
+    r = subprocess.run(["busctl", "--user", "call", "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager",
+                        "StartTransientUnit", "ssa(sv)a(sa(sv))", unit, "fail", "2", "PIDs", "au", str(len(pids))] + [str(p) for p in pids] +
+                       ["Description", "s", "LatteOS NET: " + app, "0"], capture_output=True, text=True)
+    if r.returncode:
+        print("latte-net: scope sa nepodaril: " + r.stderr.strip(), file=sys.stderr)
+    return len(pids)
 
 
 def plan_denied(app):
@@ -78,6 +143,8 @@ def set_native(app, net_on):
 
 
 def status(app):
+    if app in offlist():
+        return "off"
     if is_flatpak(app):
         r = subprocess.run(["flatpak", "override", "--user", "--show", app], capture_output=True, text=True)
         return "off" if re.search(r"^shared=.*!network", r.stdout, re.M) else "on"
@@ -91,8 +158,10 @@ def status(app):
 
 
 def set_off(app):
+    set_offlist(app, True)                  # okamžite: latte-netd odreže bežiacu aplikáciu
     if is_flatpak(app):
         return subprocess.call(["flatpak", "override", "--user", "--unshare=network", app])
+    adopt(app)
     if shutil.which("latte-sandbox") and shutil.which("latte-apps"):
         return set_native(app, False)
     src = find_desktop(app)
@@ -117,6 +186,7 @@ def set_off(app):
 
 
 def set_on(app):
+    set_offlist(app, False)
     if is_flatpak(app):
         return subprocess.call(["flatpak", "override", "--user", "--share=network", app])
     if shutil.which("latte-sandbox") and shutil.which("latte-apps"):

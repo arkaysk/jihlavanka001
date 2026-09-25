@@ -331,7 +331,9 @@ flowchart TD
 - [x] Tlačidlo NET pre **Flatpak** aplikácie (App Manager › Oprávnenia a NET).
 - [x] Tlačidlo NET pre **natívne** aplikácie (`latte-net`): prekrytie .desktop spúšťa aplikáciu cez bubblewrap --unshare-net
   (bez práv správcu; Wayland a D-Bus fungujú, sieť nie — overené).
-- [ ] NET pre Windows hry (Proton) a pre aplikácie spustené z terminálu (cgroup + nftables, vyžaduje službu so správcom).
+- [x] **Okamžité NET** (25. 9.): služba `latte-netd` (root) odreže internet bežiacej aplikácii cez nftables podľa cgroup
+  (Flatpak scope, natívne procesy presunie latte-net do app-latte-*.scope) a ukončí otvorené spojenia (ss -K). Overené na Discorde a foot+curl.
+- [ ] NET pre jednotlivé Windows hry v Steame/Proton (dnes platí pre celý Steam) a pre skripty bez .desktop.
 - [x] **Setup Plan** (vzor Flatseal): pred inštaláciou Flatpaku a pre nainštalované (pravý klik › Setup Plan) — oprávnenia po skupinách s rizikom,
   profily Dôveryhodná / Nedôveryhodná / Vlastná, schválenie → `flatpak override --user`, plán v ~/.config/latteos/plany. Overené inštaláciou Papers.
 
