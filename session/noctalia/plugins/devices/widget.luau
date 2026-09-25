@@ -8,4 +8,5 @@ function update()
   i = i % #glyphs + 1
   barWidget.setTooltip("Zariadenia: sieť, zvuk, jas, herný režim")
 end
-function onClick() noctalia.togglePanel("latteos/devices:panel") end
+-- klik = rýchle nastavenia v tvare L vyrastajúce z ostrova (apps/rychle.qml); panel.luau ostáva v plugine ako záloha
+function onClick() noctalia.runAsync({ "latte-rychle" }) end

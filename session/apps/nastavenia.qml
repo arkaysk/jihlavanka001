@@ -67,6 +67,8 @@ ShellRoot {
     property string cupQuick: ""       // prázdne = šálka ukazuje stupeň a režim okien, "off" = skryté
     property string deskIcons: ""      // prázdne = ikony na ploche s košom, "off" = bez ikon
     property string barScene: "para"
+    property string barSceneRight: ""      // vlastná textúra pravého L (prázdne = ako vľavo)
+    property real barDim: 0.55
     property bool wsWallpaper: false
     property string liveWp: ""
 
@@ -215,6 +217,11 @@ ShellRoot {
                onLoaded: app.cupQuick = text().trim(); onLoadFailed: app.cupQuick = "" }
     FileView { path: app.cfgHome + "/latteos/bar-scene"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.barScene = text().trim() || "para"; onLoadFailed: app.barScene = "para" }
+    FileView { path: app.cfgHome + "/latteos/bar-scene-vpravo"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.barSceneRight = text().trim(); onLoadFailed: app.barSceneRight = "" }
+    FileView { path: app.cfgHome + "/latteos/bar-stlmenie"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: { const v = parseFloat(text()); app.barDim = isNaN(v) ? 0.55 : v; }
+               onLoadFailed: app.barDim = 0.55 }
     FileView { path: app.cfgHome + "/latteos/wallpaper-per-workspace"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.wsWallpaper = true; onLoadFailed: app.wsWallpaper = false }
     FileView { path: app.cfgHome + "/latteos/no-animations"; printErrors: false; watchChanges: true; onFileChanged: reload()
@@ -547,7 +554,7 @@ ShellRoot {
             domov: "/run/latteos/mode.toml", motiv: "~/.config/latteos/theme\n~/.config/latteos/theme-mode", pozadie: "~/.local/state/noctalia/settings.toml",
             okna: "~/.local/state/latteos/window-mode", vykon: "~/.config/latteos/tier", efekty: "~/.config/latteos/live-wallpaper\n~/.config/latteos/tier",
             start: "/etc/latteos/boot.toml\n/var/lib/latteos/", ai: "~/.config/latteos/ai.toml\n~/.config/latteos/ai-keys (0600)",
-            lista: "~/.local/state/noctalia/settings.toml [bar.main]\n~/.config/latteos/bar-anim, bar-scene, mascot", cas: "~/.local/state/noctalia/settings.toml [location]\n~/.config/latteos/clock.conf",
+            lista: "~/.local/state/noctalia/settings.toml [bar.main]\n~/.config/latteos/bar-anim, bar-scene, bar-scene-vpravo, bar-stlmenie, mascot", cas: "~/.local/state/noctalia/settings.toml [location]\n~/.config/latteos/clock.conf",
             prihlasovanie: "/var/lib/latteos/greeter/greeter.conf", diagnostika: "/var/lib/latteos/greeter/last-crash.log\n/var/lib/latteos/crash-count",
             subory: "~/.config/latteos/subory.json\n~/.config/latteos/tags.json",
             oznamenia: "~/.local/state/noctalia/settings.toml [notification]",
@@ -1078,16 +1085,81 @@ ShellRoot {
                       onStepped: (v) => app.shellSet("bar.main.margin_edge", v, "Odsadenie od spodku " + v) }
             Stepper { label: "Medzera medzi ostrovmi"; value: parseInt(app.bar.widget_spacing) || 6; step: 2; min: 4; max: 32
                       onStepped: (v) => app.shellSet("bar.main.widget_spacing", v, "Medzera " + v) }
-            Heading { text: "DLAŽDICA APLIKÁCIÍ (vľavo)" }
+            Heading { text: "OKNÁ Z LIŠTY V TVARE L · ANIMOVANÁ TEXTÚRA" }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "App Manager (vľavo) a Zariadenia (vpravo) vyrastajú z ostrova na lište: ostrov je päta písmena L, nad ním pás s textúrou a okno. Textúra sa kreslí na dlaždici aj v páse naraz, bez švu." }
+            // náhľad: pás L s pätou, rovnaký komponent ako v oknách
+            Item {
+                id: lPrev
+                width: Math.min(parent.width, 560); height: 92
+                property real t: 0
+                Timer { interval: 125; repeat: true; running: lPrev.visible && app.barAnim !== "vypnuty"; onTriggered: lPrev.t += 0.125 }
+                Rectangle { anchors.fill: parent; radius: 12; color: theme.field }
+                Item {
+                    x: 12; y: 12; width: parent.width - 24; height: 38; clip: true
+                    Scena { anchors.fill: parent; colors: app.latteTheme; spec: app.barScene; time: lPrev.t; motion: app.barAnim === "vypnuty" ? "vypnute" : "vzdy"
+                            canvasW: parent.width; canvasH: 76 }
+                    Rectangle { anchors.fill: parent; gradient: Gradient { orientation: Gradient.Horizontal
+                        GradientStop { position: 0; color: Qt.rgba(app.latteTheme.surface.r, app.latteTheme.surface.g, app.latteTheme.surface.b, 0.05) }
+                        GradientStop { position: 1; color: Qt.rgba(app.latteTheme.surface.r, app.latteTheme.surface.g, app.latteTheme.surface.b, app.barDim) } } }
+                    Text { anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter } text: "22 aplikácií   App Manager ›"
+                           color: theme.fg; font { family: theme.fontUi; pixelSize: 12 } }
+                }
+                Item {
+                    x: 12; y: 50; width: 100; height: 30; clip: true
+                    Scena { anchors.fill: parent; colors: app.latteTheme; spec: app.barScene; time: lPrev.t; motion: app.barAnim === "vypnuty" ? "vypnute" : "vzdy"
+                            oy: 38; canvasW: lPrev.width - 24; canvasH: 76 }
+                    Glyph { anchors.centerIn: parent; name: "apps"; size: 16; color: app.latteTheme.primary }
+                }
+                Rectangle { x: 120; y: 54; width: 90; height: 26; radius: 9; color: theme.hover
+                            Text { anchors.centerIn: parent; text: "05:35"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } } }
+            }
+            Segments {
+                options: [["para", "Para"], ["matrix", "Matrix"], ["gears", "Ozubené kolesá"], ["glow", "Pomalé svetlo"], ["solid", "Jedna farba"], ["file", "Obrázok / GIF"]]
+                value: app.barScene.split(":")[0]
+                onPicked: (v) => {
+                    const s = v === "solid" ? "solid:" + (app.barScene.startsWith("solid:") ? app.barScene.slice(6) : String(app.latteTheme.primary))
+                            : v === "file" ? "file:" + (app.barScene.startsWith("file:") ? app.barScene.slice(5) : "") : v;
+                    app.barScene = s;
+                    if (v !== "file" || s !== "file:") app.writePref("bar-scene", s, "Textúra L: " + v);
+                }
+            }
+            Row {
+                visible: app.barScene.startsWith("solid:")
+                spacing: 8
+                Repeater {
+                    model: [String(app.latteTheme.primary), "#6F4E37", "#C8A27A", "#3E7C59", "#2F5D8A", "#7A3E8C", "#A33B3B", "#222222"]
+                    Rectangle {
+                        required property string modelData
+                        width: 32; height: 32; radius: 16; color: modelData
+                        border { color: app.barScene === "solid:" + modelData ? theme.fg : "transparent"; width: 2 }
+                        MouseArea { anchors.fill: parent; onClicked: { app.barScene = "solid:" + modelData; app.writePref("bar-scene", app.barScene, "Farba L: " + modelData); } }
+                    }
+                }
+                Field { width: 130; placeholder: "#RRGGBB"; text: app.barScene.startsWith("solid:") ? app.barScene.slice(6) : ""
+                        onCommitted: (t) => { if (/^#[0-9a-fA-F]{6}$/.test(t.trim())) { app.barScene = "solid:" + t.trim(); app.writePref("bar-scene", app.barScene, "Farba L: " + t.trim()); } } }
+            }
+            Column {
+                visible: app.barScene.startsWith("file:")
+                spacing: 6
+                Field { width: 520; placeholder: "/cesta/k/animacii.gif (GIF, WebP, PNG, JPG)"; text: app.barScene.startsWith("file:") ? app.barScene.slice(5) : ""
+                        onCommitted: (t) => { const f = t.trim().replace(/^file:\/\//, ""); if (f) { app.barScene = "file:" + f; app.writePref("bar-scene", app.barScene, "Textúra L: " + f.split("/").pop()); } } }
+                Text { color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 }
+                       text: "Obrázok vyplní celý pás L (orezaný na šírku). Dlaždica na lište ukáže pri obrázku textúru Para." }
+            }
+            Heading { text: "Pravé L (Zariadenia)"; font.pixelSize: 11 }
+            Segments {
+                options: [["", "Rovnaká ako vľavo"], ["para", "Para"], ["matrix", "Matrix"], ["gears", "Ozubené kolesá"], ["glow", "Pomalé svetlo"]]
+                value: app.barSceneRight
+                onPicked: (v) => { app.barSceneRight = v; app.writePref("bar-scene-vpravo", v, "Textúra pravého L: " + (v || "ako vľavo")); }
+            }
+            Stepper { label: "Stlmenie textúry pod textom"; value: Math.round(app.barDim * 100); step: 10; min: 0; max: 90; unit: " %"
+                      onStepped: (v) => { app.barDim = v / 100; app.writePref("bar-stlmenie", (v / 100).toFixed(2), "Stlmenie " + v + " %"); } }
+            Heading { text: "POHYB TEXTÚRY (dlaždica aj L)"; font.pixelSize: 11 }
             Segments {
                 options: [["", "Podľa výkonu"], ["vzdy", "Vždy v pohybe"], ["kurzor", "Pod kurzorom"], ["vypnuty", "Bez pohybu"]]
                 value: app.barAnim
-                onPicked: (v) => { app.barAnim = v; app.writePref("bar-anim", v, "Pohyb dlaždice: " + (v || "podľa výkonu")); }
-            }
-            Segments {
-                options: [["para", "Para"], ["matrix", "Matrix"]]
-                value: app.barScene
-                onPicked: (v) => { app.barScene = v; app.writePref("bar-scene", v, "Textúra: " + v); }
+                onPicked: (v) => { app.barAnim = v; app.writePref("bar-anim", v, "Pohyb textúry: " + (v || "podľa výkonu")); }
             }
             Heading { text: "SYSTÉMOVÉ MENU (šálka)" }
             Segments {

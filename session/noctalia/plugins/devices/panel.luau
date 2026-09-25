@@ -35,7 +35,7 @@ local function refresh()
     local v = string.match(r.stdout or "", "Volume: ([%d%.]+)")
     st.volume = v and math.floor(tonumber(v) * 100 + 0.5) or nil; render()
   end)
-  noctalia.runAsync({ "brightnessctl", "-m" }, function(r)
+  noctalia.runAsync({ "brightnessctl", "-m", "-c", "backlight" }, function(r)
     local p = string.match(r.stdout or "", ",(%d+)%%,")
     st.brightness = (r.exitCode == 0 and p) and tonumber(p) or nil; render()
   end)
@@ -109,7 +109,7 @@ function render()
 end
 
 function onVolume(v) run({ "wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", tostring(math.floor(tonumber(v) or 0)) .. "%" }) end
-function onBrightness(v) run({ "brightnessctl", "set", tostring(math.floor(tonumber(v) or 100)) .. "%" }) end
+function onBrightness(v) run({ "brightnessctl", "-c", "backlight", "set", tostring(math.floor(tonumber(v) or 100)) .. "%" }) end
 function onProfile(index, _t)
   local p = st.profiles[(tonumber(index) or 0) + 1]
   if p then st.profile = p; run({ "powerprofilesctl", "set", p }) end

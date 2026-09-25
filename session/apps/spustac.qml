@@ -32,9 +32,22 @@ ShellRoot {
     }
     // animované otvorenie (vysunie sa z dlaždice) iba s GPU; pri softvérovom kreslení (VM) sa panel ukáže hneď
     readonly property bool anim: ["softver", "minimalny", "safe"].indexOf(Quickshell.env("LATTE_TIER") || "softver") < 0
+    // tvar L z ostrova na lište (common/LPopup.qml): päta = prvý ostrov (dlaždica aplikácií), poloha z latte-ostrovy
+    property var foot: ({ x: 12, y: (Quickshell.screens.length ? Quickshell.screens[0].height : 1080) - 56, w: 100, h: 42 })
+    readonly property string runDir: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/latteos"
+    FileView { id: ostrovy; path: sp.runDir + "/ostrovy.json"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: { try { const l = JSON.parse(text()); if (l.length) { sp.foot = l[0]; sp.islands = l; } } catch (e) {} } }
+    property var islands: []
+    Process { id: ostrovyProc; command: ["latte-ostrovy"] }
+    property string barScene: "para"
+    property string barMotion: "vzdy"
+    FileView { path: (Quickshell.env("XDG_CONFIG_HOME") || ((Quickshell.env("HOME") || "") + "/.config")) + "/latteos/bar-scene"; printErrors: false; watchChanges: true
+               onFileChanged: reload(); onLoaded: sp.barScene = text().trim() || "para"; onLoadFailed: sp.barScene = "para" }
+    FileView { path: (Quickshell.env("XDG_CONFIG_HOME") || ((Quickshell.env("HOME") || "") + "/.config")) + "/latteos/bar-anim"; printErrors: false; watchChanges: true
+               onFileChanged: reload(); onLoadFailed: sp.barMotion = "vzdy"; onLoaded: sp.barMotion = ({ vypnuty: "vypnute", vypnute: "vypnute" })[text().trim()] || "vzdy" }
     property real appear: 1
     Behavior on appear { enabled: sp.anim; NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
-    onOpenChanged: { if (open && anim) { appear = 0; Qt.callLater(() => appear = 1); } if (open) { query = ""; tab = "apps"; flatpakPs.running = true; } else closeMenu(); }
+    onOpenChanged: { if (open) { query = ""; tab = "apps"; flatpakPs.running = true; if (!ostrovyProc.running) ostrovyProc.running = true; } else closeMenu(); }
 
     FileView {
         id: usageFile
@@ -162,7 +175,7 @@ ShellRoot {
     // posiela vstup iba tejto vrstve, preto klik mimo panelu dopadne sem a panel zavrie (aj klik na lištu)
     PanelWindow {
         id: pop
-        visible: sp.open
+        visible: sp.open || lpop.p > 0
         anchors { top: true; bottom: true; left: true; right: true }
         exclusionMode: ExclusionMode.Ignore
         WlrLayershell.layer: WlrLayer.Overlay
@@ -171,13 +184,33 @@ ShellRoot {
         color: "transparent"
         MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onPressed: sp.open = false }
 
-        Rectangle {
+        LPopup {
+            id: lpop
+            theme: theme
+            foot: sp.foot; islands: sp.islands
+            side: "left"
+            open: sp.open
+            panelW: 660; panelH: 590; trunkH: 50
+            sceneSpec: sp.barScene; motion: sp.barMotion; footGlyph: "apps"
+            trunk: [
+                Row {
+                    anchors { right: parent.right; rightMargin: 14; verticalCenter: parent.verticalCenter }
+                    spacing: 10
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: sp.apps.length + " aplikácií"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+                    Rectangle {
+                        width: tl.implicitWidth + 26; height: 34; radius: 12; color: tfm.containsMouse ? theme.hover : Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, 0.85)
+                        border { color: theme.outline; width: 1 }
+                        Row { id: tl; anchors.centerIn: parent; spacing: 8
+                              Glyph { name: "apps"; size: 16; color: theme.primary; anchors.verticalCenter: parent.verticalCenter }
+                              Text { text: "App Manager — inštalácia, aktualizácie, ovládače"; color: theme.fg; font { family: theme.fontUi; pixelSize: 12; weight: Font.DemiBold }
+                                     anchors.verticalCenter: parent.verticalCenter } }
+                        MouseArea { id: tfm; anchors.fill: parent; hoverEnabled: true; onClicked: sp.fullManager() }
+                    }
+                }
+            ]
+        Item {
             id: box
-            x: 12; y: parent.height - height - 72; width: 660; height: 640; radius: 22
-            opacity: sp.appear
-            transform: [ Translate { y: (1 - sp.appear) * 36 }, Scale { origin.x: 0; origin.y: box.height; xScale: 0.96 + 0.04 * sp.appear; yScale: 0.96 + 0.04 * sp.appear } ]
-            color: Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, 1)
-            border { color: theme.outline; width: 1 }
+            anchors.fill: parent
             focus: true
             MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons }     // klik do panelu ho nezavrie
             Keys.onEscapePressed: sp.open = false
@@ -396,19 +429,8 @@ ShellRoot {
 
             ContextMenu { id: tmenu; theme: theme }
 
-            // päta: plný App Manager
-            Rectangle {
-                id: foot
-                anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: 14 }
-                height: 44; radius: 14; color: fm.containsMouse ? theme.hover : theme.field
-                Row {
-                    anchors.centerIn: parent; spacing: 10
-                    Glyph { name: "apps"; size: 18; color: theme.primary; anchors.verticalCenter: parent.verticalCenter }
-                    Text { text: "App Manager — inštalácia, aktualizácie, ovládače"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.DemiBold }
-                           anchors.verticalCenter: parent.verticalCenter }
-                }
-                MouseArea { id: fm; anchors.fill: parent; hoverEnabled: true; onClicked: sp.fullManager() }
-            }
+            Item { id: foot; anchors { left: parent.left; right: parent.right; bottom: parent.bottom } height: 4 }
+        }
         }
     }
 }

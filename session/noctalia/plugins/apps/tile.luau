@@ -57,14 +57,22 @@ local function matrix(side)
   return out
 end
 
+-- textúry okien v tvare L (apps/common/Scena.qml): matrix a para kreslí dlaždica sama; jedna farba a pomalé svetlo
+-- menia výplň; ozubené kolesá a obrázok/GIF dlaždica nevie, ukáže paru (v okne L sa kreslia celé)
 local function render()
-  local tex = scene == "matrix" and matrix or para
+  local kind, arg = string.match(scene, "^(%a+):?(.*)$")
+  kind = kind or "para"
+  local tex = kind == "matrix" and matrix or para
   local row = {}
-  for _, n in ipairs(tex("l")) do table.insert(row, n) end
+  local plain = kind == "solid" or kind == "glow"
+  if not plain then for _, n in ipairs(tex("l")) do table.insert(row, n) end end
   table.insert(row, ui.glyph({ name = "apps", size = 18, color = "on_surface" }))
-  for _, n in ipairs(tex("r")) do table.insert(row, n) end
+  if not plain then for _, n in ipairs(tex("r")) do table.insert(row, n) end end
+  local fill = hovered and "primary/0.14" or "primary/0.06"
+  if kind == "solid" and string.match(arg or "", "^#%x%x%x%x%x%x$") then fill = arg
+  elseif kind == "glow" then fill = string.format("primary/%.2f", 0.08 + 0.14 * (0.5 + 0.5 * math.sin(t0 * 2 * math.pi / 8)) + (hovered and 0.06 or 0)) end
   barWidget.render(ui.row({ width = W, height = H, gap = 2, align = "center", justify = "center", radius = 12,
-                            fill = hovered and "primary/0.14" or "primary/0.06",
+                            fill = fill,
                             onHover = function(state) hovered = state == "true"; noctalia.setUpdateInterval(moving() and 100 or 30000); render() end,
                             tooltip = "Aplikácie · klik: rýchle spustenie, 📌 plný App Manager" }, row))
 end

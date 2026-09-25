@@ -100,6 +100,38 @@ Poradie: 1. Monitor (hotové nižšie) → 2. Digitálna pohoda podľa Pulse →
     alebo animácie Hyprlandu;
   - pri stupni Softvér ostanú vypnuté (pravidlo „každý prvok má variant bez shaderov“).
 
+### 25. 9. 2026, 5:50: Okná z lišty v tvare L s animovanou textúrou (podľa tvojej kresby) ✅
+- **App Manager (vľavo) a Zariadenia (vpravo)** teraz vyrastajú z ostrova na lište ako na kresbe:
+  - ostrov je päta písmena L,
+  - nad ním sa vysunie pás (kmeň) cez celú šírku okna,
+  - nad pásom sa objaví okno. Pravé L je zrkadlové.
+  - Zatvorenie beží opačne.
+  - Komponent `apps/common/LPopup.qml`.
+- **Neprekrýva ostatné položky lišty** (tvoja poznámka):
+  - `latte-ostrovy` zmeria polohu všetkých ostrovov zo snímky lišty;
+  - päta pokryje iba vlastný ostrov;
+  - pás končí nad najvyšším ostrovom pod oknom;
+  - vyduté zaoblenie vedľa päty sa zmenší na voľnú medzeru k susedovi (pri medzere 6 px by inak zasahovalo do hodín).
+- **Animované textúry** (ako v starej verzii, `apps/common/Scena.qml`): Para, Matrix, Ozubené kolesá, Pomalé svetlo,
+  Jedna farba (výber alebo #RRGGBB), Obrázok/GIF/WebP.
+  - Dlaždica a pás kreslia jeden obraz vo fáze, bez švu.
+  - Vo VM beží 8 obr/s a iba pri otvorenom okne.
+- **Nastavenia › Lišta**:
+  - textúra s náhľadom L;
+  - vlastná textúra pravého L;
+  - stlmenie textúry pod textom;
+  - pohyb (podľa výkonu / vždy / pod kurzorom / bez pohybu).
+- Súbory v `~/.config/latteos/`: `bar-scene`, `bar-scene-vpravo`, `bar-stlmenie`, `bar-anim`.
+- **Zariadenia** (`apps/rychle.qml`, `latte-rychle`) nahrádzajú panel Noctalie:
+  - Sieť/Wi-Fi, Bluetooth, Nerušiť, Nočné svetlo;
+  - hlasitosť (klik na ikonu stlmí), jas iba podsvietenia;
+  - herný režim a profil výkonu;
+  - v páse je súhrn Správcu zariadení („15 zariadení · v poriadku“ alebo počet problémov) s tlačidlom.
+- **Obmedzenie:** Čas, Šálka, Kapsa a ďalšie panely kreslí Noctalia. Tá panel pripína k celej hrane lišty, nie ku kapsule,
+  takže tvar L dostanú až s vlastnou úpravou (forkom) Noctalie. App Manager a Zariadenia sú hotové, lebo sú naše.
+- Dlaždica aplikácií na lište vie Para, Matrix, Jednu farbu a Pomalé svetlo; pri kolesách a GIF ukáže paru (Luau ich nevie).
+  Dlaždica sa zmení až po reštarte Noctalie. Zariadenia na lište otvoria nový panel až po jej reštarte, dovtedy starý.
+
 ### 25. 9. 2026, 2:50: Správca zariadení podľa starej verzie + spolupráca aplikácií ✅
 - **Stav každého zariadenia**, ako v starej verzii (hwstatus): funguje · chýba firmvér · chýba balík · treba cudzí
   repozitár · nepodporované. Zisťuje sa to z ovládača v sysfs, zo záznamu jadra (neúspešné načítanie firmvéru)
