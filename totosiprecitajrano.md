@@ -2,6 +2,15 @@
 
 Denník práce, kým si spal. Najnovšie hore. Na konci sú **veci, ktoré čakajú na tvoje rozhodnutie**.
 
+> ⚠ **25. 9. ráno — moja chyba, prepáč:** o 7:49 som na tvojej živej relácii skúšal video tapetu (mpvpaper,
+> port Aury). Vo VM sa kreslí softvérovo (llvmpipe) a Hyprland pri skladaní videa **dvakrát spadol**
+> (`lp_rast_shade_tile`). Relácia preto prešla do **SAFE** a otvorené okná sa zavreli.
+> - Video som zastavil a počítadlo pádov vynuloval (pády spôsobil test, nie systém).
+> - `latte-tapety` teraz bez GPU video vôbec nespustí.
+> - Takéto testy robím odteraz iba v headless kompozitore.
+> - **V SAFE menu stlač 2** („Skúsiť NORMAL znova“), alebo sa odhlás a prihlás. Normálna relácia naštartuje
+>   so všetkými dnešnými zmenami (nová lišta, plocha, Súbory…).
+>
 > Stav 24. 9. ráno: VM beží, tvoja relácia (Hyprland + Noctalia) tiež a nová lišta sa v nej ukázala
 > sama, lebo Noctalia načíta zmeny za behu. Jedna vec sa pokazila a je opravená: počas inštalácie sa
 > Hyprland na chvíľu dostal do núdzového režimu (červený rámik hore). Viac v denníku.
