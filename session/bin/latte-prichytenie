@@ -2,6 +2,6 @@
 # latte-prichytenie ukaz X Y W H | skry — náhľad prichytenia okna (volá latte/prichytenie.lua počas ťahania okna).
 # Kreslí ho bežiaci nahlad.qml (IPC „prichytenie“); ak nebeží, náhľad sa neukáže, prichytenie funguje aj tak.
 qml=/usr/share/latteos/apps/nahlad.qml
-pid=$(pgrep -f "qs -n -p $qml" | head -1)
+pid=$(pgrep -f "^qs -n -p $qml" | head -1)
 [ -n "$pid" ] || exit 0
 exec qs ipc --pid "$pid" call prichytenie "$@"

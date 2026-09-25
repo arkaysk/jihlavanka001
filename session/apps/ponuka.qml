@@ -23,6 +23,7 @@ ShellRoot {
     property string user: Quickshell.env("USER") || ""
     property string choice: "shutdown"       // dialóg Vypnúť
     property string confirm: ""              // napájanie v Ctrl+Alt+Del: druhé kliknutie potvrdí
+    property bool rel: false                 // atX/atY sú v súradniciach okna (vlastná hlavička aplikácie)
     readonly property bool anim: ["softver", "minimalny", "safe"].indexOf(Quickshell.env("LATTE_TIER") || "softver") < 0
 
     IpcHandler {
@@ -31,6 +32,7 @@ ShellRoot {
         function vypnut(): void { pn.show("vypnut", 0, 0, ""); }
         function winx(x: int, y: int): void { pn.show("win-x", x, y, ""); }
         function okno(x: int, y: int, address: string): void { pn.show("okno", x, y, address); }
+        function oknoRel(x: int, y: int): void { pn.rel = true; pn.show("okno", x, y, ""); }
         function zavri(): void { pn.kind = ""; }
     }
     function show(k, x, y, a) {
@@ -49,7 +51,8 @@ ShellRoot {
                     if (!w) { const act = l.filter(c => c.focusHistoryID === 0); w = act[0]; }
                     if (!w) return;
                     pn.addr = w.address; pn.win = w;
-                    if (!pn.atX && !pn.atY) { pn.atX = w.at[0] + 8; pn.atY = w.at[1] + 30; }   // Alt+Medzerník: pod titulok
+                    if (pn.rel) { pn.atX += w.at[0]; pn.atY += w.at[1]; pn.rel = false; }
+                    else if (!pn.atX && !pn.atY) { pn.atX = w.at[0] + 8; pn.atY = w.at[1] + 30; }   // Alt+Medzerník: pod titulok
                     pn.kind = "okno";
                     menu.open(pn.atX, pn.atY, pn.windowItems(), "");
                 } catch (e) {}

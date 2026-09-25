@@ -33,9 +33,11 @@ Rectangle {
     // prázdne miesto hlavičky: ťahanie presunie okno (xdg_toplevel.move ako GTK/KDE), dvojklik = zväčšiť.
     // Leží pod ostatnými prvkami, tlačidlá a hľadanie majú prednosť. Super + myš je iba doplnok.
     MouseArea {
-        z: -1; anchors.fill: parent; acceptedButtons: Qt.LeftButton
+        z: -1; anchors.fill: parent; acceptedButtons: Qt.LeftButton | Qt.RightButton
         property point start
         onPressed: (m) => start = Qt.point(m.x, m.y)
+        // pravý klik na hlavičku = ponuka okna ako vo Windows (Obnoviť, Minimalizovať, Maximalizovať, rozloženia, Zavrieť)
+        onClicked: (m) => { if (m.button === Qt.RightButton) { const q = mapToItem(null, m.x, m.y); winCmd.command = ["latte-ponuka", "okno-rel", String(Math.round(q.x)), String(Math.round(q.y))]; winCmd.running = true; } }
         onPositionChanged: (m) => {
             if ((m.buttons & Qt.LeftButton) && Math.abs(m.x - start.x) + Math.abs(m.y - start.y) > 4 && hb.Window.window)
                 hb.Window.window.startSystemMove();
