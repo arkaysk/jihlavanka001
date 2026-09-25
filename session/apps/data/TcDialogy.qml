@@ -336,10 +336,11 @@ Item {
         id: at
         visible: tc.tool === "atributy"
         title: "Vlastnosti a atribúty · " + (tc.items.length === 1 ? tc.items[0].name : tc.items.length + " položiek")
-        w: 640; h: 520
+        w: 640; h: 600
         property var info: null
         property bool rek: false
-        Tool { id: atInfo; onResult: (c, out) => { try { at.info = JSON.parse(out); aMode.text = at.info.mode; aDate.text = at.info.modified; } catch (e) {} } }
+        Process { id: chownRun }
+        Tool { id: atInfo; onResult: (c, out) => { try { at.info = JSON.parse(out); aMode.text = at.info.mode; aDate.text = at.info.modified; aOwner.text = at.info.owner + ":" + at.info.group; } catch (e) {} } }
         Tool { id: atSet; onResult: (c, out) => { tc.done(c === 0 ? "Atribúty zmenené" : "Zmena atribútov zlyhala (práva?)"); if (c === 0) tc.close(); } }
         onVisibleChanged: if (visible) { info = null; rek = false; atInfo.command = ["latte-tc", "vlastnosti", tc.items[0].path]; atInfo.running = true; }
         Column {
@@ -359,6 +360,18 @@ Item {
                              Btn { required property var modelData; label: modelData[0] + " " + modelData[1]; onClicked: aMode.text = modelData[0] } } }
             Lbl { text: "DÁTUM ZMENY (RRRR-MM-DD HH:MM)" }
             Row { spacing: 6; Field { id: aDate; width: 200 } Btn { label: "Teraz"; onClicked: aDate.text = Qt.formatDateTime(new Date(), "yyyy-MM-dd HH:mm") } }
+            Lbl { text: "VLASTNÍK : SKUPINA (zmena so správcom, v termináli sa opýta na heslo)" }
+            Row { spacing: 6
+                  Field { id: aOwner; width: 200 }
+                  Btn { label: "Zmeniť vlastníka"
+                        onClicked: {
+                            const own = aOwner.text.trim();
+                            if (!/^[A-Za-z0-9._-]+(:[A-Za-z0-9._-]+)?$/.test(own)) { tc.done("Vlastník: meno alebo meno:skupina"); return; }
+                            chownRun.command = ["foot", "-T", "Zmena vlastníka", "sh", "-c",
+                                'o="$1"; r="$2"; shift 2; echo "sudo chown $r $o …"; sudo chown $r -- "$o" "$@" && echo "Hotovo." || echo "Zlyhalo."; printf "Enter zavrie okno"; read x',
+                                "sh", own, at.rek ? "-R" : ""].concat(tc.items.map(e => e.path));
+                            chownRun.startDetached(); tc.close();
+                        } } }
             Btn { label: (at.rek ? "☑" : "☐") + " Aj obsah priečinkov"; onClicked: at.rek = !at.rek }
             Row { spacing: 8; topPadding: 6
                   Btn { label: "Uložiť"; primary: true

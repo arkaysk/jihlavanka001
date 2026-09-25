@@ -418,7 +418,7 @@ ShellRoot {
         { title: "Cloud", items: app.cloudDirs.map(c => ({ key: "cloud:" + c, path: app.home + "/Cloud/" + c, glyph: "cloud", label: c, sub: "cloudový účet" }))
                                   .concat([{ key: "cloud:add", path: "", glyph: "plus", label: "Pridať cloudový účet", sub: "Nastavenia › Dáta", dim: app.cloudDirs.length > 0 }]) },
         { title: "Sieť", items: app.servers.map(sv => ({ key: "net:" + sv.path, path: sv.path, glyph: "server", label: sv.path.split("/").pop(), sub: sv.url || "server" }))
-                                  .concat([{ key: "net:add", path: "", glyph: "plus", label: "Pripojiť server…", sub: "FTP, SFTP" + (app.commander ? " · F9" : ""), dim: app.servers.length > 0 }]) },
+                                  .concat([{ key: "net:add", path: "", glyph: "plus", label: "Pripojiť server…", sub: "FTP, SFTP, SMB, WebDAV" + (app.commander ? " · F9" : ""), dim: app.servers.length > 0 }]) },
         { title: "Aplikácie", items: [
             { key: "apps:flatpak", path: "/var/lib/flatpak/app", glyph: "package", label: "Flatpak (systém)", sub: "každá appka vo vlastnom priečinku" },
             { key: "apps:flatpak-user", path: app.home + "/.local/share/flatpak/app", glyph: "package", label: "Flatpak (používateľ)" },
@@ -781,6 +781,17 @@ ShellRoot {
         app.askInput("Zoznam súborov do textu", "zoznam.txt", "uloží sa do " + app.activePane.path.replace(app.home, "~") + " (cesta a veľkosť na riadok)",
                      (t) => run(["sh", "-c", 'o="$1"; shift; for f in "$@"; do printf "%s\t%s\n" "$f" "$(stat -c %s -- "$f")"; done > "$o"', "sh", app.activePane.path + "/" + t].concat(it.map(e => e.path)), "Zoznam uložený: " + t));
     }
+    // tlač zoznamu (TC): tabuľka označených položiek (inak celého priečinka) sa otvorí v Heidelbergu, ten ju vytlačí / uloží do PDF
+    function printList() {
+        const p = app.activePane, out = [];
+        const all = p.markedCount ? p.selection() : (function () { const l = []; for (let i = 0; i < p.count; i++) l.push(p.entryAt(i)); return l; })();
+        const rows = all.filter(e => e.name !== "..").map(e => "| " + e.name.replace(/\|/g, "\\|") + " | " + (e.isDir ? "priečinok" : p.human(e.size)) + " | "
+                                                        + Qt.formatDateTime(e.modified, "d. M. yyyy HH:mm") + " |");
+        const md = "# " + p.path.replace(app.home, "~") + "\n\n" + all.length + " položiek · " + Qt.formatDateTime(new Date(), "d. M. yyyy HH:mm")
+                 + "\n\n| Názov | Veľkosť | Zmenené |\n|---|---:|---|\n" + rows.join("\n") + "\n";
+        const f = (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/latteos/Zoznam " + (p.path.split("/").pop() || "koreň") + ".md";
+        run(["sh", "-c", 'mkdir -p "$(dirname "$1")" && printf "%s" "$2" > "$1" && latte-otvor spusti latteos-heidelberg "$1"', "sh", f, md], "Zoznam otvorený v Heidelbergu na tlač");
+    }
     property var savedSel: []
     function saveSelection() { savedSel = app.activePane.selection().map(e => e.name); app.status = "Výber uložený (" + savedSel.length + ")"; }
     function restoreSelection() {
@@ -824,6 +835,7 @@ ShellRoot {
             { glyph: "clipboard", label: "Kopírovať mená do schránky", action: () => app.copyNames(false) },
             { glyph: "clipboard", label: "Kopírovať mená s cestou", action: () => app.copyNames(true) },
             { glyph: "file-text", label: "Zoznam súborov do textu…", action: () => app.listToFile() },
+            { glyph: "printer", label: "Tlač zoznamu…", action: () => app.printList() },
             { glyph: "star", label: "Uložiť výber", action: () => app.saveSelection() },
             { glyph: "history", label: "Obnoviť výber", enabled: app.savedSel.length > 0, action: () => app.restoreSelection() },
             { separator: true },
@@ -1358,14 +1370,14 @@ ShellRoot {
                         id: dlg; x: 20; y: 20; width: parent.width - 40; spacing: 12
                         Text { text: "Pripojiť server"; color: theme.fg; font { family: theme.fontDisplay; pixelSize: 20; weight: Font.DemiBold } }
                         Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
-                               text: "Server sa otvorí ako priečinok v ~/Siet (v bočnej lište pod Sieť). SFTP bez hesla použije tvoje SSH kľúče. Heslo sa nikam neukladá." }
+                               text: "Server sa otvorí ako priečinok v ~/Siet (v bočnej lište pod Sieť). SMB = zdieľané priečinky Windows a NAS, WebDAV = Nextcloud a iné cloudy (davs = https). SFTP bez hesla použije tvoje SSH kľúče. Heslo sa nikam neukladá." }
                         Rectangle {
                             width: parent.width; height: 40; radius: 10; color: theme.field; border { color: urlIn.activeFocus ? theme.primary : "transparent"; width: 1 }
                             TextInput { id: urlIn; anchors { fill: parent; leftMargin: 12; rightMargin: 12 } verticalAlignment: TextInput.AlignVCenter
                                         color: theme.fg; font { family: theme.fontMono; pixelSize: 13 }
                                         KeyNavigation.tab: pwIn
                                         onAccepted: app.connectServer(urlIn.text, pwIn.text) }
-                            Text { x: 12; anchors.verticalCenter: parent.verticalCenter; visible: urlIn.text === ""; text: "sftp://meno@server  ·  ftp://server/priečinok"; color: theme.fgDim; font { family: theme.fontMono; pixelSize: 13 } }
+                            Text { x: 12; anchors.verticalCenter: parent.verticalCenter; visible: urlIn.text === ""; text: "smb://meno@pc/zdieľanie  ·  sftp://meno@server  ·  davs://cloud/dav"; color: theme.fgDim; font { family: theme.fontMono; pixelSize: 13 } }
                         }
                         Rectangle {
                             width: parent.width; height: 40; radius: 10; color: theme.field; border { color: pwIn.activeFocus ? theme.primary : "transparent"; width: 1 }

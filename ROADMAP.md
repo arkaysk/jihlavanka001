@@ -404,14 +404,14 @@ flowchart TD
   - [x] Veľkosť priečinkov (medzerník, Alt+Shift+Enter)
   - [x] Vlastnosti a **zmena práv a dátumu** (Alt+Enter, aj rekurzívne)
   - [x] **Symbolické a pevné odkazy** (Ctrl+Shift+F5)
-  - [ ] Zmena vlastníka (so správcom)
+  - [x] Zmena vlastníka (Alt+Enter, so správcom v termináli, aj rekurzívne)
   - [x] **Kontrolné súčty** (SHA-256/MD5 vytvoriť, overiť), **rozdeliť / spojiť** súbory (.001 … + .crc so SHA-256)
   - [x] **Kódovanie UUE/Base64** (zakódovať aj dekódovať)
   - [x] **Riadok príkazu** s históriou (↑/↓, Ctrl+Enter vloží meno, cd), terminál tu, lišta **vlastných tlačidiel** (~/.config/latteos/subory-tlacidla.json), ponuka Príkazy
   - [ ] Úprava tlačidiel a klávesových skratiek v UI, vlastné menu
-  - [ ] Sieť: FTP/SFTP (✓ základ), SMB zdieľanie, WebDAV, cloud (✓ rclone); ťahanie myšou medzi panelmi a do iných aplikácií
+  - [x] Sieť: FTP/SFTP, **SMB** (zdieľané priečinky Windows/NAS), **WebDAV** (dav/davs), cloud (rclone); ťahanie myšou medzi panelmi a do iných aplikácií
   - [x] **Kopírovať mená/cesty do schránky, zoznam súborov do textu**
-  - [ ] Tlač zoznamu
+  - [x] Tlač zoznamu (tabuľka v Heidelbergu → tlač / PDF)
   - [ ] Rozšírenia ako pluginy TC (packer, súborový systém, lister, stĺpce) cez vlastné rozhranie LatteOS
 - [ ] Živá tapeta podľa aura (mpv, pauza pri zakrytí a hre, farby z videa); výber tapiet a prechody podľa skwd-wall
 - [ ] Shaderové efekty (prechody skwd-wall) na popupy a panely LatteOS a cez plugin Hyprlandu na okná — iba stupeň Plný (H)

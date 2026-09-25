@@ -1,7 +1,9 @@
 #!/usr/bin/python3
-"""latte-siet — FTP/SFTP servery ako priečinky v Súboroch (režim Total Commander), cez rclone mount.
+"""latte-siet — FTP/SFTP, SMB (zdieľané priečinky Windows) a WebDAV servery ako priečinky v Súboroch, cez rclone mount.
 
   latte-siet pripoj URL [--heslo-stdin]   sftp://pouzivatel@server[:port][/cesta] | ftp://… | ftps://…
+                                          smb://pouzivatel@server/zdielanie[/cesta]   (Windows, NAS, Samba)
+                                          dav://… | davs://server[:port]/cesta         (WebDAV, Nextcloud; davs = https)
                                           pripojí do ~/Siet/<pouzivatel@server>, vypíše cestu priečinka
   latte-siet odpoj PRIEČINOK              odpojí (fusermount3 -u)
   latte-siet zoznam                       pripojené servery: priečinok<TAB>URL
@@ -19,8 +21,8 @@ STATE = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "latte-siet")
 
 def parse(url):
     u = urllib.parse.urlparse(url.strip())
-    if u.scheme not in ("sftp", "ftp", "ftps") or not u.hostname:
-        raise ValueError("adresa musí byť sftp://, ftp:// alebo ftps:// so serverom, napr. sftp://jana@nas.local")
+    if u.scheme not in ("sftp", "ftp", "ftps", "smb", "dav", "davs", "webdav", "webdavs") or not u.hostname:
+        raise ValueError("adresa musí byť sftp://, ftp://, ftps://, smb://, dav:// alebo davs:// so serverom, napr. smb://jana@nas.local/Dokumenty")
     if not re.fullmatch(r"[A-Za-z0-9.\-:\[\]]+", u.hostname):
         raise ValueError("neplatný názov servera")
     user = urllib.parse.unquote(u.username or "")
@@ -53,12 +55,19 @@ def connect(url, password):
         return mp
     os.makedirs(mp, exist_ok=True)
     env = dict(os.environ)
-    backend = "sftp" if scheme == "sftp" else "ftp"
-    opts = ["host=" + host]
+    backend = {"sftp": "sftp", "smb": "smb", "dav": "webdav", "davs": "webdav", "webdav": "webdav", "webdavs": "webdav"}.get(scheme, "ftp")
+    opts = ["host=" + host] if backend != "webdav" else []
     if user:
         opts.append("user=" + user)
-    if port:
+    if port and backend != "webdav":
         opts.append("port=%d" % port)
+    if backend == "webdav":                     # celá adresa servera ide do url, cesta sa pripojí k nej
+        web = "%s://%s%s%s" % ("https" if scheme in ("davs", "webdavs") else "http", host, (":%d" % port) if port else "", path.rstrip("/"))
+        opts.append('url="%s"' % web.replace('"', ""))
+        opts.append("vendor=other")
+        path = "/"
+    if backend == "smb":                        # prvá časť cesty je názov zdieľania (rclone: share/cesta)
+        path = path.lstrip("/")
     if scheme == "ftps":
         opts.append("explicit_tls=true")
     if password:
