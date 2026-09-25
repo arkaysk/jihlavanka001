@@ -547,7 +547,8 @@ ShellRoot {
         if (job) return;
         const j = jobs.find(x => x.state === "čaká"); if (!j) return;
         j.state = "beží"; job = j; jobs = jobs.slice();
-        jobProc.command = ["latte-kopia", j.move ? "presun" : "kopiruj", "--rezim", j.mode, "--maska", j.mask || "*"].concat(j.verify ? ["--overit"] : []).concat([j.target]).concat(j.sources);
+        jobProc.command = ["latte-kopia", j.move ? "presun" : "kopiruj", "--rezim", j.mode, "--maska", j.mask || "*"].concat(j.verify ? ["--overit"] : [])
+                          .concat(j.limit ? ["--limit", String(j.limit)] : []).concat([j.target]).concat(j.sources);
         jobProc.running = true;
         app.status = (j.move ? "Presúvam " : "Kopírujem ") + j.label;
     }
@@ -631,7 +632,7 @@ ShellRoot {
     function startOp(queueOnly) {
         const o = op; if (!o) return;
         const target = o.target.trim(); if (target === "") return;
-        const j = { move: o.move, target: target, sources: o.items.map(e => e.path), mode: o.mode, mask: o.mask, verify: o.verify,
+        const j = { move: o.move, target: target, sources: o.items.map(e => e.path), mode: o.mode, mask: o.mask, verify: o.verify, limit: o.limit || 0,
                     label: (o.items.length === 1 ? o.items[0].name : o.items.length + " položiek") + " → " + target.replace(app.home, "~") };
         op = null;
         app.activePane.clearMarks();
@@ -803,6 +804,8 @@ ShellRoot {
             { separator: true },
             { glyph: "columns-2", label: "Porovnať súbory podľa obsahu", action: () => app.compareFiles() },
             { glyph: "columns-2", label: "Porovnať priečinky (označiť rozdiely)", hint: "Shift+F2", action: () => app.compareDirs(false) },
+            { glyph: "copy", label: "Označiť, čo je aj v druhom paneli", enabled: app.dual, action: () => { const n = app.activePane.markByOther(app.otherPane, true); app.status = "Rovnaké mená: " + n; } },
+            { glyph: "plus", label: "Označiť, čo v druhom paneli chýba", enabled: app.dual, action: () => { const n = app.activePane.markByOther(app.otherPane, false); app.status = "Chýba v druhom paneli: " + n; } },
             { glyph: "columns-2", label: "Porovnať podľa obsahu", action: () => app.compareDirs(true) },
             { glyph: "refresh", label: "Synchronizovať priečinky…", action: () => app.tool("sync") },
             { separator: true },
@@ -1467,6 +1470,11 @@ ShellRoot {
                               onClicked: { const o = app.op; o.mode = modelData[0]; app.op = Object.assign({}, o); } } } }
                 Row { spacing: 8
                       Btn { label: (app.op && app.op.verify ? "☑" : "☐") + " Overiť po skopírovaní (SHA-256)"; onClicked: { const o = app.op; o.verify = !o.verify; app.op = Object.assign({}, o); } } }
+                Text { text: "OBMEDZIŤ RÝCHLOSŤ"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 10; weight: Font.Bold; letterSpacing: 0.6 } }
+                Flow { width: parent.width; spacing: 6
+                    Repeater { model: [[0, "Bez obmedzenia"], [5, "5 MB/s"], [20, "20 MB/s"], [50, "50 MB/s"], [100, "100 MB/s"]]
+                        Btn { required property var modelData; label: modelData[1]; on: !!app.op && (app.op.limit || 0) === modelData[0]
+                              onClicked: { const o = app.op; o.limit = modelData[0]; app.op = Object.assign({}, o); } } } }
                 Row { spacing: 8
                       Btn { label: "OK (Enter)"; primary: true; onClicked: opTarget.accepted() }
                       Btn { label: "Do radu (F2)"; onClicked: { app.op.target = opTarget.text; app.op.mask = opMask.text; app.startOp(true); root.forceActiveFocus(); } }

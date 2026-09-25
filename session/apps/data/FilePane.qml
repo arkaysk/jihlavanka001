@@ -71,6 +71,14 @@ Rectangle {
     }
     function markAll() { const m = {}; for (let i = 0; i < folder.count; i++) { const e = entryAt(i); m[e.path] = e.isDir ? (dirSizes[e.path] || 0) : e.size; } marked = m; }
     function clearMarks() { marked = ({}); }
+    function names() { const n = {}; for (let i = 0; i < folder.count; i++) n[folder.get(i, "fileName")] = true; return n; }
+    // porovnanie výberu s druhým panelom (TC): označí položky, ktorých meno v druhom paneli je (same) alebo chýba (!same)
+    function markByOther(other, same) {
+        const n = other.names(), m = {};
+        for (let i = 0; i < folder.count; i++) { const e = entryAt(i); if (!!n[e.name] === same) m[e.path] = e.isDir ? (dirSizes[e.path] || 0) : e.size; }
+        marked = m;
+        return Object.keys(m).length;
+    }
     // na čom sa robí operácia: označené, inak položka pod kurzorom
     function selection() {
         const out = [];

@@ -2,13 +2,14 @@
 """latte-kopia — kopírovanie a presun pre Súbory (F5 / F6 ako Total Commander), s priebehom po bajtoch.
 
   latte-kopia konflikty CIEĽ ZDROJ…                    vypíše mená, ktoré už v cieli existujú (riadok = meno)
-  latte-kopia kopiruj|presun [--rezim R] [--maska M] [--overit] CIEĽ ZDROJ…
+  latte-kopia kopiruj|presun [--rezim R] [--maska M] [--overit] [--limit MB/s] CIEĽ ZDROJ…
 
 Režim pri existujúcom súbore (--rezim): prepisat · preskocit · starsie (prepíše iba staršie) · premenovat („meno (2).ext“).
 Maska (--maska): „*.jpg;*.png“ — kopírujú sa iba súbory, ktoré jej vyhovujú (priečinky sa prechádzajú).
 CIEĽ končiaci „/“ alebo existujúci priečinok = kopírovať do neho; inak pri jednom zdroji = nové meno (premenovanie).
 Výstup (riadky): „P percent skopírované spolu aktuálne_meno“, „E chyba“, na konci „OK súborov preskočených“.
 Presun v rámci jedného disku je okamžitý (rename); medzi diskami kópia + zmazanie. --overit porovná obsah (SHA-256).
+--limit obmedzí rýchlosť kopírovania (MB/s, ako v Total Commanderi), napr. aby USB disk alebo sieť ostali použiteľné.
 """
 import fnmatch, hashlib, os, shutil, stat, sys, time
 
@@ -71,7 +72,7 @@ def main(a):
         print(__doc__, file=sys.stderr)
         return 2
     move = a[0] == "presun"
-    mode, masks, verify = "preskocit", [], False
+    mode, masks, verify, limit = "preskocit", [], False, 0.0
     rest = a[1:]
     while rest and rest[0].startswith("--"):
         o = rest.pop(0)
@@ -81,6 +82,11 @@ def main(a):
             masks = [m for m in rest.pop(0).replace(",", ";").split(";") if m.strip() and m.strip() not in ("*", "*.*")]
         elif o == "--overit":
             verify = True
+        elif o == "--limit":
+            try:
+                limit = max(0.0, float(rest.pop(0))) * 1024 * 1024
+            except ValueError:
+                limit = 0.0
     if len(rest) < 2:
         return 2
     dst, srcs = rest[0], rest[1:]
@@ -128,6 +134,7 @@ def main(a):
             plan.append((p, t, size, s))
     total = sum(max(0, x[2]) for x in plan) or 1
     done, copied, skipped = 0, 0, 0
+    t0, sent = time.monotonic(), 0
     for p, t, size, root in plan:
         try:
             if size < 0:
@@ -149,7 +156,11 @@ def main(a):
                         b = fi.read(CHUNK)
                         if not b:
                             break
-                        fo.write(b); done += len(b)
+                        fo.write(b); done += len(b); sent += len(b)
+                        if limit:                                   # obmedzenie rýchlosti: počkať, kým čas dobehne bajty
+                            ahead = sent / limit - (time.monotonic() - t0)
+                            if ahead > 0:
+                                time.sleep(ahead)
                         now = time.monotonic()
                         if now - last > 0.2:
                             last = now

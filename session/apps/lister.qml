@@ -2,16 +2,20 @@
 //   text (automatické kódovanie UTF-8 / CP1250 / ISO-8859-2, dá sa prepnúť), hex (klávesa 3), obrázok, zalamovanie (W),
 //   hľadanie (Ctrl+F, F3 ďalšie), veľké súbory po 256 kB (načíta ďalšie pri konci), N/P = ďalší/predošlý súbor v priečinku,
 //   Esc zavrie. Dáta: latte-tc nahlad. Spúšťa sa: latte-app lister SÚBOR
+//   Médiá (ako Lister v TC s pluginom): zvuk sa prehrá priamo (Medzerník = prehrať/pauza, ←/→ posun o 5 s),
+//   video ukáže snímku (ffmpegthumbnailer) a technické údaje (ffprobe); prehrá ho predvolený prehrávač
+//   (vo VM bez GPU sa video v okne neprehráva — softvérové skladanie videa zhodilo Hyprland).
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import QtMultimedia
 import "common"
 
 ShellRoot {
     id: app
     LatteTheme { id: theme }
     property string path: (Quickshell.env("LATTE_APP_ARGS") || "").trim().replace(/^file:\/\//, "")
-    property string mode: "text"            // text | hex | obrazok
+    property string mode: "text"            // text | hex | obrazok | medium
     property string enc: ""
     property var data: null
     property string content: ""
@@ -22,6 +26,47 @@ ShellRoot {
     property var siblings: []
     readonly property string name: path.split("/").pop()
     readonly property bool isImage: /\.(png|jpe?g|gif|webp|bmp|svg|avif)$/i.test(path)
+    readonly property bool isAudio: /\.(mp3|flac|ogg|oga|opus|wav|m4a|aac|wma|aiff?)$/i.test(path)
+    readonly property bool isVideo: /\.(mp4|mkv|webm|avi|mov|m4v|wmv|flv|mpe?g|ts|3gp)$/i.test(path)
+    readonly property bool isMedia: isAudio || isVideo
+    property var info: null                 // ffprobe: { format, streams }
+    property string thumb: ""
+    readonly property string runDir: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/latteos"
+    Process {
+        id: probe
+        stdout: StdioCollector { onStreamFinished: { try { app.info = JSON.parse(this.text); } catch (e) { app.info = null; } } }
+    }
+    Process {
+        id: thumbProc
+        onExited: (code) => { if (code === 0) app.thumb = "file://" + app.runDir + "/lister-nahlad.png?" + Date.now(); }
+    }
+    function loadMedia() {
+        info = null; thumb = ""; player.stop();
+        probe.command = ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", path]; probe.running = true;
+        if (isVideo) { thumbProc.command = ["sh", "-c", 'mkdir -p "$1" && ffmpegthumbnailer -i "$2" -o "$1/lister-nahlad.png" -s 960 -t 15%', "sh", runDir, path]; thumbProc.running = true; }
+        if (isAudio) { player.source = "file://" + path; player.play(); }
+    }
+    function dur(sec) { sec = Math.round(sec || 0); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), x = sec % 60;
+                        return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); }
+    readonly property var facts: {
+        if (!info) return [];
+        const f = info.format || {}, out = [];
+        const v = (info.streams || []).find(x => x.codec_type === "video" && !(x.disposition && x.disposition.attached_pic));
+        const a = (info.streams || []).find(x => x.codec_type === "audio");
+        const t = Object.assign({}, (a && a.tags) || {}, f.tags || {});          // Ogg/Opus majú tagy v stope
+        if (t.title || t.TITLE) out.push(["Názov", t.title || t.TITLE]);
+        if (t.artist || t.ARTIST) out.push(["Interpret", t.artist || t.ARTIST]);
+        if (t.album || t.ALBUM) out.push(["Album", t.album || t.ALBUM]);
+        out.push(["Dĺžka", dur(parseFloat(f.duration))]);
+        if (v) out.push(["Video", (v.codec_name || "").toUpperCase() + " · " + v.width + "×" + v.height + (v.r_frame_rate ? " · " + Math.round(eval(v.r_frame_rate) * 100) / 100 + " fps" : "")]);
+        if (a) out.push(["Zvuk", (a.codec_name || "").toUpperCase() + " · " + (a.sample_rate ? Math.round(a.sample_rate / 100) / 10 + " kHz" : "") + (a.channels ? " · " + (a.channels === 1 ? "mono" : a.channels === 2 ? "stereo" : a.channels + " kanálov") : "")]);
+        if (f.bit_rate) out.push(["Dátový tok", Math.round(f.bit_rate / 1000) + " kb/s"]);
+        out.push(["Kontajner", f.format_long_name || f.format_name || ""]);
+        const subs = (info.streams || []).filter(x => x.codec_type === "subtitle").length;
+        if (subs) out.push(["Titulky", subs + " stôp"]);
+        return out;
+    }
+    MediaPlayer { id: player; audioOutput: AudioOutput { volume: 0.8 } }
 
     Process {
         id: load
@@ -40,12 +85,13 @@ ShellRoot {
     }
     function reload(more) {
         if (isImage && mode !== "hex") { mode = "obrazok"; return; }
-        if (mode === "obrazok") mode = "text";
+        if (isMedia && mode !== "hex" && mode !== "text") { mode = "medium"; loadMedia(); return; }
+        if (mode === "obrazok" || mode === "medium") { mode = "text"; player.stop(); }
         load.append = !!more;
         load.command = ["latte-tc", "nahlad", path, "--od", String(more ? loaded : 0)].concat(mode === "hex" ? ["--hex"] : []).concat(enc ? ["--kodovanie", enc] : []);
         load.running = true;
     }
-    Component.onCompleted: { reload(false); sib.running = true; }
+    Component.onCompleted: { if (isMedia) mode = "medium"; reload(false); sib.running = true; }
     Process {
         id: sib
         command: ["sh", "-c", 'ls -1Ap "$(dirname "$1")" | grep -v /$', "sh", app.path]
@@ -54,7 +100,7 @@ ShellRoot {
     function step(d) {
         const i = siblings.indexOf(name); if (i < 0 || !siblings.length) return;
         const n = siblings[(i + d + siblings.length) % siblings.length];
-        path = path.substring(0, path.lastIndexOf("/") + 1) + n; mode = isImage ? "obrazok" : "text"; enc = ""; content = ""; reload(false);
+        path = path.substring(0, path.lastIndexOf("/") + 1) + n; mode = isImage ? "obrazok" : (isMedia ? "medium" : "text"); enc = ""; content = ""; reload(false);
     }
     function doFind(next) {
         if (!find) return;
@@ -81,6 +127,9 @@ ShellRoot {
                 else if (ev.key === Qt.Key_F3) app.doFind(true);
                 else if (ev.key === Qt.Key_1) { app.mode = "text"; app.reload(false); }
                 else if (ev.key === Qt.Key_3) { app.mode = "hex"; app.reload(false); }
+                else if (app.mode === "medium" && ev.key === Qt.Key_Space && app.isAudio) { if (player.playbackState === MediaPlayer.PlayingState) player.pause(); else player.play(); }
+                else if (app.mode === "medium" && ev.key === Qt.Key_Right) player.position = Math.min(player.duration, player.position + 5000);
+                else if (app.mode === "medium" && ev.key === Qt.Key_Left) player.position = Math.max(0, player.position - 5000);
                 else if (ev.key === Qt.Key_W) app.wrap = !app.wrap;
                 else if (ev.key === Qt.Key_N) app.step(1);
                 else if (ev.key === Qt.Key_P) app.step(-1);
@@ -115,6 +164,7 @@ ShellRoot {
                 Chip { label: "1 Text"; on: app.mode === "text"; onClicked: { app.mode = "text"; app.reload(false); } }
                 Chip { label: "3 Hex"; on: app.mode === "hex"; onClicked: { app.mode = "hex"; app.reload(false); } }
                 Chip { visible: app.isImage; label: "Obrázok"; on: app.mode === "obrazok"; onClicked: app.mode = "obrazok" }
+                Chip { visible: app.isMedia; label: app.isAudio ? "Zvuk" : "Video"; on: app.mode === "medium"; onClicked: { app.mode = "medium"; app.loadMedia(); } }
                 Chip { label: "W Zalamovať"; on: app.wrap; onClicked: app.wrap = !app.wrap }
                 Item { width: 10; height: 1 }
                 Repeater { model: ["", "utf-8", "cp1250", "iso-8859-2", "latin-1"]
@@ -158,6 +208,50 @@ ShellRoot {
                 anchors { left: parent.left; right: parent.right; top: bar.bottom; bottom: status.top; margins: 10 }
                 source: app.mode === "obrazok" ? "file://" + app.path : ""; fillMode: Image.PreserveAspectFit; asynchronous: true
             }
+            // médium: snímka / obal, údaje, prehrávanie zvuku
+            Item {
+                visible: app.mode === "medium"
+                anchors { left: parent.left; right: parent.right; top: bar.bottom; bottom: status.top; margins: 16 }
+                Image {
+                    id: mimg
+                    anchors { left: parent.left; top: parent.top; bottom: ctl.top; bottomMargin: 12 }
+                    width: parent.width * 0.6
+                    source: app.thumb; fillMode: Image.PreserveAspectFit; asynchronous: true; cache: false
+                    Glyph { anchors.centerIn: parent; visible: !app.thumb; name: app.isAudio ? "music" : "movie"; size: 96; color: theme.fgDim }
+                }
+                Column {
+                    anchors { left: mimg.right; leftMargin: 20; right: parent.right; top: parent.top }
+                    spacing: 8
+                    Repeater {
+                        model: app.facts
+                        Column {
+                            required property var modelData
+                            width: parent.width; spacing: 1
+                            Text { text: modelData[0]; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11; weight: Font.Bold } }
+                            Text { width: parent.width; wrapMode: Text.WrapAnywhere; text: modelData[1]; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 } }
+                        }
+                    }
+                }
+                Row {
+                    id: ctl
+                    anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                    height: 40; spacing: 12
+                    Chip { visible: app.isAudio; anchors.verticalCenter: parent.verticalCenter
+                           label: player.playbackState === MediaPlayer.PlayingState ? "Pauza (Medzerník)" : "Prehrať (Medzerník)"
+                           onClicked: player.playbackState === MediaPlayer.PlayingState ? player.pause() : player.play() }
+                    Item {
+                        visible: app.isAudio; width: parent.width - 360; height: 40
+                        Rectangle { anchors.verticalCenter: parent.verticalCenter; width: parent.width; height: 6; radius: 3; color: theme.field }
+                        Rectangle { anchors.verticalCenter: parent.verticalCenter; width: player.duration ? parent.width * player.position / player.duration : 0; height: 6; radius: 3; color: theme.primary }
+                        MouseArea { anchors.fill: parent; onClicked: (m) => { if (player.duration) player.position = player.duration * m.x / width; } }
+                    }
+                    Text { visible: app.isAudio; anchors.verticalCenter: parent.verticalCenter; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                           text: app.dur(player.position / 1000) + " / " + app.dur(player.duration / 1000) }
+                    Chip { anchors.verticalCenter: parent.verticalCenter; label: app.isVideo ? "Prehrať v prehrávači" : "Otvoriť v prehrávači"
+                           onClicked: { player.pause(); opener.command = ["xdg-open", app.path]; opener.startDetached(); } }
+                }
+            }
+            Process { id: opener }
             Rectangle {
                 id: status
                 anchors { left: parent.left; right: parent.right; bottom: parent.bottom }

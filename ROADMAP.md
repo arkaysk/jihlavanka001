@@ -389,12 +389,12 @@ flowchart TD
   - [ ] Strom ako trvalý panel vedľa zoznamu, vlastné stĺpce
   - [x] Výber: Insert/Medzerník, Ctrl/Shift+klik, Num+ / Num− s maskou, Num* obrátiť, Ctrl+A, **rýchle hľadanie** písaním a rýchly filter
   - [x] **Výber:** Alt+Num± podľa prípony, uložiť a obnoviť výber
-  - [ ] Porovnanie výberu s druhým panelom
+  - [x] Porovnanie výberu s druhým panelom (Príkazy › Označiť, čo je aj / čo chýba v druhom paneli)
   - [x] F-klávesy: F2/Ctrl+R obnoviť, F4 editor, Shift+F4 nový súbor, **F5 kopírovať / F6 presunúť** s dialógom (cieľ, maska,
         prepísať / preskočiť / staršie / premenovať, overenie SHA-256, **rad úloh** s pauzou a zrušením, F2 = do radu), Shift+F6 premenovať,
         F7 priečinok (aj vnorené a/b/c), F8/Del do koša, Shift+Del natrvalo, Ctrl+C/X/V súbory cez schránku, zobrazenie Ctrl+F1/F2, triedenie Ctrl+F3–F6
   - [x] **F3 Lister** (samostatné okno: text, hex, obrázok, kódovania UTF-8/CP1250/ISO-8859-2, hľadanie, N/P ďalší súbor, veľké súbory po častiach)
-  - [ ] Obmedzenie rýchlosti kopírovania, Lister pre médiá (zvuk, video)
+  - [x] **Obmedzenie rýchlosti kopírovania** (F5/F6: 5–100 MB/s), **Lister pre médiá** (zvuk sa prehrá v okne, video: snímka a údaje z ffprobe)
   - [x] **Hromadné premenovanie** (Ctrl+M): masky [N] [N1-3] [E] [C] [C:3] [Y][M][D] [h][m][s] [P], počítadlo, hľadať/nahradiť, regex, veľkosť písmen, živý náhľad s kolíziami, späť
   - [x] **Porovnanie priečinkov** (Shift+F2, označí nové a novšie na oboch stranách, aj podľa obsahu), **Synchronizácia priečinkov** (→ ← ↔, podľa obsahu, plán pred vykonaním)
   - [x] **Porovnanie dvoch súborov podľa obsahu** (`apps/porovnaj.qml`: text vedľa seba so zvýraznením znakov, skoky na rozdiely, binárne bajty)
