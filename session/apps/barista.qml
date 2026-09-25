@@ -18,6 +18,7 @@ ShellRoot {
     property string themeId: theme.themeId
     property string modePref: "tema"
     property string windowMode: "paska"
+    property string ctrlProfile: "windows"   // profil ovládania (latte/skratky.lua), zmena platí hneď
     property string mascot: "macka"
     property string aiChoice: "domaci"
     property string aiState: ""
@@ -39,6 +40,8 @@ ShellRoot {
         stdout: StdioCollector { onStreamFinished: { const ok = /ok=1/.test(this.text); const m = (this.text.match(/model=(.*)/) || [, ""])[1]; app.aiState = ok ? "✓ Domáci server odpovedá" + (m ? " (" + m + ")" : "") : "× Domáci server teraz neodpovedá — nastavíš neskôr"; } }
     }
     FileView { id: doneFile; path: app.cfg + "/barista-done"; printErrors: false }
+    FileView { path: app.cfg + "/profil-ovladania"; printErrors: false
+               onLoaded: app.ctrlProfile = (["linux", "mac"].indexOf(text().trim()) >= 0) ? text().trim() : "windows" }
     Process { id: runner }
     function run(cmd) { runner.command = cmd; runner.running = true; }
     // inštalácia vybraných aplikácií priamo v Baristovi (krok Hotovo), jedna po druhej, so stavom každej
@@ -202,8 +205,21 @@ ShellRoot {
         id: sWindows
         Column {
             spacing: 14
-            H { text: "Okná" }
-            P { text: "Ako sa majú ukladať okná? Super+W prepína kedykoľvek, Super+Z ponúkne rozloženie okna." }
+            H { text: "Ovládanie a okná" }
+            P { text: "Odkiaľ prichádzaš? Klávesové skratky a správanie myši sa prispôsobia. Zmeníš to v Nastaveniach › Klávesnica a skratky." }
+            Row {
+                spacing: 12
+                Repeater {
+                    model: [["windows", "Windows", "Alt+Tab, Alt+F4, Ctrl+Alt+Del, Win = Štart", "app-window"],
+                            ["linux", "Linux", "Super+Enter, Super+Q, fokus za myšou", "terminal-2"],
+                            ["mac", "macOS", "Cmd+Medzerník, Cmd+Tab, Cmd+Q (Cmd = Win)", "keyboard"]]
+                    Choice { required property var modelData; width: 230; height: 110; title: modelData[1]; sub: modelData[2]; glyph: modelData[3]; on: app.ctrlProfile === modelData[0]
+                             onPicked: { app.ctrlProfile = modelData[0];
+                                         app.run(["sh", "-c", "mkdir -p \"$1\" && if [ \"$2\" = windows ]; then rm -f \"$1/profil-ovladania\"; else printf '%s\\n' \"$2\" > \"$1/profil-ovladania\"; fi; hyprctl reload",
+                                                  "sh", app.cfg, modelData[0]]); } }
+                }
+            }
+            P { text: "Ako sa majú ukladať okná? Režim prepneš kedykoľvek ikonou na lište; Win+Z ponúkne rozloženie okna." }
             Row {
                 spacing: 12
                 Repeater {
