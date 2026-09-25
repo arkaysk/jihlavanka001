@@ -1,7 +1,10 @@
 // LatteOS — Správca zariadení (Device Manager). Podľa old/docs/nastavenia.md („Správca zdrojov“):
 // zariadenia ako dlaždice (veľká ikona v zaoblenom štvorci, názov, stav) po skupinách; ukazuje zariadenia,
 // nie ich obsah. Obrazovky: rozlíšenie a mierka s potvrdením do 15 s, inak sa zmena vráti (Enter = ponechať,
-// Esc = vrátiť). Backend: latte-devices. Spúšťa sa: latte-app zariadenia [skupina]
+// Esc = vrátiť). Backend: latte-devices. Spúšťa sa: latte-app zariadenia [skupina|siete]
+// Stav každého zariadenia (funguje / chýba firmvér / chýba balík / treba cudzí repozitár / nepodporované) a súhrn hore.
+// Spolupráca aplikácií LatteOS: opravu urobí App Manager (Inštalátor, Aktualizácie › Ovládače), živé hodnoty a to,
+// kto práve používa kameru/mikrofón/GPU, dodá Monitor (latte-sysmon senzory, sukromie). Záložka Siete: pripojenia, Wi-Fi, VPN.
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -14,6 +17,31 @@ ShellRoot {
     property string group: (Quickshell.env("LATTE_APP_ARGS") || "").trim() || "vsetko"
     property var groups: []
     property var problems: []
+    property var faults: []
+    property string summary: ""
+    property var nets: ({ connections: [], wifi: [], addresses: [] })
+    property var live: []                 // hodnoty z Monitora pre vybrané zariadenie
+    property var uses: []                 // [ [mic|camera, aplikácia] ]
+    Process { id: netProc; command: ["latte-devices", "siete"]
+              stdout: StdioCollector { onStreamFinished: { try { app.nets = JSON.parse(this.text); } catch (e) {} } } }
+    Timer { interval: 5000; repeat: true; running: app.group === "siete"; triggeredOnStart: true; onTriggered: if (!netProc.running) netProc.running = true }
+    Process { id: liveProc; command: ["latte-sysmon", "senzory"]
+              stdout: StdioCollector { onStreamFinished: {
+                  let g = []; try { g = JSON.parse(this.text); } catch (e) {}
+                  const pre = app.sel && app.sel.item.sensorPrefix ? app.sel.item.sensorPrefix : "";
+                  const out = [];
+                  for (const grp of g) for (const it of grp.items) if (pre && it.id.startsWith(pre)) out.push(it);
+                  if (app.sel && app.sel.group === "pocitac" && /Core|Ryzen|CPU|Intel|AMD/i.test(app.sel.item.name)) for (const grp of g) if (grp.name.startsWith("Procesor")) for (const it of grp.items.slice(0, 6)) out.push(it);
+                  app.live = out; } } }
+    Process { id: useProc; command: ["latte-sysmon", "sukromie"]
+              stdout: StdioCollector { onStreamFinished: app.uses = this.text.split("\n").filter(l => l).map(l => l.split("\t")) } }
+    Timer { interval: 2000; repeat: true; running: !!app.sel; triggeredOnStart: true
+            onTriggered: { if (!liveProc.running && (app.sel.item.sensorPrefix || app.sel.group === "pocitac")) liveProc.running = true;
+                           if (!useProc.running && (app.sel.group === "kamery" || app.sel.group === "zvuk")) useProc.running = true; } }
+    function fix(f) {                     // oprava cez App Manager (tímová práca aplikácií)
+        if (f.packages && f.packages.length && !f.repo) run(["latte-app", "instalator", "--nazov=Ovládač_" + f.name.replace(/[^\w]+/g, "_").slice(0, 30), "install"].concat(f.packages), "App Manager inštaluje " + f.packages.join(", "));
+        else run(["latte-app", "aplikacie", "aktualizacie"], "App Manager › Ovládače a firmvér");
+    }
     property var sel: null            // { group, item }
     property string status: ""
     // obrazovka: skúšaný režim a odpočet
@@ -36,7 +64,7 @@ ShellRoot {
     Process {
         id: listProc; running: true
         command: ["latte-devices", "list"]
-        stdout: StdioCollector { onStreamFinished: { try { const d = JSON.parse(this.text); app.groups = d.groups; app.problems = d.problems; app.refreshSel();
+        stdout: StdioCollector { onStreamFinished: { try { const d = JSON.parse(this.text); app.groups = d.groups; app.problems = d.problems; app.faults = d.faults || []; app.summary = d.summary || ""; app.refreshSel();
                                                                    if (!app.sel && app.group !== "vsetko") { const g = d.groups.find(x => x.key === app.group); if (g && g.items.length) app.pick(g, g.items[0]); } } catch (e) {} } }
     }
     Timer { interval: 10000; repeat: true; running: app.countdown === 0; onTriggered: listProc.running = true }
@@ -85,6 +113,11 @@ ShellRoot {
     }
 
     Process { id: runner; onExited: listProc.running = true }
+    Timer { id: netLater; interval: 1500; onTriggered: netProc.running = true }
+    property string wifiSsid: ""
+    property bool wifiSecure: false
+    Process { id: wifiProc; stdinEnabled: true; onExited: (c) => { app.status = c === 0 ? "Pripojené: " + app.wifiSsid : "Pripojenie zlyhalo (heslo?)"; app.wifiSsid = ""; netLater.restart(); } }
+    function wifiConnect(pw) { wifiProc.stdinEnabled = true; wifiProc.command = ["latte-devices", "wifi", wifiSsid]; wifiProc.running = true; wifiProc.write(pw + "\n"); wifiProc.stdinEnabled = false; status = "Pripájam " + wifiSsid + "…"; }
     function run(cmd, msg) { runner.command = cmd; runner.running = true; if (msg) app.status = msg; }
 
     // 15 s na potvrdenie, potom návrat (aj pri zatvorení okna)
@@ -131,7 +164,8 @@ ShellRoot {
                 heading: "Zariadenia"; headingGlyph: "cpu"
                 current: app.group
                 model: [
-                    { title: "Prehľad", items: [{ key: "vsetko", glyph: "layout-grid", label: "Všetky zariadenia", sub: app.count(app.groups.reduce((n, g) => n + g.items.length, 0)) }] },
+                    { title: "Prehľad", items: [{ key: "vsetko", glyph: "layout-grid", label: "Všetky zariadenia", sub: app.faults.length ? "⚠ " + app.summary : app.count(app.groups.reduce((n, g) => n + g.items.length, 0)) },
+                                                { key: "siete", glyph: "network", label: "Siete", sub: "pripojenia, Wi-Fi, VPN" }] },
                     { title: "Skupiny", items: app.groups.map(g => ({ key: g.key, glyph: g.glyph, label: g.title, sub: g.items.length ? app.count(g.items.length) : "nič nepripojené", dim: g.items.length === 0 })) }
                 ]
                 onActivated: (it) => app.group = it.key
@@ -141,7 +175,7 @@ ShellRoot {
                 id: header
                 theme: theme
                 anchors { left: side.right; right: parent.right; top: parent.top }
-                title: app.group === "vsetko" ? "Všetky zariadenia" : ((app.groups.find(g => g.key === app.group) || {}).title || "")
+                title: app.group === "vsetko" ? "Všetky zariadenia" : (app.group === "siete" ? "Siete" : ((app.groups.find(g => g.key === app.group) || {}).title || ""))
                 searchPlaceholder: "Hľadať zariadenie"
                 netVisible: false
                 onCloseRequested: { app.revert(); Qt.quit(); }
@@ -155,8 +189,89 @@ ShellRoot {
                 Column {
                     id: col
                     width: content.width; spacing: 16
+                    // súhrn (stará verzia: „Všetky zariadenia pracujú normálne“)
+                    Rectangle {
+                        visible: app.group === "vsetko" && app.summary !== ""
+                        width: col.width; height: sumCol.implicitHeight + 24; radius: 14
+                        color: app.faults.length ? Qt.rgba(theme.error.r, theme.error.g, theme.error.b, 0.1) : Qt.rgba(0.44, 0.7, 0.45, 0.12)
+                        border { color: app.faults.length ? theme.error : "#6FB36F"; width: 1 }
+                        Column {
+                            id: sumCol; x: 14; y: 12; width: parent.width - 28; spacing: 8
+                            Row { spacing: 8
+                                  Glyph { name: app.faults.length ? "alert-triangle" : "check"; size: 18; color: app.faults.length ? theme.error : "#6FB36F"; anchors.verticalCenter: parent.verticalCenter }
+                                  Text { text: app.summary; color: theme.fg; font { family: theme.fontUi; pixelSize: 15; weight: Font.Bold } } }
+                            Repeater {
+                                model: app.faults
+                                Row {
+                                    required property var modelData
+                                    width: sumCol.width; spacing: 10
+                                    Column { width: parent.width - 150; spacing: 1
+                                             Text { width: parent.width; elide: Text.ElideRight; text: modelData.name + " · " + modelData.stateTitle; color: theme.fg; font { family: theme.fontUi; pixelSize: 12; weight: Font.DemiBold } }
+                                             Text { width: parent.width; wrapMode: Text.WordWrap; text: modelData.reason; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } } }
+                                    Rectangle { width: 140; height: 30; radius: 9; color: theme.primary; anchors.verticalCenter: parent.verticalCenter
+                                                Text { anchors.centerIn: parent; text: modelData.packages.length && !modelData.repo ? "Doinštalovať" : "App Manager"; color: theme.fgOnPrimary; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold } }
+                                                MouseArea { anchors.fill: parent; onClicked: app.fix(modelData) } }
+                                }
+                            }
+                        }
+                    }
+                    // ── záložka Siete ──
+                    Column {
+                        visible: app.group === "siete"
+                        width: col.width; spacing: 8
+                        Text { text: "ULOŽENÉ PRIPOJENIA"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold; letterSpacing: 0.8 } }
+                        Repeater {
+                            model: app.nets.connections
+                            Rectangle {
+                                required property var modelData
+                                width: col.width; height: 52; radius: 12; color: nm.containsMouse ? theme.hover : theme.field
+                                border { color: modelData.active ? theme.primary : "transparent"; width: 1 }
+                                Glyph { x: 14; anchors.verticalCenter: parent.verticalCenter; name: modelData.vpn ? "lock" : (modelData.type === "Wi-Fi" ? "wifi" : "network"); size: 20; color: modelData.active ? theme.primary : theme.fgDim }
+                                Column { x: 46; anchors.verticalCenter: parent.verticalCenter
+                                         Text { text: modelData.name; color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.Bold } }
+                                         Text { text: modelData.type + (modelData.device ? " · " + modelData.device : "") + (modelData.active ? " · pripojené" : "") + (modelData.auto ? " · automaticky" : ""); color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } } }
+                                MouseArea { id: nm; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                            onClicked: (m) => { const q = mapToItem(null, m.x, m.y), c = modelData;
+                                                ctx.open(q.x, q.y, [
+                                                    { glyph: c.active ? "world-off" : "world", label: c.active ? "Odpojiť" : "Pripojiť", action: () => { app.run(["latte-devices", "siet", c.active ? "odpoj" : "pripoj", c.name], (c.active ? "Odpájam " : "Pripájam ") + c.name); netLater.restart(); } },
+                                                    { glyph: "settings", label: "Upraviť (nmtui)", action: () => app.run(["foot", "-e", "nmtui", "edit", c.name]) },
+                                                    { separator: true },
+                                                    { glyph: "trash", label: "Zabudnúť pripojenie", danger: true, action: () => { app.run(["latte-devices", "siet", "zabudni", c.name], "Zabudnuté: " + c.name); netLater.restart(); } }
+                                                ], c.name); } }
+                            }
+                        }
+                        Text { text: "WI-FI V OKOLÍ"; topPadding: 8; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold; letterSpacing: 0.8 } }
+                        Text { visible: app.nets.wifi.length === 0; text: "Žiadna Wi-Fi karta alebo sieť v dosahu."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+                        Repeater {
+                            model: app.nets.wifi
+                            Rectangle {
+                                required property var modelData
+                                width: col.width; height: 40; radius: 10; color: wm.containsMouse ? theme.hover : theme.field
+                                Text { x: 14; anchors.verticalCenter: parent.verticalCenter; text: (modelData.inUse ? "● " : "") + modelData.ssid; color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: modelData.inUse ? Font.Bold : Font.Normal } }
+                                Text { anchors { right: parent.right; rightMargin: 14; verticalCenter: parent.verticalCenter } text: (modelData.security ? "🔒 " : "") + modelData.signal + " %"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+                                MouseArea { id: wm; anchors.fill: parent; hoverEnabled: true; onClicked: { app.wifiSsid = modelData.ssid; app.wifiSecure = !!modelData.security; wifiPw.text = ""; if (!app.wifiSecure) app.wifiConnect(""); else wifiPw.forceActiveFocus(); } }
+                            }
+                        }
+                        Rectangle {
+                            visible: app.wifiSsid !== "" && app.wifiSecure
+                            width: col.width; height: 44; radius: 10; color: theme.field; border { color: theme.primary; width: 1 }
+                            Text { id: wlab; x: 12; anchors.verticalCenter: parent.verticalCenter; text: "Heslo pre " + app.wifiSsid + ":"; color: theme.fg; font { family: theme.fontUi; pixelSize: 12 } }
+                            TextInput { id: wifiPw; anchors { left: wlab.right; leftMargin: 10; right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
+                                        echoMode: TextInput.Password; passwordCharacter: "•"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 }
+                                        Keys.onReturnPressed: (ev) => { ev.accepted = true; app.wifiConnect(text); text = ""; }
+                                        Keys.onEscapePressed: (ev) => { ev.accepted = true; app.wifiSsid = ""; } }
+                        }
+                        Text { text: "ADRESY: " + (app.nets.addresses.join(" · ") || "žiadne"); topPadding: 8; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+                        Row { spacing: 8
+                              Rectangle { width: vpnl.implicitWidth + 24; height: 32; radius: 9; color: vpm.containsMouse ? theme.hover : theme.field
+                                          Text { id: vpnl; anchors.centerIn: parent; text: "Pridať VPN / pripojenie (nmtui)"; color: theme.fg; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold } }
+                                          MouseArea { id: vpm; anchors.fill: parent; hoverEnabled: true; onClicked: app.run(["foot", "-e", "nmtui", "connect"]) } }
+                              Rectangle { width: nsl.implicitWidth + 24; height: 32; radius: 9; color: nsm.containsMouse ? theme.hover : theme.field
+                                          Text { id: nsl; anchors.centerIn: parent; text: "Nastavenia siete"; color: theme.fg; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold } }
+                                          MouseArea { id: nsm; anchors.fill: parent; hoverEnabled: true; onClicked: app.run(["latte-app", "nastavenia", "siet"]) } } }
+                    }
                     Repeater {
-                        model: app.shownGroups
+                        model: app.group === "siete" ? [] : app.shownGroups
                         Column {
                             id: grp
                             required property var modelData
@@ -187,7 +302,7 @@ ShellRoot {
                                             Text { width: parent.width; elide: Text.ElideRight; text: tile.modelData.name; color: theme.fg; font { family: theme.fontUi; pixelSize: 14; weight: Font.Bold } }
                                             Text {
                                                 width: parent.width; elide: Text.ElideRight
-                                                text: ({ ok: "● ", warn: "! ", off: "○ " })[tile.modelData.status] + tile.modelData.sub
+                                                text: (tile.modelData.state && tile.modelData.state !== "ok" && tile.modelData.state !== "off" ? "⚠ " + tile.modelData.stateTitle + " · " : ({ ok: "● ", warn: "! ", off: "○ " })[tile.modelData.status]) + tile.modelData.sub
                                                 color: tile.modelData.status === "warn" ? theme.error : theme.fgDim
                                                 font { family: theme.fontUi; pixelSize: 12 }
                                             }
@@ -224,6 +339,33 @@ ShellRoot {
                                color: theme.fg; font { family: theme.fontDisplay; pixelSize: 19; weight: Font.DemiBold } }
                         Text { width: parent.width; wrapMode: Text.WordWrap; text: parent.it ? parent.it.sub : "Klikni na dlaždicu. Zariadenie je vždy v jednej skupine podľa toho, čo robí."
                                color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+                        Rectangle {        // stav zariadenia + oprava cez App Manager
+                            visible: !!dcol.it && !!dcol.it.state
+                            readonly property bool bad: !!dcol.it && dcol.it.state !== "ok" && dcol.it.state !== "off"
+                            width: parent.width; height: stc.implicitHeight + 20; radius: 10
+                            color: bad ? Qt.rgba(theme.error.r, theme.error.g, theme.error.b, 0.1) : theme.field
+                            Column { id: stc; x: 10; y: 10; width: parent.width - 20; spacing: 6
+                                Text { text: (parent.parent.bad ? "⚠ " : "● ") + (dcol.it ? dcol.it.stateTitle : ""); color: parent.parent.bad ? theme.error : theme.primary; font { family: theme.fontUi; pixelSize: 13; weight: Font.Bold } }
+                                Text { visible: !!dcol.it && dcol.it.reason !== ""; width: parent.width; wrapMode: Text.WordWrap; text: dcol.it ? dcol.it.reason : ""; color: theme.fg; font { family: theme.fontUi; pixelSize: 12 } }
+                                Rectangle { visible: parent.parent.bad || (!!dcol.it && dcol.it.reason.indexOf("RPM Fusion") >= 0); width: parent.width; height: 32; radius: 9; color: theme.primary
+                                            Text { anchors.centerIn: parent; text: dcol.it && dcol.it.packages.length && !dcol.it.repo ? "Doinštalovať " + dcol.it.packages.join(", ") : "Riešiť v App Manageri › Ovládače"; color: theme.fgOnPrimary; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold } }
+                                            MouseArea { anchors.fill: parent; onClicked: app.fix(dcol.it) } }
+                            }
+                        }
+                        Column {           // živé hodnoty z Monitora
+                            visible: app.live.length > 0
+                            width: parent.width; spacing: 4
+                            Text { text: "TERAZ (z Monitora)"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 10; weight: Font.Bold; letterSpacing: 0.6 } }
+                            Repeater { model: app.live.slice(0, 8)
+                                Row { required property var modelData; width: dcol.width
+                                      Text { width: parent.width - 90; elide: Text.ElideRight; text: modelData.label; color: theme.fg; font { family: theme.fontUi; pixelSize: 12 } }
+                                      Text { width: 90; horizontalAlignment: Text.AlignRight; text: String(modelData.value).replace(".", ",") + " " + modelData.unit; color: theme.primary; font { family: theme.fontMono; pixelSize: 12; weight: Font.Bold } } } }
+                        }
+                        Text {             // kto práve používa kameru / mikrofón (Monitor)
+                            visible: (dcol.g === "kamery" || dcol.g === "zvuk") && app.uses.length > 0
+                            width: parent.width; wrapMode: Text.WordWrap; color: theme.error; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold }
+                            text: app.uses.filter(u => (dcol.g === "kamery") === (u[0] === "camera")).map(u => "Práve používa: " + u[1]).join("\n")
+                        }
                         Repeater {
                             model: parent.it ? Object.keys(parent.it.details) : []
                             Column {
@@ -364,6 +506,10 @@ ShellRoot {
                         Link { visible: dcol.g === "grafika"; glyph: "bolt"; label: "Stupeň výkonu (Nastavenia)"; onClicked: app.run(["latte-app", "nastavenia", "vykon"]) }
                         Link { visible: dcol.g === "napajanie"; glyph: "battery"; label: "Profil výkonu v Zariadeniach na lište"; onClicked: app.run(["noctalia", "msg", "panel-toggle", "latteos/devices:panel"]) }
                         Link { visible: dcol.g === "pocitac"; glyph: "activity"; label: "Živý stav v Monitore"; onClicked: app.run(["latte-app", "monitor"]) }
+                        Link { visible: !!dcol.it && !!dcol.it.sensorPrefix || dcol.g === "pocitac"; glyph: "activity"; label: "Senzory v Monitore"; onClicked: app.run(["latte-app", "monitor", "senzory"]) }
+                        Link { visible: dcol.g === "grafika" || dcol.g === "siet" || dcol.g === "ostatne"; glyph: "download"; label: "Ovládače a firmvér (App Manager)"; onClicked: app.run(["latte-app", "aplikacie", "aktualizacie"]) }
+                        Link { visible: dcol.g === "kamery" || dcol.g === "zvuk"; glyph: "shield"; label: "Kto smie mikrofón a kameru (App Manager)"; onClicked: app.run(["latte-app", "aplikacie", "opravnenia"]) }
+                        Link { visible: dcol.g === "tlac"; glyph: "printer"; label: "Tlačiarne (CUPS)"; onClicked: app.run(["xdg-open", "http://localhost:631/printers"]) }
                         Text { width: parent.width; wrapMode: Text.WordWrap; text: app.status; color: theme.primary; font { family: theme.fontUi; pixelSize: 12 } }
                     }
                 }

@@ -764,13 +764,20 @@ ShellRoot {
                 id: blkDrv
                 title: "Ovládače a firmvér (Správca zariadení)"; glyph: "cpu"
                 readonly property var d: app.drv
-                sub: !d ? "zisťujem…" : ((d.firmware.length ? d.firmware.length + " aktualizácií firmvéru" : "firmvér aktuálny (fwupd)") + " · grafika: " + d.gpu.map(g => g.driver || "?").join(", "))
+                sub: !d ? "zisťujem…" : ((d.firmware.length ? d.firmware.length + " aktualizácií firmvéru" : "firmvér aktuálny (fwupd)") + " · grafika: " + d.gpu.map(g => g.driver || "?").join(", ")
+                                            + ((d.devices || []).length ? " · ⚠ " + d.devices.length + " zariadení bez ovládača/firmvéru" : " · všetky zariadenia majú ovládač"))
                 actionLabel: d && d.firmware.length ? "Aktualizovať firmvér" : ""
                 onAction: app.run(["sh", "-c", "fwupdmgr update -y --no-reboot-check >/dev/null 2>&1 && notify-send -a LatteOS 'Firmvér aktualizovaný' 'Niektoré zmeny sa prejavia po reštarte.' || notify-send -a LatteOS 'Firmvér' 'Aktualizácia sa nepodarila.'"], "Aktualizujem firmvér…")
                 Repeater { model: blkDrv.d ? blkDrv.d.gpu : []; Line { required property var modelData; wrapMode: Text.WordWrap; elide: Text.ElideNone
                            text: "• " + modelData.name.replace(/\s*\[[0-9a-f:]+\]/g, "") + (modelData.driver ? " · ovládač " + modelData.driver : "") + (modelData.advice ? " — " + modelData.advice : "") } }
                 Repeater { model: blkDrv.d ? blkDrv.d.firmware : []; Line { required property var modelData; text: "• " + modelData.device + ": " + modelData.current + " → " + modelData.new } }
                 Repeater { model: blkDrv.d ? blkDrv.d.notes : []; Line { required property var modelData; text: modelData } }
+                Repeater { model: blkDrv.d ? (blkDrv.d.devices || []) : []
+                    Row { required property var modelData; spacing: 8
+                          Line { width: 460; wrapMode: Text.WordWrap; elide: Text.ElideNone; text: "⚠ " + modelData.name + " · " + modelData.stateTitle + (modelData.reason ? " — " + modelData.reason : "") }
+                          Pill { visible: modelData.packages.length > 0; primaryStyle: true; label: modelData.repo ? "Zapnúť " + modelData.repo + " a nainštalovať" : "Doinštalovať"
+                                 onClicked: app.run(["latte-app", "instalator", "--nazov=Ovládač", "install"].concat(modelData.packages), "Inštalátor: " + modelData.packages.join(", ")) } } }
+                Pill { label: "Správca zariadení ›"; onClicked: app.run(["latte-app", "zariadenia"], "Správca zariadení") }
             }
         }
     }

@@ -772,6 +772,12 @@ def drivers():
             out["gpu"].append(g)
     if not out["fwupd"]:
         out["notes"].append("Firmvér (BIOS, SSD, dokovacie stanice) aktualizuje fwupd — nie je nainštalovaný.")
+    # spolupráca so Správcom zariadení: zariadenia, ktorým chýba ovládač, firmvér alebo balík
+    try:
+        inv = json.loads(subprocess.run(["latte-devices", "list"], capture_output=True, text=True, timeout=20).stdout)
+        out["devices"] = inv.get("faults", [])
+    except Exception:
+        out["devices"] = []
     return out
 
 

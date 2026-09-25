@@ -100,6 +100,38 @@ Poradie: 1. Monitor (hotové nižšie) → 2. Digitálna pohoda podľa Pulse →
     alebo animácie Hyprlandu;
   - pri stupni Softvér ostanú vypnuté (pravidlo „každý prvok má variant bez shaderov“).
 
+### 25. 9. 2026, 2:50: Správca zariadení podľa starej verzie + spolupráca aplikácií ✅
+- **Stav každého zariadenia**, ako v starej verzii (hwstatus): funguje · chýba firmvér · chýba balík · treba cudzí
+  repozitár · nepodporované. Zisťuje sa to z ovládača v sysfs, zo záznamu jadra (neúspešné načítanie firmvéru)
+  a z `modprobe -R`.
+  - Známe prípady: NVIDIA bez ovládača a Broadcom Wi-Fi potrebujú RPM Fusion;
+    iwlwifi, amdgpu, i915, Realtek, Atheros, MediaTek a SOF majú firmvérový balík Fedory.
+- **Súhrn hore**: „Všetky zariadenia pracujú normálne“ alebo „N zariadení potrebuje pozornosť“ so zoznamom
+  a tlačidlom **Doinštalovať** pri každom.
+- Nové skupiny:
+  - **Ostatné zariadenia** (PCI a USB bez ovládača, aby nič nevypadlo zo zoznamu);
+  - **Tlačiarne** (CUPS);
+  - **Bluetooth** so spárovanými zariadeniami a ich batériou.
+- Nová záložka **Siete**:
+  - uložené pripojenia (pripojiť, odpojiť, upraviť, zabudnúť);
+  - **Wi-Fi v okolí** s pripojením a heslom;
+  - adresy, pridanie VPN.
+- **Spolupráca aplikácií** (tvoja poznámka):
+  - *Správca zariadení → App Manager:* oprava otvorí Inštalátor s balíkom (firmvér, ovládač) alebo App Manager ›
+    Ovládače (RPM Fusion). App Manager v bloku **Ovládače a firmvér** ukazuje zariadenia bez ovládača s tlačidlom
+    Doinštalovať a odkaz „Správca zariadení ›“.
+  - *Správca zariadení ↔ Monitor:*
+    - detail disku, siete, grafiky a procesora ukazuje **živé hodnoty** zo senzorov Monitora (čítanie/zápis,
+      príjem/odosielanie, takty, záťaž);
+    - kamera a mikrofón ukazujú, **ktorá aplikácia ich práve používa**;
+    - disky majú **SMART** (zdravie, teplota, hodiny, opotrebenie), keď ho Monitor načítal so správcom;
+      disk, ktorý zlyháva, sa ukáže ako problém;
+    - Monitor › Hardvér má tlačidlo „Správca zariadení“.
+- Vo VM je všetko v poriadku, takže správu s problémom som overil na simulovanom zázname jadra:
+  - chýbajúci firmvér iwlwifi vedie na `iwlwifi-mvm-firmware`;
+  - NVIDIA a Broadcom vedú na RPM Fusion;
+  - mosty sú v poriadku.
+
 ### 25. 9. 2026, 2:35: tlačidlo NET vypína internet okamžite ✅ (tvoja otázka)
 - **Prečo to predtým nefungovalo ani po reštarte:** Discord sa v skutočnosti nereštartoval. Zavretie okna ho iba
   schová do tray a proces bežal nepretržite od 23. 9. Starý NET sa uplatnil až pri novom spustení aplikácie.

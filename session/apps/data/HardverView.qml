@@ -18,6 +18,7 @@ Item {
     signal saveReport(string text)
     signal copyText(string text)
     signal menu(string text, real x, real y)
+    signal openDevices()
 
     readonly property var tabs: [["cpu", "Procesor"], ["cache", "Cache"], ["board", "Doska"], ["mem", "Pamäť"], ["spd", "SPD"],
                                  ["gpu", "Grafika"], ["disk", "Disky"], ["sys", "Systém"]]
@@ -258,6 +259,7 @@ Item {
                 Keys.onEscapePressed: { pw.text = ""; pwBox.visible = false; }
             }
         }
+        Btn { label: "Správca zariadení"; onClicked: hv.openDevices() }
         Btn { label: "Uložiť správu"; onClicked: hv.saveReport(hv.reportText()) }
         Btn { label: "Kopírovať"; onClicked: hv.copyText(hv.reportText()) }
         Text { anchors.verticalCenter: parent.verticalCenter; text: hv.rootError; color: hv.theme.error; font { family: hv.theme.fontUi; pixelSize: 12 } }

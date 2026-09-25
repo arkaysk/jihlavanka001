@@ -716,6 +716,7 @@ ShellRoot {
             onLoadRoot: (pw) => app.loadRoot(pw)
             onSaveReport: (t) => app.saveReport(t)
             onCopyText: (t) => app.run(["wl-copy", "--", t], "Správa o hardvéri skopírovaná")
+            onOpenDevices: app.run(["latte-app", "zariadenia"], "Správca zariadení")
             onMenu: (t, x, y) => ctx.open(x, y, [{ glyph: "clipboard", label: "Kopírovať", action: () => app.run(["wl-copy", "--", t], "Skopírované") }], "")
         }
     }
