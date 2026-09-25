@@ -69,6 +69,13 @@ hl.config({
     },
 })
 
+-- myš a touchpad z Nastavení (Hardvér › Myš, touchpad a ovládače; latte vstup.lua)
+do
+    local f = (os.getenv("XDG_CONFIG_HOME") or ((os.getenv("HOME") or "") .. "/.config")) .. "/latteos/vstup.lua"
+    local h = io.open(f, "r")
+    if h then h:close(); pcall(dofile, f) end
+end
+
 -- grafika vo VM: bez HW kurzora; pri vm-3d bez commit timingu (setup/f1/RESULTS.md)
 if mode.renderer ~= "hw" then
     hl.config({ cursor = { no_hardware_cursors = true } })

@@ -21,6 +21,9 @@
   latte-apps store app ID            JSON: detail — popis, snímky obrazovky, vývojár, licencia, veľkosť, inštalácie, verzie
   latte-apps latteos                 JSON: súčasti LatteOS — nainštalovaná verzia (commit) a čo je nové v repozitári
   latte-apps drivers                 JSON: ovládače a firmvér — fwupd, grafika (NVIDIA/AMD/Intel), odporúčania
+  latte-apps defaults                JSON: predvolené aplikácie (prehliadač, pošta, súbory, obrázky, video, hudba, text, PDF, archívy)
+                                     s aktuálnou voľbou a kandidátmi podľa MimeType v .desktop (Nastavenia › Predvolené aplikácie)
+  latte-apps default KAT DESKTOP_ID  nastaví aplikáciu pre všetky typy kategórie (xdg-mime default → ~/.config/mimeapps.list)
 
 RPM (systém) inštaluje a odinštaluje grafický Inštalátor (latte-app instalator) cez sudo dnf.
 """
@@ -58,6 +61,63 @@ def parse_desktop(path):
     except OSError:
         pass
     return kv
+
+
+# kategórie predvolených aplikácií: prvý typ určuje aktuálnu voľbu, nastavujú sa všetky
+DEFAULTS = [
+    ("web", "Webový prehliadač", "world", ["x-scheme-handler/https", "x-scheme-handler/http", "text/html", "application/xhtml+xml"]),
+    ("posta", "E-mail", "mail", ["x-scheme-handler/mailto"]),
+    ("subory", "Súbory", "folder", ["inode/directory"]),
+    ("obrazky", "Obrázky", "photo", ["image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp", "image/avif", "image/svg+xml"]),
+    ("video", "Video", "movie", ["video/mp4", "video/x-matroska", "video/webm", "video/quicktime", "video/x-msvideo", "video/mpeg"]),
+    ("hudba", "Hudba", "music", ["audio/mpeg", "audio/flac", "audio/ogg", "audio/x-wav", "audio/mp4", "audio/x-opus+ogg"]),
+    ("text", "Textový editor", "file-text", ["text/plain", "text/markdown", "application/x-shellscript"]),
+    ("pdf", "PDF a dokumenty", "file", ["application/pdf", "application/epub+zip"]),
+    ("archivy", "Archívy", "file-zip", ["application/zip", "application/x-7z-compressed", "application/x-tar", "application/gzip", "application/vnd.rar"]),
+]
+
+
+def _desktops():
+    """id → (meno, ikona, množina MimeType) pre viditeľné aplikácie; skoršie priečinky majú prednosť."""
+    out = {}
+    lang = (os.environ.get("LANG") or "sk").split("_")[0]
+    for _src, d in DESKTOP_DIRS:
+        for f in glob.glob(d + "/*.desktop"):
+            did = os.path.basename(f)
+            if did in out:
+                continue
+            kv = parse_desktop(f)
+            if kv.get("NoDisplay") == "true" or kv.get("Hidden") == "true" or kv.get("Type", "Application") != "Application":
+                continue
+            mimes = {m for m in kv.get("MimeType", "").split(";") if m}
+            out[did] = (kv.get("Name[%s]" % lang) or kv.get("Name") or did[:-8], kv.get("Icon", ""), mimes)
+    return out
+
+
+def defaults():
+    apps, res = _desktops(), []
+    for key, title, glyph, mimes in DEFAULTS:
+        rc, cur, _ = sh(["xdg-mime", "query", "default", mimes[0]], timeout=10)
+        cur = cur.strip() if rc == 0 else ""
+        opts = [{"id": did, "name": n, "icon": ic} for did, (n, ic, ms) in apps.items() if ms & set(mimes)]
+        opts.sort(key=lambda o: (o["id"] != cur, o["name"].lower()))
+        name = apps[cur][0] if cur in apps else (cur[:-8] if cur else "")
+        res.append({"key": key, "title": title, "glyph": glyph, "current": cur, "currentName": name, "options": opts, "types": len(mimes)})
+    return res
+
+
+def set_default(key, did):
+    for k, _t, _g, mimes in DEFAULTS:
+        if k == key:
+            if not re.match(r"^[A-Za-z0-9._+-]+\.desktop$", did):
+                return 2
+            rc = 0
+            for m in mimes:
+                rc |= sh(["xdg-mime", "default", did, m], timeout=10)[0]
+            if key == "web":
+                sh(["xdg-settings", "set", "default-web-browser", did], timeout=10)
+            return rc
+    return 2
 
 
 def human(n):
@@ -788,6 +848,10 @@ def main(a):
     cmd = a[0]
     if cmd == "installed":
         print(json.dumps(installed(), ensure_ascii=False))
+    elif cmd == "defaults":
+        print(json.dumps(defaults(), ensure_ascii=False))
+    elif cmd == "default" and len(a) == 3:
+        return set_default(a[1], a[2])
     elif cmd == "updates":
         print(json.dumps(updates(), ensure_ascii=False))
     elif cmd == "search" and len(a) > 1:

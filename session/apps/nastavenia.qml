@@ -5,6 +5,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import "common"
+import "data"
 
 ShellRoot {
     id: app
@@ -19,6 +20,7 @@ ShellRoot {
     property var history: []
     property int historyIndex: -1
     property string search: ""
+    onSearchChanged: Qt.callLater(() => { if (search !== "" && side.areas.length && !side.areas.some(a => a.key === side.openArea)) side.openArea = side.areas[0].key; })
     property string status: ""
 
     // ── stav LatteOS ─────────────────────────────────────────────────────────────
@@ -78,6 +80,7 @@ ShellRoot {
         { key: "softver", title: "Softvér", glyph: "apps", summary: "AI: " + (ai.ok === "1" ? (ai.model || "pripravené") : "nenastavené"), owner: "App Manager",
           pages: [
             { key: "aplikacie", label: "Aplikácie", glyph: "apps", status: "partial" },
+            { key: "predvolene", label: "Predvolené aplikácie", glyph: "star", status: "ready" },
             { key: "instalacia", label: "Inštalácia aplikácií", glyph: "download", status: "partial" },
             { key: "aktualizacie", label: "Aktualizácie", glyph: "refresh", status: "partial" },
             { key: "ai", label: "AI", glyph: "sparkles", status: "ready" },
@@ -92,21 +95,27 @@ ShellRoot {
         { key: "hardver", title: "Hardvér", glyph: "cpu", summary: (mode.renderer || "?") + " · stupeň " + (mode.tier || "?"), owner: "Device Manager",
           pages: [
             { key: "vykon", label: "Výkon a grafika", glyph: "bolt", status: "ready" },
+            { key: "hry", label: "Hry a herný režim", glyph: "device-gamepad", status: "ready" },
             { key: "obrazovky", label: "Obrazovky", glyph: "device-desktop", status: "partial" },
             { key: "zvuk", label: "Zvuk", glyph: "volume", status: "partial" },
             { key: "siet", label: "Sieť", glyph: "wifi", status: "partial" },
             { key: "bluetooth", label: "Bluetooth a periférie", glyph: "bluetooth", status: "partial" },
+            { key: "vstup", label: "Myš, touchpad a ovládače", glyph: "mouse", status: "ready" },
+            { key: "disky", label: "Úložné zariadenia", glyph: "usb", status: "partial" },
+            { key: "tlac", label: "Tlač a skenovanie", glyph: "printer", status: "partial" },
             { key: "napajanie", label: "Napájanie", glyph: "battery", status: "partial" },
             { key: "diagnostika", label: "Diagnostika a pády", glyph: "stethoscope", status: "partial" } ] },
         { key: "ucet", title: "Účet", glyph: "user", summary: user, owner: "Session Manager",
           pages: [
             { key: "mojucet", label: "Môj účet", glyph: "user", status: "ready" },
+            { key: "heslo", label: "Heslo a zabezpečenie", glyph: "key", status: "ready" },
             { key: "pouzivatelia", label: "Používatelia", glyph: "users", status: "ready" },
             { key: "prihlasovanie", label: "Prihlasovanie", glyph: "login", status: "ready" },
             { key: "uzamknutie", label: "Uzamknutie a nečinnosť", glyph: "lock", status: "ready" } ] },
         { key: "prostredie", title: "Prostredie", glyph: "palette", summary: theme.themeName + " · " + modeName(modePref), owner: "Prispôsobenie",
           pages: [
             { key: "motiv", label: "Motív a farby", glyph: "palette", status: "ready" },
+            { key: "pismo", label: "Písmo a mierka", glyph: "typography", status: "ready" },
             { key: "pozadie", label: "Pozadie", glyph: "photo", status: "ready" },
             { key: "okna", label: "Okná", glyph: "layout-columns", status: "ready" },
             { key: "lista", label: "Lišta a systémové menu", glyph: "layout-bottombar", status: "ready" },
@@ -119,6 +128,8 @@ ShellRoot {
             { key: "cas", label: "Dátum, čas a poloha", glyph: "clock", status: "ready" },
             { key: "jazyk", label: "Jazyk a región", glyph: "language", status: "ready" },
             { key: "klavesnica", label: "Klávesnica a skratky", glyph: "keyboard", status: "partial" },
+            { key: "bezpecnost", label: "Bezpečnosť", glyph: "shield-lock", status: "ready" },
+            { key: "zdielanie", label: "Zdieľanie", glyph: "share", status: "partial" },
             { key: "o", label: "O LatteOS", glyph: "info-circle", status: "ready" } ] }
     ]
     readonly property var allPages: {
@@ -137,6 +148,7 @@ ShellRoot {
         if (push !== false) { history = history.slice(0, historyIndex + 1).concat([key]); historyIndex = history.length - 1; }
         if (key === "ai") { aiStatus.running = true; aiList.running = true; }
         if (key === "o") aboutProc.running = true;
+        dalsie.opened(key);
         if (key === "oznamenia") dndProc.running = true;
         if (key === "mojucet") accountProc.running = true;
         if (key === "jazyk") localeProc.running = true;
@@ -403,6 +415,7 @@ ShellRoot {
                  : app.areas.map(a => Object.assign({}, a, { pages: a.pages.filter(p => (p.label + " " + a.title).toLowerCase().includes(app.search.toLowerCase())) }))
                             .filter(a => a.pages.length > 0)
             current: app.section
+            animMs: app.noAnim ? 0 : 200
             onActivated: (area, page) => app.go(page)
             onHomeRequested: app.go("domov")
             onContextRequested: (area, page, label, x, y) => ctx.open(x, y, [
@@ -511,7 +524,7 @@ ShellRoot {
             pristupnost: "Väčšie rozhranie, vyšší kontrast, žiadny pohyb, väčší kurzor.",
             oznamenia: "Kde a ako sa ukazujú oznámenia. História a Nerušiť sú aj v paneli Čas na lište.",
             klavesnica: "Rozloženia klávesnice sk a us, prepínanie Alt+Shift. Skratky LatteOS:"
-        })[k] || (plans[k] ? "Pripravujeme. Čo tu bude:" : "");
+        })[k] || dalsie.intros[k] || (plans[k] ? "Pripravujeme. Čo tu bude:" : "");
     }
     readonly property var plans: ({
         aplikacie: ["zoznam aplikácií (Flatpak, RPM, AppImage, Windows cez Proton, Android cez Waydroid)", "predvolené aplikácie", "App Manager: „Bude to fungovať?“ pred inštaláciou"],
@@ -546,6 +559,7 @@ ShellRoot {
         if (k === "pristupnost") return "Mierka rozhrania " + Math.round((parseFloat(access.ui_scale) || 1) * 100) + " %" + (access.high_contrast === "true" ? " · vysoký kontrast" : "") + (noAnim ? " · bez animácií" : "") + "\nKurzor " + cursorSize + " px";
         if (k === "oznamenia") return (dnd ? "Nerušiť: zapnuté" : "Nerušiť: vypnuté") + "\nPoloha: " + ({ top_right: "vpravo hore", top_center: "hore v strede", top_left: "vľavo hore", bottom_right: "vpravo dole", bottom_left: "vľavo dole" })[notif.position || "top_right"];
         if (k === "klavesnica") return "Rozloženia sk, us (Alt+Shift)\nEditor skratiek: plán";
+        if (dalsie.pages[k]) return dalsie.stateText(k);
         if (plans[k]) return "Zatiaľ len plán";
         return "—";
     }
@@ -565,7 +579,7 @@ ShellRoot {
             jazyk: "~/.config/latteos/locale (načíta latte-session)\n/etc/locale.conf (systém)",
             pristupnost: "~/.local/state/noctalia/settings.toml [accessibility]\n~/.config/latteos/no-animations, cursor-size",
             klavesnica: "/usr/share/latteos/hypr/hyprland.lua\n~/.config/latteos/hyprland.lua"
-        })[k] || "—";
+        })[k] || dalsie.stored[k] || "—";
     }
 
     // ── ovládacie prvky ──────────────────────────────────────────────────────────
@@ -666,6 +680,8 @@ ShellRoot {
         }
     }
 
+    NastavDalsie { id: dalsie; app: app; theme: theme }
+
     // stránky, ktoré vlastní iný manažér (main_setting_v2 §57: stav + odkaz, nie druhá implementácia)
     readonly property var managed: ({
         aplikacie: ["Aplikácie", "Nainštalované aplikácie, zdroj, veľkosť, odinštalovanie.", ["latte-app", "aplikacie", "nainstalovane"]],
@@ -677,10 +693,13 @@ ShellRoot {
         siet: ["Správca zariadení", "Sieťové karty a pripojenia (NetworkManager). Wi-Fi a VPN cez nmtui, neskôr priamo.", ["latte-app", "zariadenia", "siet"]],
         bluetooth: ["Správca zariadení", "Bluetooth adaptéry; párovanie v riadiacom centre.", ["latte-app", "zariadenia", "bluetooth"]],
         napajanie: ["Správca zariadení", "Batéria, adaptér a profil výkonu.", ["latte-app", "zariadenia", "napajanie"]],
+        disky: ["Správca zariadení", "Disky, USB kľúče a karty: stav SMART, oddiely, bezpečné odpojenie. Pripojené sa ukážu aj v Súboroch.", ["latte-app", "zariadenia", "disky"]],
+        tlac: ["Správca zariadení", "Tlačiarne a skenery: stav, ovládač a rad úloh. Novú sieťovú tlačiareň Fedora zvyčajne nájde sama (IPP Everywhere).", ["latte-app", "zariadenia", "tlac"]],
         spustanie: ["Monitor", "Čo sa spúšťa po prihlásení: autostart, služby tvojho účtu, časovače. Vypnutie jedným klikom.", ["latte-app", "monitor", "autorun"]]
     })
     function page(k) {
         if (managed[k]) return pManaged;
+        if (dalsie.pages[k]) return dalsie.pages[k];
         return ({ domov: pDomov, ai: pAi, subory: pSubory, ulozisko: pUlozisko, vykon: pVykon, diagnostika: pDiag,
                   prihlasovanie: pGreeter, motiv: pMotiv, pozadie: pPozadie, okna: pOkna, lista: pLista, efekty: pEfekty,
                   start: pStart, cas: pCas, o: pO, klavesnica: pKlavesy, oznamenia: pOznamenia, pristupnost: pPristupnost,

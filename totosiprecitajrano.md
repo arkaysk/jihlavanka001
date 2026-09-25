@@ -100,6 +100,45 @@ Poradie: 1. Monitor (hotové nižšie) → 2. Digitálna pohoda podľa Pulse →
     alebo animácie Hyprlandu;
   - pri stupni Softvér ostanú vypnuté (pravidlo „každý prvok má variant bez shaderov“).
 
+### 25. 9. 2026, 6:40: Nastavenia — plynulejšie bočné menu a chýbajúce stránky ✅
+- **Bočné menu** (tvoja poznámka, že stará verzia bola plynulejšia). Rozdiely voči starej verzii:
+  - vo VM nemalo animácie;
+  - otvorená karta vždy vyplnila celú výšku;
+  - nedala sa zbaliť;
+  - zoznam sa objavil naraz.
+- **Teraz je to ako v starej verzii (Gtk.Revealer 200 ms):**
+  - karta je vysoká podľa svojich stránok;
+  - rozbalí sa za 200 ms aj vo VM, vypne ju iba „bez animácií“;
+  - ostatné karty sa posúvajú spolu s ňou;
+  - šípka ›/⌄ a ďalším klikom sa karta zbalí;
+  - zvýraznenie aktívnej stránky (s pruhom) sa presúva, neskáče;
+  - aktívna stránka je vždy vidieť.
+- **Klávesnica:**
+  - ↑/↓ stránky (aj cez hranicu oblasti);
+  - PgUp/PgDn alebo Ctrl+↑/↓ oblasti;
+  - Enter rozbalí alebo zbalí;
+  - Home = Domov.
+- **Nové stránky** (porovnanie s Windows 11, GNOME, KDE a stromom z main_setting_v2):
+  - Softvér › **Predvolené aplikácie**: prehliadač, pošta, súbory, obrázky, video, hudba, text, PDF, archívy.
+    Rieši to `latte-apps defaults/default` cez xdg-mime.
+  - Hardvér › **Hry a herný režim**:
+    - herný režim;
+    - Herňa;
+    - Steam, GameMode, MangoHud, Gamescope, Proton-GE so stavom a tlačidlom Nainštalovať;
+    - herné ovládače.
+  - Hardvér › **Myš, touchpad a ovládače**:
+    - rýchlosť, zrýchlenie, ľavák, prirodzené rolovanie a rýchlosť rolovania;
+    - ťuknutie, vypnutie počas písania.
+    - Platí hneď, uloží sa do `~/.config/latteos/vstup.lua` (načíta ho hyprland.lua).
+  - Hardvér › **Úložné zariadenia** a **Tlač a skenovanie** (odkaz do Správcu zariadení).
+  - Účet › **Heslo a zabezpečenie**: zmena hesla, odtlačok prsta, kľúčenka, SSH kľúče (kopírovať, vytvoriť).
+  - Prostredie › **Písmo a mierka**: písmo aplikácií a kódu, veľkosť, veľkosť textu, vyhladzovanie, hinting, náhľad.
+  - Systém › **Bezpečnosť** (ako Zabezpečenie vo Windows): firewall, SELinux, Secure Boot, šifrovanie, SSH,
+    aktualizácie, NET, uzamknutie. Každá položka má stav slovom, vysvetlenie a akciu.
+  - Systém › **Zdieľanie**: SSH, KDE Connect, zdieľanie obrazovky (portál); vzdialená plocha a Samba zatiaľ ako plán.
+- Stránky sú v `apps/data/NastavDalsie.qml`. Operácie s rootom idú cez terminál so sudo, ako pri Používateľoch.
+- **Poznámka k VM:** Bezpečnosť ukazuje „SSH zapnuté“. Na vývoj ho nechávam, na hotovom systéme bude predvolene vypnuté.
+
 ### 25. 9. 2026, 5:50: Okná z lišty v tvare L s animovanou textúrou (podľa tvojej kresby) ✅
 - **App Manager (vľavo) a Zariadenia (vpravo)** teraz vyrastajú z ostrova na lište ako na kresbe:
   - ostrov je päta písmena L,
