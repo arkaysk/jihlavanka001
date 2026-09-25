@@ -18,6 +18,48 @@ nerobím. Hotová je iba úprava okna L (bod 0).
 
 ---
 
+## Stav po tvojich odpovediach (25. 9. 2026 v noci)
+
+**Rozhodnutia:**
+- Cieľová skupina sú bývalí používatelia Windows. Hlavné ovládanie je **myš s dvomi tlačidlami ako Windows 7–11**;
+  v sporných prípadoch vyhráva Windows.
+- Skratky: predvolený **profil Windows**, v Nastaveniach sa dá prepnúť na **Linux** alebo **macOS**.
+- Nič dôležité nesmie byť iba na klávese Win alebo AltGr (herné klávesnice Win často nemajú): Štart ide aj cez
+  **Ctrl+Esc** a všetko ide myšou z lišty.
+- Režim plávajúcich okien = **Windows 11**, páska a dlaždice = Linux (páska ostáva na tvoje preskúmanie).
+
+**Hotové** (podrobnosti v denníku):
+
+| Oblasť | Stav |
+|---|---|
+| P0: Super+Shift+M, Super+Q, fokus kliknutím | ✅ |
+| Profily Windows / Linux / macOS, Nastavenia › Klávesnica a skratky, Num Lock | ✅ |
+| Alt+Tab, Alt+F4, Ctrl+Alt+Del, Win a Ctrl+Esc = Štart, Win+E/I/S/R/X/A/N/V/./D/M/Home/šípky/Ctrl+D/1…9/P/lupa | ✅ |
+| Snímky (PrtSc, Win+Shift+S, Win+PrtSc, Shift+PrtSc), nahrávanie Win+Alt+R, multimediálne klávesy | ✅ |
+| Prichytenie okien ťahaním k okraju s náhľadom, odtiahnutie vráti veľkosť | ✅ (overené cez hyprctl, myšou treba vyskúšať) |
+| Pravý klik na titulok = ponuka okna, tlačidlá –□✕ iba ľavým, Alt+Medzerník | ✅ (po prihlásení) |
+| Ťahanie súborov pravým/stredným tlačidlom s ponukou, pravidlo „ten istý disk = presun“, Ctrl/Shift/Alt | ✅ |
+| Súbory prijímajú súbory zvonku, Plocha ťahá ikony do okien | ✅ |
+| Súbory: F2, F5, Del bez otázky, Ctrl+Z, Alt+←→↑, bočné tlačidlá, Ctrl+koliesko, Shift+F10, Menu, Medzerník | ✅ |
+| Bočné tlačidlá myši v Nastaveniach a App Manageri | ✅ |
+| Nastavenia › Myš: tlačidlá → akcie, Piper, opakovanie klávesov | ✅ |
+| Panel úloh: klik na aktívne okno minimalizuje, stredný klik nové okno, pravý klik na Štart = Win+X | ✅ (po prihlásení) |
+
+**Treba vyskúšať rukou:** samotný Win po Win+E, Alt+Tab, prichytenie okna myšou, pravé ťahanie súboru na Ploche
+a v Súboroch.
+
+**Ostáva (poradie):**
+1. Barista: voľba profilu pri prvom štarte (dnes platí Windows bez otázky).
+2. Súbor podržaný nad oknom v páske ho prenesie dopredu; súbor pustený na ikonu aplikácie ju otvorí;
+   priečinok sa pri podržaní otvorí.
+3. Win11: lišta rozložení pri ťahaní okna k hornému stredu a pri podržaní myši nad □.
+4. Kláves Menu, Shift+koliesko a Ctrl+koliesko vo všetkých našich zoznamoch (dnes v Súboroch).
+5. Rýchlosť dvojkliku, nájsť kurzor (Ctrl), Win+P ako rýchla voľba (dnes Správca zariadení › Obrazovky).
+6. macOS: Cmd+C/V cez xremap, horúce rohy.
+7. Klávesnica na obrazovke (wvkbd), čítačka (Orca), diktovanie (s AI).
+
+---
+
 ## 0. Hotové dnes večer: App Manager s GIF / videom
 
 - **Ostrov na lište nemá ikonu**, iba pekný rám: tenký lem vo farbe akcentu a jemný svetlý lem vnútri.
