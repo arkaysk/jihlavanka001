@@ -79,6 +79,65 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 25. 9. 2026 v noci: alfatest 1 — prvé kroky podľa tvojich odpovedí (Windows na prvom mieste) ✅
+Tvoje odpovede som si zapamätal: hlavné ovládanie je myš s dvomi tlačidlami ako Windows 7–11, predvolené
+skratky sú z Windows, profil Linux alebo macOS sa dá zvoliť, plávajúce okná sa správajú ako Windows 11 a páska
+s dlaždicami ako Linux.
+
+**Profily ovládania** (Nastavenia › Systém › Klávesnica a skratky; platí hneď, bez odhlásenia):
+- **Windows** (predvolený):
+  - Alt+Tab (drž Alt), Alt+F4 (na prázdnej ploche ponuka Vypnúť), Ctrl+Alt+Del (Zamknúť, Odhlásiť, Zmeniť heslo,
+    Správca úloh, vpravo dole napájanie);
+  - samotný Win = Štart (App Manager), **Ctrl+Esc tiež** (klávesnice bez Win); v hernom režime samotný Win nič neotvorí;
+  - Win+E, I, S/R/Q (Text Bar), X (ponuka ako pravý klik na Štart), A, N (oznámenia), V (Kapsa), . (emoji sa vloží
+    rovno), D, M, Shift+M, Home, šípky (v plávajúcich oknách maximalizovať / prichytiť, v páske fokus), Ctrl+D/←→/F4
+    (plochy), 1…9 (N-té okno), P, lupa Plus/Mínus/Esc, C (AI), G (Herňa);
+  - snímky: PrtSc a Win+Shift+S oblasť, Win+PrtSc celá obrazovka rovno do `Obrázky/Snímky obrazovky`, Shift+PrtSc
+    s kreslením; nahrávanie Win+Alt+R (Win+Shift+R oblasť, znova = stop);
+  - multimediálne klávesy (prehrať, ďalšia, mikrofón, podsvietenie, kalkulačka…);
+  - okno sa aktivuje **kliknutím**, stredný klik nevkladá text, Num Lock je zapnutý na stolnom PC.
+- **Linux**: pôvodné skratky (Super+Enter, Super+Q, Super+šípky, Super+1…9), fokus za myšou, stredný klik vkladá.
+- **macOS**: Cmd+Medzerník, Cmd+Tab, Cmd+Q/W/M/H, Cmd+Shift+3/4/5… Cmd+C/V v aplikáciách príde s premapovaním (xremap).
+- **Opravené nebezpečné skratky:** Super+Shift+M už neodhlási a Super+Q vo Windows profile nezatvorí okno (otvorí hľadanie).
+
+**Okná myšou ako Windows 11** (režim plávajúcich okien):
+- ťahanie k okraju: hore = maximalizovať, bok = polovica, roh = štvrtina; pri okraji sa ukáže priehľadný náhľad cieľa;
+- odtiahnutie prichyteného okna mu vráti pôvodnú veľkosť pod kurzorom;
+- nový plugin `latte-okna` (Hyprland nemá udalosť ťahania okna); logiku som overil na skutočnom okne v tvojej relácii;
+- **pravý klik na titulok = ponuka okna** (Obnoviť, Minimalizovať, Maximalizovať, Rozloženie, Vždy navrchu,
+  Presunúť na plochu, Zavrieť), aj Alt+Medzerník, aj v hlavičke aplikácií LatteOS. Tlačidlá –□✕ reagujú už iba
+  na ľavé tlačidlo (predtým by pravý klik na ✕ okno zavrel);
+- ovál okien ako panel úloh: klik na aktívne okno ho minimalizuje, stredný klik otvorí nové okno aplikácie;
+- pravý klik na dlaždicu aplikácií = ponuka Win+X.
+
+**Ťahanie súborov ako Windows:**
+- **pravým (aj stredným) tlačidlom** ukáže po pustení ponuku: Kopírovať sem · Presunúť sem · Vytvoriť odkaz sem
+  (+ Rozbaliť sem pri archíve, Nastaviť ako tapetu pri obrázku na Plochu) · Zrušiť; predvolená voľba je tučná;
+- ľavým: na tom istom disku presun, na iný disk kópia; Ctrl = kópia, Shift = presun, Alt = odkaz; pri kurzore je
+  popis („→ Presunúť do Dokumenty“);
+- Súbory prijímajú súbory z iných aplikácií, ikony z Plochy sa dajú pretiahnuť do okien aplikácií;
+- voľba v Nastaveniach › Súbory: Ako Windows / Vždy kopírovať / Vždy sa opýtať. Režim TC ostáva ako Total Commander.
+
+**Súbory ako Prieskumník** (režim Forklift):
+- F2 premenovať, F5 obnoviť, Del do Koša bez otázky, **Ctrl+Z späť** (presun, premenovanie, kópia, Kôš);
+- Alt+←→↑, Backspace späť, bočné tlačidlá myši, Ctrl+F/F3 hľadať, Ctrl+L adresa, Ctrl+Shift+N, Ctrl+N;
+- Shift+F10 a kláves Menu, Medzerník náhľad, Ctrl+koliesko veľkosť ikon, Ctrl+Shift+C cesta.
+- Bočné tlačidlá myši fungujú aj v Nastaveniach a App Manageri.
+
+**Nastavenia › Myš:** bočným a ďalším tlačidlám (6, 7) sa dá priradiť akcia systému, odkaz na Piper pre herné myši,
+rýchlosť a oneskorenie opakovania klávesov.
+
+**Treba vyskúšať rukou** (obrazovka bola zamknutá, klávesy a myš som testovať nemohol, iba headless a cez hyprctl):
+1. samotný Win otvorí App Manager a **po Win+E ho neotvorí**;
+2. Alt+Tab, Alt+F4, Ctrl+Alt+Del, Win+Shift+S, Win+V, Win+.;
+3. ťahanie okna k okrajom (režim plávajúcich okien) a náhľad cieľa;
+4. ťahanie súboru pravým tlačidlom v Súboroch a na Ploche.
+
+**Prejaví sa až po odhlásení a prihlásení:**
+- pravý klik na titulok okien s lištou kompozitora (nový hyprbars je nainštalovaný, načíta sa pri štarte Hyprlandu);
+- pravý klik na dlaždicu aplikácií a zmeny v ovále okien (Noctaliu som nereštartoval, lebo drží zámok obrazovky).
+
+
 ### 25. 9. 2026 večer: Alfatest 1 (Windows / macOS / Linux, myš a klávesnica) + rám okna L ✅ · ⚠ čaká na teba
 - **[alfatest.md](alfatest.md)**: porovnanie, ako ovláda systém človek z Windows 10/11, macOS a Linuxu:
   - klávesnica (skratky aj kláves ako zariadenie: Num Lock, Menu, opakovanie, XF86 klávesy);
