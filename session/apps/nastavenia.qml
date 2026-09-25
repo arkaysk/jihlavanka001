@@ -469,6 +469,15 @@ ShellRoot {
                 { glyph: "clipboard", label: "Kopírovať príkaz", hint: "latte-app nastavenia " + page, action: () => app.run(["wl-copy", "--", "latte-app nastavenia " + page], "Skopírované") }
             ], label)
         }
+        // bočné tlačidlá myši Späť / Dopredu (ako Nastavenia vo Windows); ostatné tlačidlá idú ďalej
+        MouseArea {
+            anchors.fill: parent; z: 2900
+            acceptedButtons: Qt.BackButton | Qt.ForwardButton
+            onPressed: (m) => {
+                if (m.button === Qt.BackButton && app.historyIndex > 0) { app.historyIndex--; app.go(app.history[app.historyIndex], false); }
+                else if (m.button === Qt.ForwardButton && app.historyIndex < app.history.length - 1) { app.historyIndex++; app.go(app.history[app.historyIndex], false); }
+            }
+        }
         ContextMenu { id: ctx; theme: theme; z: 3000 }
 
         HeaderBar {

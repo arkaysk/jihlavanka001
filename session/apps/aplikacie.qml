@@ -316,6 +316,12 @@ ShellRoot {
                        color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
             }
             PlanSheet { anchors.fill: parent; visible: app.planOpen }
+            // bočné tlačidlá myši Späť / Dopredu (ako Microsoft Store)
+            MouseArea {
+                anchors.fill: parent; z: 900
+                acceptedButtons: Qt.BackButton | Qt.ForwardButton
+                onPressed: (m) => { if (m.button === Qt.BackButton) app.back(); else app.forward(); }
+            }
             ContextMenu { id: ctx; theme: theme }
         }
     }
