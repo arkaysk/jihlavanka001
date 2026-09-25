@@ -602,6 +602,109 @@ ShellRoot {
     }
     function clipPaste() { pasteProc.command = ["wl-paste", "--no-newline", "--type", "text/uri-list"]; pasteProc.running = true; }
 
+    // ── nástroje TC (data/TcDialogy.qml, latte-tc) ──────────────────────────────────────
+    readonly property var archiveRe: /\.(zip|7z|rar|tar|tgz|tbz2|txz|tar\.gz|tar\.bz2|tar\.xz|tar\.zst|iso|cab|jar|apk|deb|rpm|cpio)$/i
+    function tool(t) {
+        const items = app.activePane.selection();
+        if (["atributy", "zbal", "rozdel", "archiv"].indexOf(t) >= 0 && !items.length) { app.status = "Nič nie je vybrané"; return; }
+        if (t === "rozdel" && items[0].isDir) { app.status = "Rozdeliť sa dá iba súbor"; return; }
+        if (t === "sync" && !app.dual) { app.dual = true; }
+        tcd.open(t, items, app.activePane.path, app.dual ? app.otherPane.path : app.activePane.path);
+    }
+    function lister(e) { if (e && !e.isDir) run(["latte-app", "lister", e.path]); }
+    // Shift+F2: porovnať priečinky — označí nové a novšie súbory na oboch stranách
+    Process {
+        id: cmpProc
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let r = {}; try { r = JSON.parse(this.text); } catch (e) { return; }
+                const ma = {}, mb = {}; let na = 0, nb = 0, same = 0;
+                for (const n in r) {
+                    if (r[n] === "iba_vlavo" || r[n] === "novsie_vlavo") { ma[paneA.path + "/" + n] = true; na++; }
+                    else if (r[n] === "iba_vpravo" || r[n] === "novsie_vpravo") { mb[paneB.path + "/" + n] = true; nb++; }
+                    else if (r[n] === "rovnake") same++;
+                }
+                paneA.setMarks(ma); paneB.setMarks(mb);
+                app.status = "Porovnanie: vľavo " + na + " nových/novších, vpravo " + nb + ", rovnakých " + same + (na + nb === 0 ? " — priečinky sú rovnaké" : " (označené; F5 skopíruje)");
+            }
+        }
+    }
+    function compareDirs(byContent) { if (!app.dual) app.dual = true; cmpProc.command = ["latte-tc", "porovnaj", paneA.path, paneB.path].concat(byContent ? ["--obsah"] : []); cmpProc.running = true; }
+    // Ctrl+B: plochý pohľad (všetky súbory z podpriečinkov) do výsledkov
+    function branchView() { app.foundQuery = "plochý pohľad"; app.finding = true; findProc.command = ["sh", "-c", "find \"$1\" -mindepth 1 -type f -printf 'f|%p\\n' 2>/dev/null | head -3000", "sh", app.activePane.path]; findProc.running = true; }
+    // kontrolné súčty, spojenie
+    Process { id: sumProc; stdout: StdioCollector { onStreamFinished: { app.status = "Súčet vytvorený: " + this.text.trim().split("/").pop(); refreshBoth.restart(); } } }
+    Process {
+        id: verProc
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let r = []; try { r = JSON.parse(this.text); } catch (e) {}
+                const bad = r.filter(x => x[1] !== "ok");
+                app.status = bad.length ? "⚠ Kontrola: " + bad.length + " z " + r.length + " nesedí (" + bad.slice(0, 3).map(x => x[0] + " " + x[1]).join(", ") + ")" : "✓ Kontrola: všetkých " + r.length + " súborov v poriadku";
+            }
+        }
+    }
+    function checksum(algo) { const it = app.activePane.selection().filter(e => !e.isDir); if (!it.length) return; sumProc.command = ["latte-tc", "sucet", algo].concat(it.map(e => e.path)); sumProc.running = true; app.status = "Počítam " + algo.toUpperCase() + "…"; }
+    function verify() { const e = app.sel; if (!e || !/\.(md5|sha1|sha256|sha512)$/i.test(e.name)) { app.status = "Vyber súbor .sha256 / .md5"; return; } verProc.command = ["latte-tc", "over", e.path]; verProc.running = true; app.status = "Overujem…"; }
+    function combine() { const e = app.sel; if (!e || !/\.\d{3}$/.test(e.name)) { app.status = "Vyber prvú časť (.001)"; return; } run(["latte-tc", "spoj", e.path, app.dual ? app.otherPane.path : app.activePane.path], "Spájam " + e.name + "…"); refreshBoth.restart(); }
+    function commandsMenu(x, y) {
+        const e = app.sel;
+        ctx.open(x, y, [
+            { glyph: "pencil", label: "Hromadné premenovanie…", hint: "Ctrl+M", action: () => app.tool("premenuj") },
+            { glyph: "refresh", label: "Späť posledné premenovanie", action: () => { app.run(["latte-tc", "spat"], "Vrátené posledné hromadné premenovanie"); refreshBoth.restart(); } },
+            { glyph: "search", label: "Hľadať súbory…", hint: "Alt+F7", action: () => app.tool("hladaj") },
+            { glyph: "list", label: "Plochý pohľad (všetko z podpriečinkov)", hint: "Ctrl+B", action: () => app.branchView() },
+            { separator: true },
+            { glyph: "columns-2", label: "Porovnať priečinky (označiť rozdiely)", hint: "Shift+F2", action: () => app.compareDirs(false) },
+            { glyph: "columns-2", label: "Porovnať podľa obsahu", action: () => app.compareDirs(true) },
+            { glyph: "refresh", label: "Synchronizovať priečinky…", action: () => app.tool("sync") },
+            { separator: true },
+            { glyph: "file-zip", label: "Zbaliť…", hint: "Alt+F5", action: () => app.tool("zbal") },
+            { glyph: "file-zip", label: "Otvoriť archív ako priečinok", hint: "Enter", enabled: !!e && app.archiveRe.test(e.name), action: () => app.tool("archiv") },
+            { glyph: "download", label: "Rozbaliť celý archív do druhého panela", hint: "Alt+F9", enabled: !!e && app.archiveRe.test(e.name), action: () => app.extractAll() },
+            { separator: true },
+            { glyph: "check", label: "Vytvoriť kontrolný súčet SHA-256", action: () => app.checksum("sha256") },
+            { glyph: "check", label: "Vytvoriť kontrolný súčet MD5", action: () => app.checksum("md5") },
+            { glyph: "check", label: "Overiť kontrolné súčty", enabled: !!e && /\.(md5|sha1|sha256|sha512)$/i.test(e.name), action: () => app.verify() },
+            { glyph: "layout-list", label: "Rozdeliť súbor…", action: () => app.tool("rozdel") },
+            { glyph: "layout-list", label: "Spojiť časti (.001)", enabled: !!e && /\.\d{3}$/.test(e.name), action: () => app.combine() },
+            { separator: true },
+            { glyph: "info-circle", label: "Vlastnosti a atribúty…", hint: "Alt+Enter", action: () => app.tool("atributy") },
+            { glyph: "file-text", label: "Lister (rýchly náhľad)", hint: "F3", enabled: !!e && !e.isDir, action: () => app.lister(e) },
+            { glyph: "terminal-2", label: "Terminál tu", action: () => app.run(["foot", "--working-directory=" + app.activePane.path]) }
+        ], "Príkazy · Total Commander");
+    }
+    function extractAll() { const e = app.sel; if (!e || !app.archiveRe.test(e.name)) return; const d = (app.dual ? app.otherPane.path : app.activePane.path) + "/" + e.name.replace(app.archiveRe, "");
+                            run(["latte-tc", "archiv", "rozbal", e.path, d], "Rozbaľujem do " + d.replace(app.home, "~")); refreshBoth.restart(); }
+
+    // riadok príkazu (ako v TC): príkaz sa spustí v aktívnom priečinku v termináli; ↑/↓ história, Ctrl+Enter vloží meno
+    property var cmdHistory: []
+    property int cmdHi: -1
+    function runCommand(c) {
+        c = c.trim(); if (!c) return;
+        if (/^cd\s+/.test(c)) { let d = c.replace(/^cd\s+/, "").replace(/^~/, app.home); if (!d.startsWith("/")) d = app.activePane.path + "/" + d; app.activePane.go(d); }
+        else run(["foot", "--working-directory=" + app.activePane.path, "sh", "-c", c + '; echo; printf "[Enter zavrie] "; read x'], "Spúšťam: " + c);
+        cmdHistory = [c].concat(cmdHistory.filter(x => x !== c)).slice(0, 50); cmdHi = -1;
+    }
+    // lišta tlačidiel (~/.config/latteos/subory-tlacidla.json: [{ label, glyph, cmd }], %P priečinok, %N meno, %F cesta)
+    property var buttons: [
+        { label: "Terminál", glyph: "terminal-2", cmd: "foot --working-directory=%P" },
+        { label: "Heidelberg", glyph: "pencil", cmd: "latte-app heidelberg %F" },
+        { label: "Porovnať", glyph: "columns-2", cmd: ":porovnaj" },
+        { label: "Synchronizovať", glyph: "refresh", cmd: ":sync" },
+        { label: "Hľadať", glyph: "search", cmd: ":hladaj" },
+        { label: "Premenovať", glyph: "pencil", cmd: ":premenuj" },
+        { label: "Zbaliť", glyph: "file-zip", cmd: ":zbal" }
+    ]
+    FileView { path: (Quickshell.env("XDG_CONFIG_HOME") || (app.home + "/.config")) + "/latteos/subory-tlacidla.json"; printErrors: false
+               onLoaded: { try { const b = JSON.parse(text()); if (Array.isArray(b) && b.length) app.buttons = b; } catch (e) {} } }
+    function pressButton(b) {
+        if (b.cmd.startsWith(":")) { const t = b.cmd.slice(1); if (t === "porovnaj") app.compareDirs(false); else app.tool(t); return; }
+        const e = app.sel, q = (x) => "'" + String(x).replace(/'/g, "'\\''") + "'";
+        const c = b.cmd.replace(/%P/g, q(app.activePane.path)).replace(/%N/g, q(e ? e.name : "")).replace(/%F/g, q(e ? e.path : app.activePane.path));
+        run(["sh", "-c", "cd " + q(app.activePane.path) + " && " + c], b.label);
+    }
+
     // rýchle hľadanie písaním (ako v TC / Prieskumníkovi)
     property string quick: ""
     Timer { id: quickReset; interval: 1600; onTriggered: app.quick = "" }
@@ -622,7 +725,7 @@ ShellRoot {
             Keys.onPressed: (ev) => {
                 const p = app.activePane, ctrl = ev.modifiers & Qt.ControlModifier, shift = ev.modifiers & Qt.ShiftModifier, alt = ev.modifiers & Qt.AltModifier;
                 const i = app.activeIndex, k = ev.key;
-                if (app.connectOpen || app.ask || app.op || app.conflict || app.delAsk) return;
+                if (app.connectOpen || app.ask || app.op || app.conflict || app.delAsk || tcd.visible) return;
                 ev.accepted = true;
                 // ── pohyb ──
                 if (k === Qt.Key_Down) p.moveRow(1);
@@ -635,6 +738,9 @@ ShellRoot {
                 else if (k === Qt.Key_End) p.end_();
                 else if (k === Qt.Key_Return || k === Qt.Key_Enter) {
                     if (alt && shift) app.dirSizes(p, (function () { const l = []; for (let x = 0; x < p.count; x++) { const e = p.entryAt(x); if (e.isDir) l.push(e.path); } return l; })());
+                    else if (alt) app.tool("atributy");
+                    else if (ctrl && app.commander) { const e = app.sel; if (e) { cmdIn.insert(cmdIn.cursorPosition, (cmdIn.text && !cmdIn.text.endsWith(" ") ? " " : "") + (/\s/.test(e.name) ? '"' + e.name + '"' : e.name) + " "); cmdIn.forceActiveFocus(); } }
+                    else if (app.commander && app.sel && !app.sel.isDir && app.archiveRe.test(app.sel.name)) app.tool("archiv");
                     else p.openCurrent();
                 }
                 else if (k === Qt.Key_Backspace) p.up();
@@ -671,8 +777,15 @@ ShellRoot {
                 else if (k === Qt.Key_C && ctrl) app.clipCopy(false);
                 else if (k === Qt.Key_X && ctrl) app.clipCopy(true);
                 else if (k === Qt.Key_V && ctrl) app.clipPaste();
+                // ── nástroje TC ──
+                else if (k === Qt.Key_M && ctrl) app.tool("premenuj");
+                else if (k === Qt.Key_F7 && alt) app.tool("hladaj");
+                else if (k === Qt.Key_F5 && alt) app.tool("zbal");
+                else if (k === Qt.Key_F9 && alt) app.extractAll();
+                else if (k === Qt.Key_F2 && shift) app.compareDirs(false);
+                else if (k === Qt.Key_B && ctrl) app.branchView();
                 // ── F-klávesy ──
-                else if (k === Qt.Key_F3 && app.commander) { if (app.sel) { if (app.sel.isDir) p.openCurrent(); else app.openPath(app.sel.path); } }
+                else if (k === Qt.Key_F3 && app.commander) { if (app.sel) { if (app.sel.isDir) p.openCurrent(); else app.lister(app.sel); } }
                 else if (k === Qt.Key_F3) { app.dual = !app.dual; if (!app.dual) app.activeIndex = 0; }
                 else if (k === Qt.Key_F4 && shift) app.askInput("Nový súbor (Shift+F4)", "nový.txt", "súbor sa vytvorí v " + p.path.replace(app.home, "~") + " a otvorí v Heidelbergu",
                                                              (t) => app.run(["sh", "-c", 'f="$1/$2"; [ -e "$f" ] || : > "$f"; latte-otvor spusti latteos-heidelberg "$f"', "sh", p.path, t], "Nový súbor: " + t));
@@ -726,6 +839,8 @@ ShellRoot {
                 onCloseRequested: Qt.quit()
 
                 IconButton { theme: theme; glyph: "arrow-up"; tip: "O úroveň vyššie (Backspace)"; onClicked: app.activePane.up() }
+                IconButton { id: cmdBtn; visible: app.commander; theme: theme; glyph: "menu-2"; tip: "Príkazy (premenovanie, hľadanie, porovnanie, archívy, súčty…)"
+                             onClicked: { const q = cmdBtn.mapToItem(null, 0, cmdBtn.height + 4); app.commandsMenu(q.x, q.y); } }
                 IconButton { id: newBtn; theme: theme; glyph: "plus"; tip: "Nový priečinok alebo súbor"
                              onClicked: { const q = newBtn.mapToItem(null, 0, newBtn.height + 4); app.newMenu(q.x, q.y, app.activePane); } }
                 IconButton { id: viewBtn; theme: theme; glyph: app.view === "ikony" ? "layout-grid" : "layout-list"; tip: "Zobrazenie (ikony, zoznam, podrobnosti)"
@@ -738,10 +853,47 @@ ShellRoot {
                 IconButton { theme: theme; glyph: "terminal-2"; tip: "Terminál tu"; onClicked: app.run(["foot", "--working-directory=" + app.activePane.path]) }
             }
 
+            // lišta tlačidiel (TC) — vlastné tlačidlá v ~/.config/latteos/subory-tlacidla.json
+            Row {
+                id: btnBar
+                anchors { left: side.right; leftMargin: 10; top: header.bottom; topMargin: app.commander ? 6 : 0 }
+                height: app.commander ? 30 : 0; visible: app.commander; spacing: 4
+                Repeater {
+                    model: app.buttons
+                    Rectangle {
+                        required property var modelData
+                        width: bbl.implicitWidth + 36; height: 28; radius: 8; color: bbm.containsMouse ? theme.hover : theme.field
+                        Glyph { x: 8; anchors.verticalCenter: parent.verticalCenter; name: modelData.glyph || "terminal-2"; size: 14; color: theme.primary }
+                        Text { id: bbl; x: 28; anchors.verticalCenter: parent.verticalCenter; text: modelData.label; color: theme.fg; font { family: theme.fontUi; pixelSize: 11; weight: Font.DemiBold } }
+                        MouseArea { id: bbm; anchors.fill: parent; hoverEnabled: true; onClicked: { app.pressButton(modelData); root.forceActiveFocus(); } }
+                    }
+                }
+            }
+            // riadok príkazu (TC)
+            Rectangle {
+                id: cmdLine
+                anchors { left: side.right; right: parent.right; bottom: statusBar.top; leftMargin: 10; rightMargin: 10; bottomMargin: app.commander ? 4 : 0 }
+                height: app.commander ? 30 : 0; visible: app.commander; radius: 8; color: theme.field
+                border { color: cmdIn.activeFocus ? theme.primary : "transparent"; width: 1 }
+                Text { id: prompt; x: 10; anchors.verticalCenter: parent.verticalCenter; text: app.activePane ? app.activePane.path.replace(app.home, "~") + " $" : "$"
+                       color: theme.primary; font { family: theme.fontMono; pixelSize: 12 } }
+                TextInput {
+                    id: cmdIn
+                    anchors { left: prompt.right; leftMargin: 8; right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
+                    color: theme.fg; clip: true; selectByMouse: true; font { family: theme.fontMono; pixelSize: 12 }
+                    Keys.onReturnPressed: (ev) => { ev.accepted = true; app.runCommand(text); text = ""; root.forceActiveFocus(); }
+                    Keys.onEscapePressed: (ev) => { ev.accepted = true; text = ""; root.forceActiveFocus(); }
+                    Keys.onUpPressed: (ev) => { ev.accepted = true; if (app.cmdHistory.length) { app.cmdHi = Math.min(app.cmdHistory.length - 1, app.cmdHi + 1); text = app.cmdHistory[app.cmdHi]; } }
+                    Keys.onDownPressed: (ev) => { ev.accepted = true; app.cmdHi = Math.max(-1, app.cmdHi - 1); text = app.cmdHi >= 0 ? app.cmdHistory[app.cmdHi] : ""; }
+                }
+                Text { visible: cmdIn.text === "" && !cmdIn.activeFocus; anchors { left: prompt.right; leftMargin: 8; verticalCenter: parent.verticalCenter }
+                       text: "príkaz (klik sem) · Ctrl+Enter vloží meno · cd priečinok"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } }
+            }
+
             // panely + detail
             Row {
                 id: body
-                anchors { left: side.right; right: parent.right; top: header.bottom; bottom: statusBar.top; margins: 10 }
+                anchors { left: side.right; right: parent.right; top: btnBar.bottom; bottom: cmdLine.top; margins: 10 }
                 spacing: 10
                 readonly property real detailW: 280
                 readonly property real paneW: (width - (app.showDetail ? detailW + spacing : 0) - (app.dual ? spacing : 0)) / (app.dual ? 2 : 1)
@@ -915,6 +1067,7 @@ ShellRoot {
                 }
                 Text {
                     x: 14; anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - 28 - (app.commander ? fkeys.width + 10 : 470); elide: Text.ElideRight
                     text: (app.activePane ? (app.activePane.markedCount ? "označené " + app.activePane.markedCount + (app.activePane.markedBytes ? " · " + app.human(app.activePane.markedBytes) : "") + " z " + app.activePane.count : app.activePane.count + " položiek") : "")
                           + (app.quick !== "" ? "   ·   hľadám: " + app.quick : "")
                           + (app.job ? "   ·   " + (app.jobPaused ? "⏸ " : "") + app.jobPct + " % " + (app.jobFile || app.job.label) : "")
@@ -931,6 +1084,7 @@ ShellRoot {
                 }
                 // Total Commander: lišta F-kláves (klik = to isté ako kláves)
                 Row {
+                    id: fkeys
                     visible: app.commander
                     anchors { right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
                     spacing: 4
@@ -1177,6 +1331,15 @@ ShellRoot {
                                      color: theme.fg; font { family: theme.fontUi; pixelSize: 11 } } }
                     }
                 }
+            }
+
+            TcDialogy {
+                id: tcd
+                theme: theme
+                onDone: (m) => { app.status = m; refreshBoth.restart(); }
+                onGoTo: (d, n) => { app.activePane.selectAfter = n; app.activePane.go(d); }
+                onFeed: (l) => { app.found = l; app.foundQuery = "hľadanie Alt+F7"; }
+                onVisibleChanged: if (!visible) root.forceActiveFocus()
             }
 
             ContextMenu { id: ctx; theme: theme }

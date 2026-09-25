@@ -380,22 +380,28 @@ flowchart TD
 - [ ] **Súbory = plná funkčnosť Total Commandera** (zadanie 25. 9.: „nejde o to, čo používam, ale o plnú funkčnosť originálu“):
   - [x] Panely: dva panely, **karty** v každom (Ctrl+T, Ctrl+W, Ctrl+Tab, uzamknutá karta), menu diskov (Alt+F1/F2), história Späť/Dopredu,
         **hotlist** priečinkov (Ctrl+D), priečinok do panela vľavo/vpravo (Ctrl+←/→), výmena panelov (Ctrl+U), riadok „..“
-  - [ ] Zobrazenia: stručné, úplné (stĺpce, triedenie kliknutím), miniatúry, strom (Ctrl+F8), vlastné stĺpce, **Rýchly náhľad** (Ctrl+Q), plochý pohľad (Ctrl+B)
+  - [x] Zobrazenia: stručné, úplné (stĺpce, triedenie kliknutím), miniatúry, **Rýchly náhľad** (Ctrl+Q), plochý pohľad (Ctrl+B)
+  - [ ] Strom priečinkov (Ctrl+F8), vlastné stĺpce
   - [x] Výber: Insert/Medzerník, Ctrl/Shift+klik, Num+ / Num− s maskou, Num* obrátiť, Ctrl+A, **rýchle hľadanie** písaním a rýchly filter
   - [ ] Výber: Alt+Num+ podľa prípony, uložiť a obnoviť výber, porovnanie výberu s druhým panelom
   - [x] F-klávesy: F2/Ctrl+R obnoviť, F4 editor, Shift+F4 nový súbor, **F5 kopírovať / F6 presunúť** s dialógom (cieľ, maska,
         prepísať / preskočiť / staršie / premenovať, overenie SHA-256, **rad úloh** s pauzou a zrušením, F2 = do radu), Shift+F6 premenovať,
         F7 priečinok (aj vnorené a/b/c), F8/Del do koša, Shift+Del natrvalo, Ctrl+C/X/V súbory cez schránku, zobrazenie Ctrl+F1/F2, triedenie Ctrl+F3–F6
-  - [ ] **F3 Lister** (text, hex, binárny, obrázok, médium, kódovania), obmedzenie rýchlosti kopírovania
-  - [ ] **Hromadné premenovanie** (Ctrl+M): masky [N] [E] [C] [Y][M][D], počítadlo, hľadať/nahradiť, regulárne výrazy, veľkosť písmen, náhľad, späť
-  - [ ] **Porovnanie priečinkov** (Shift+F2, označí rozdiely), **Synchronizácia priečinkov** (asymetrická, podľa obsahu, náhľad akcií),
-        **porovnanie súborov podľa obsahu** (diff textu, binárne)
-  - [ ] **Archívy ako priečinky** (zip, 7z, rar, tar.*), zbaliť (Alt+F5), rozbaliť (Alt+F9), test archívu, viac zväzkov, heslo
-  - [ ] **Hľadanie** (Alt+F7): maska mena, text v obsahu (aj regex, kódovanie), veľkosť, dátum, atribúty, v archívoch, výsledok do panelu
+  - [x] **F3 Lister** (samostatné okno: text, hex, obrázok, kódovania UTF-8/CP1250/ISO-8859-2, hľadanie, N/P ďalší súbor, veľké súbory po častiach)
+  - [ ] Obmedzenie rýchlosti kopírovania, Lister pre médiá (zvuk, video)
+  - [x] **Hromadné premenovanie** (Ctrl+M): masky [N] [N1-3] [E] [C] [C:3] [Y][M][D] [h][m][s] [P], počítadlo, hľadať/nahradiť, regex, veľkosť písmen, živý náhľad s kolíziami, späť
+  - [x] **Porovnanie priečinkov** (Shift+F2, označí nové a novšie na oboch stranách, aj podľa obsahu), **Synchronizácia priečinkov** (→ ← ↔, podľa obsahu, plán pred vykonaním)
+  - [ ] Porovnanie dvoch súborov podľa obsahu (diff textu vedľa seba, binárne)
+  - [x] **Archívy ako priečinky** (zip, 7z, rar, tar.*, iso, deb, rpm… cez bsdtar): prechádzanie, rozbaliť označené/všetko (Alt+F9), test; zbaliť (Alt+F5) do zip/7z/tar.gz/tar.xz/tar.zst
+  - [ ] Archívy: viac zväzkov, heslo, pridať/zmazať súbor v archíve
+  - [x] **Hľadanie** (Alt+F7): maska, priečinok, text v obsahu (aj regex), veľkosť, vek, aj priečinky, v archívoch, priebežné výsledky, „Do panela“; plochý pohľad Ctrl+B
   - [x] Veľkosť priečinkov (medzerník, Alt+Shift+Enter)
-  - [ ] Vlastnosti a **zmena atribútov/práv a dátumov**, symbolické a pevné odkazy
-  - [ ] **Kontrolné súčty** (MD5/SHA1/SHA256 vytvoriť a overiť), **rozdeliť / spojiť** súbory, kódovanie UUE/Base64
-  - [ ] **Riadok príkazu** s históriou (v aktuálnom priečinku), terminál tu, lišta **vlastných tlačidiel**, vlastné menu a klávesové skratky
+  - [x] Vlastnosti a **zmena práv a dátumu** (Alt+Enter, aj rekurzívne)
+  - [ ] Vytvorenie symbolických a pevných odkazov, zmena vlastníka (so správcom)
+  - [x] **Kontrolné súčty** (SHA-256/MD5 vytvoriť, overiť), **rozdeliť / spojiť** súbory (.001 … + .crc so SHA-256)
+  - [ ] Kódovanie UUE/Base64
+  - [x] **Riadok príkazu** s históriou (↑/↓, Ctrl+Enter vloží meno, cd), terminál tu, lišta **vlastných tlačidiel** (~/.config/latteos/subory-tlacidla.json), ponuka Príkazy
+  - [ ] Úprava tlačidiel a klávesových skratiek v UI, vlastné menu
   - [ ] Sieť: FTP/SFTP (✓ základ), SMB zdieľanie, WebDAV, cloud (✓ rclone); ťahanie myšou medzi panelmi a do iných aplikácií
   - [ ] Kopírovať mená/cesty do schránky, zoznam súborov do textu, tlač zoznamu
   - [ ] Rozšírenia ako pluginy TC (packer, súborový systém, lister, stĺpce) cez vlastné rozhranie LatteOS

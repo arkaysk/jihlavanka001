@@ -96,6 +96,8 @@ Text {
         "language": 0xEBBE,
         "layout-bottombar": 0xEAD3,
         "list-check": 0xEB6A,
+        "list": 0xEB6B,
+        "menu-2": 0xEC42,
         "login": 0xEBA7,
         "moon": 0xEAF8,
         "pencil": 0xEB04,

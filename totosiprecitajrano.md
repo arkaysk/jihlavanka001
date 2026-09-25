@@ -100,6 +100,39 @@ Poradie: 1. Monitor (hotové nižšie) → 2. Digitálna pohoda podľa Pulse →
     alebo animácie Hyprlandu;
   - pri stupni Softvér ostanú vypnuté (pravidlo „každý prvok má variant bez shaderov“).
 
+### 25. 9. 2026, 2:25: Súbory ako Total Commander — 2. časť ✅
+- **F3 Lister** v samostatnom okne:
+  - text s automatickým kódovaním (UTF-8 / CP1250 / ISO-8859-2, dá sa prepnúť), **3 hex**, obrázky, W zalamovanie;
+  - Ctrl+F hľadanie, **N/P** ďalší alebo predošlý súbor v priečinku;
+  - veľké súbory sa načítavajú po častiach.
+- **Ctrl+M hromadné premenovanie:**
+  - masky [N], [N1-3], [E], [C], [C:3], [Y]-[M]-[D], [h][m][s], [P] (tlačidlá ich vložia);
+  - hľadať/nahradiť (aj regex), veľkosť písmen, počítadlo (od, krok, cifry);
+  - **živý náhľad** s označením kolízií a **Späť posledné** (aj v Príkazoch).
+- **Alt+F7 hľadanie:**
+  - maska, priečinok, **text v obsahu** (aj regex), veľkosť, počet dní, aj priečinky, **v archívoch**;
+  - výsledky priebežne, dvojklik prejde na súbor, „Do panela“; Ctrl+B plochý pohľad.
+- **Shift+F2 porovnanie priečinkov** (aj podľa obsahu) označí nové a novšie súbory na oboch stranách, takže stačí F5.
+- **Synchronizácia priečinkov** (→ ← ↔, podľa obsahu) ukáže plán a potom ho vykoná s priebehom.
+- **Archív ako priečinok** (Enter na .zip / .7z / .rar / .tar.* / .iso / .deb / .rpm):
+  - prechádzanie, rozbalenie označených alebo všetkého do druhého panela (Alt+F9) a test;
+  - **Alt+F5 zbaliť** do zip, 7z, tar.gz, tar.xz alebo tar.zst.
+- **Alt+Enter vlastnosti a atribúty:** práva osmičkovo s predvoľbami, dátum zmeny, aj rekurzívne.
+- **Kontrolné súčty** SHA-256/MD5 (vytvoriť, overiť) a **rozdeliť / spojiť** súbor (.001 … + .crc so SHA-256).
+- **Riadok príkazu** dole: príkaz sa spustí v termináli v aktívnom priečinku, `cd` mení priečinok, ↑/↓ história,
+  Ctrl+Enter vloží meno súboru.
+- **Lišta tlačidiel** hore, vlastné tlačidlá v `~/.config/latteos/subory-tlacidla.json`.
+- Ponuka **Príkazy** (☰ v hlavičke) obsahuje všetky nástroje.
+- Backend `latte-tc` a nové balíky **bsdtar** a **7zip** (doinštalované aj na VM).
+- Otestované naživo:
+  - maska `*.JPG` a Ctrl+M `dovolenka_[C:2]` s malými písmenami premenovali 3 súbory, „Späť“ ich vrátilo;
+  - Alt+F7 našiel súbor podľa slova „kôň“ v obsahu, Shift+F2 označil rozdiely;
+  - zip sa otvoril ako priečinok a F3 Lister ukázal text s diakritikou.
+
+  Testovacie súbory som zmazal.
+- Ešte chýba: strom priečinkov, diff dvoch súborov vedľa seba, archívy s heslom a viac zväzkami, odkazy, SMB/WebDAV,
+  úprava tlačidiel a skratiek v UI, rozšírenia (pluginy). Je to v ROADMAP.
+
 ### 25. 9. 2026, 2:05: Súbory ako Total Commander — 1. časť ✅
 Režim Total Commander (tlačidlo v hlavičke) teraz vie:
 - **Karty** nad každým panelom:
