@@ -207,6 +207,18 @@ Rectangle {
     }
     // znovu načíta priečinok (napr. keď vznikol až po otvorení — Kôš pri prvom spustení)
     function refresh() { const p = path; path = "/"; path = p; }
+    // bod pod aktuálnou položkou v súradniciach okna (F2, Shift+F10 a kláves Menu otvoria ponuku pri nej)
+    function itemPoint() {
+        const v = pane.icons ? grid : list, it = cur >= 0 ? v.itemAtIndex(cur) : null;
+        if (!it) return pane.mapToItem(null, 40, 60);
+        return it.mapToItem(null, pane.icons ? 8 : 40, it.height - 4);
+    }
+    // Ctrl + koliesko: veľkosť ikon ako v Prieskumníkovi (ikony ↔ zoznam)
+    signal zoomRequested(int step)
+    WheelHandler {
+        acceptedModifiers: Qt.ControlModifier
+        onWheel: (ev) => { pane.zoomRequested(ev.angleDelta.y > 0 ? 1 : -1); ev.accepted = true; }
+    }
     function up() { if (path !== "/") { selectAfter = path.split("/").pop(); go(path.substring(0, path.lastIndexOf("/")) || "/"); } }
     function back() { if (historyIndex > 0) { historyIndex--; go(history[historyIndex], false); } }
     function forward() { if (historyIndex < history.length - 1) { historyIndex++; go(history[historyIndex], false); } }

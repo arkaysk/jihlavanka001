@@ -50,6 +50,7 @@ Rectangle {
     signal closeRequested()
     signal netToggled(bool on)
     property alias searchText: search.text
+    function focusSearch() { search.forceActiveFocus(); search.selectAll(); }   // Ctrl+F / F3 ako vo Windows
 
     height: 52
     color: "transparent"

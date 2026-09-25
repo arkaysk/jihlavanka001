@@ -99,6 +99,7 @@ ShellRoot {
         if (name.includes("/")) { app.status = "Názov nesmie obsahovať /"; return; }
         const dst = e.path.substring(0, e.path.lastIndexOf("/") + 1) + name;
         run(["mv", "-n", "--", e.path, dst], "Premenované na " + name);
+        pushUndo({ kind: "move", pairs: [[e.path, dst]], label: "premenovanie " + e.name });
         if (app.tags[e.path]) { const c = app.tags[e.path]; setTag(e.path, ""); setTag(dst, c); }
         if (app.favorites.indexOf(e.path) >= 0) { app.favorites = app.favorites.map(f => f === e.path ? dst : f); saveTags(); }
     }
@@ -556,6 +557,28 @@ ShellRoot {
 
     // dialóg F5 / F6
     property var op: null                     // { move, items[], target, mask, mode, verify }
+    // Späť (Ctrl+Z) ako v Prieskumníkovi: presun, premenovanie, kópia, odkaz a Kôš (posledných 30 akcií)
+    property var undoStack: []
+    function pushUndo(u) { undoStack = undoStack.concat([u]).slice(-30); }
+    function undo() {
+        if (!undoStack.length) { app.status = "Nie je čo vrátiť"; return; }
+        const u = undoStack[undoStack.length - 1];
+        undoStack = undoStack.slice(0, -1);
+        if (u.kind === "move") run(["sh", "-c", 'while [ $# -gt 1 ]; do [ -e "$2" ] && mv -n -- "$2" "$1"; shift 2; done', "sh"].concat([].concat(...u.pairs)), "Vrátené: " + u.label);
+        else if (u.kind === "copy" || u.kind === "link") run(["latte-kos", "vyhod"].concat(u.created), "Vrátené: " + u.label + " (do Koša)");
+        else if (u.kind === "trash") run(["latte-kos", "obnov-cestu"].concat(u.paths), "Vrátené z Koša: " + u.label);
+        refreshBoth.restart(); trashRefresh.restart();
+    }
+    function base(p) { return p.substring(p.lastIndexOf("/") + 1); }
+    // Ctrl + koliesko: zoznam ↔ ikony malé · stredné · veľké · extra veľké (ako Prieskumník)
+    function zoom(step) {
+        const sizes = [48, 72, 112, 176];
+        if (app.view !== "ikony") { if (step > 0) { app.view = "ikony"; app.iconSize = 48; } return; }
+        const i = sizes.indexOf(app.iconSize) < 0 ? 1 : sizes.indexOf(app.iconSize);
+        if (step < 0 && i === 0) { app.view = "zoznam"; return; }
+        app.iconSize = sizes[Math.max(0, Math.min(sizes.length - 1, i + step))];
+    }
+
     // pustenie myšou (FilePane) ako vo Windows: action copy | move | link | ask (pravé/stredné tlačidlo = ponuka).
     // Režim TC: kópia/presun cez dialóg F5/F6 (ako Total Commander); režim Forklift: hneď, konflikty sa opýtajú.
     function dropOp(items, dir, action, wx, wy) {
@@ -578,6 +601,7 @@ ShellRoot {
     }
     function dropDo(items, dir, action) {
         if (action === "link") {
+            pushUndo({ kind: "link", created: items.map(e => dir + "/" + app.base(e.path)), label: "odkaz" });
             app.run(["sh", "-c", 'd="$1"; shift; for f in "$@"; do ln -s -- "$f" "$d/" 2>/dev/null || ln -s -- "$f" "$d/Odkaz na $(basename "$f")"; done', "sh", dir].concat(items.map(e => e.path)),
                     (items.length === 1 ? "Odkaz na " + items[0].name : items.length + " odkazov") + " v " + dir.replace(app.home, "~"));
             refreshBoth.restart(); return;
@@ -611,6 +635,11 @@ ShellRoot {
                     label: (o.items.length === 1 ? o.items[0].name : o.items.length + " položiek") + " → " + target.replace(app.home, "~") };
         op = null;
         app.activePane.clearMarks();
+        if (target.endsWith("/")) {
+            const lbl = (o.items.length === 1 ? o.items[0].name : o.items.length + " položiek");
+            if (o.move) pushUndo({ kind: "move", pairs: j.sources.map(p => [p, target + app.base(p)]), label: "presun " + lbl });
+            else pushUndo({ kind: "copy", created: j.sources.map(p => target + app.base(p)), label: "kópia " + lbl });
+        }
         if (j.mode === "ask") {
             const dir = target.endsWith("/") ? target : (o.items.length > 1 ? target : target.substring(0, target.lastIndexOf("/")));
             if (o.items.length === 1 && !target.endsWith("/")) { j.mode = "preskocit"; enqueue(j); return; }   // premenovanie na nové meno
@@ -625,13 +654,17 @@ ShellRoot {
     property var delAsk: null                 // { items[], permanent }
     function askDelete(permanent) {
         const items = app.activePane.selection(); if (!items.length) return;
+        if (!permanent && !app.commander) { doDelete({ items: items, permanent: false }); return; }   // Windows: Del bez otázky (Ctrl+Z vráti)
         delAsk = { items: items, permanent: permanent };
     }
-    function doDelete() {
-        const d = delAsk; delAsk = null; if (!d) return;
+    function doDelete(direct) {
+        const d = direct || delAsk; delAsk = null; if (!d) return;
         const paths = d.items.map(e => e.path);
         if (d.permanent) run(["rm", "-rf", "--"].concat(paths), "Odstránené natrvalo: " + (paths.length === 1 ? d.items[0].name : paths.length + " položiek"));
-        else run(["latte-kos", "vyhod"].concat(paths), "Do koša: " + (paths.length === 1 ? d.items[0].name : paths.length + " položiek"));
+        else {
+            run(["latte-kos", "vyhod"].concat(paths), "Do koša: " + (paths.length === 1 ? d.items[0].name : paths.length + " položiek"));
+            pushUndo({ kind: "trash", paths: paths, label: paths.length === 1 ? d.items[0].name : paths.length + " položiek" });
+        }
         app.activePane.clearMarks(); trashRefresh.restart(); refreshBoth.restart();
     }
     Timer { id: refreshBoth; interval: 500; onTriggered: { paneA.refresh(); paneB.refresh(); } }
@@ -856,10 +889,10 @@ ShellRoot {
                 if (app.connectOpen || app.ask || app.op || app.conflict || app.delAsk || tcd.visible) return;
                 ev.accepted = true;
                 // ── pohyb ──
-                if (k === Qt.Key_Down) p.moveRow(1);
-                else if (k === Qt.Key_Up) p.moveRow(-1);
-                else if (k === Qt.Key_Right && p.icons && !ctrl) p.moveSelection(1);
-                else if (k === Qt.Key_Left && p.icons && !ctrl) p.moveSelection(-1);
+                if (k === Qt.Key_Down && !alt) p.moveRow(1);
+                else if (k === Qt.Key_Up && !alt) p.moveRow(-1);
+                else if (k === Qt.Key_Right && p.icons && !ctrl && !alt) p.moveSelection(1);
+                else if (k === Qt.Key_Left && p.icons && !ctrl && !alt) p.moveSelection(-1);
                 else if (k === Qt.Key_PageDown) p.moveSelection(15);
                 else if (k === Qt.Key_PageUp) p.moveSelection(-15);
                 else if (k === Qt.Key_Home) p.home_();
@@ -871,6 +904,25 @@ ShellRoot {
                     else if (app.commander && app.sel && !app.sel.isDir && app.archiveRe.test(app.sel.name)) app.tool("archiv");
                     else p.openCurrent();
                 }
+                // ── Prieskumník (režim Forklift) ako Windows; v režime TC ostávajú klávesy TC ──
+                else if (k === Qt.Key_Z && ctrl) app.undo();
+                else if ((k === Qt.Key_Left && alt) || k === Qt.Key_Back) p.back();
+                else if ((k === Qt.Key_Right && alt) || k === Qt.Key_Forward) p.forward();
+                else if (k === Qt.Key_Up && alt) p.up();
+                else if (k === Qt.Key_N && ctrl && shift) app.newFolder(p);
+                else if (k === Qt.Key_N && ctrl) app.run(["latte-app", "subory", p.path], "Nové okno");
+                else if ((k === Qt.Key_F && ctrl) || (k === Qt.Key_E && ctrl) || (k === Qt.Key_F3 && !app.commander && !ctrl && !alt && !shift)) header.focusSearch();
+                else if ((k === Qt.Key_L && ctrl) || (k === Qt.Key_D && alt) || (k === Qt.Key_F4 && !app.commander && !shift && !alt))
+                    app.askInput("Prejsť na priečinok", p.path, "cesta, napr. ~/Dokumenty alebo /media", (t) => p.go(t.replace(/^~(?=\/|$)/, app.home).replace(/\/+$/, "") || "/"));
+                else if (k === Qt.Key_F2 && !app.commander && !shift && !ctrl && !alt) {
+                    const e = p.current;
+                    if (e) { const q = p.itemPoint(); ctx.open(q.x, q.y, [{ input: e.name, wholeName: e.isDir, action: (t) => app.rename(e, t) }], "Nový názov · Enter uloží, Esc zruší"); }
+                }
+                else if (k === Qt.Key_F5 && !app.commander && !ctrl && !shift && !alt) { p.refresh(); app.status = "Obnovené"; }
+                else if ((k === Qt.Key_F10 && shift) || k === Qt.Key_Menu) { const q = p.itemPoint(); app.showMenu(p.current, q.x, q.y, p); }
+                else if (k === Qt.Key_Space && !app.commander) { const e = p.current; if (e && !e.isDir) app.lister(e); }
+                else if (k === Qt.Key_C && ctrl && shift) app.run(["sh", "-c", 'printf "%s" "$1" | wl-copy', "sh", (p.current || { path: p.path }).path], "Cesta skopírovaná");
+                else if (k === Qt.Key_Backspace && !app.commander) p.back();
                 else if (k === Qt.Key_Backspace) p.up();
                 else if (k === Qt.Key_Tab && !ctrl && app.dual) app.activeIndex = 1 - i;
                 // ── karty ──
@@ -1085,6 +1137,7 @@ ShellRoot {
                         view: app.view; iconSize: app.iconSize
                         onContextRequested: (e, x, y) => app.showMenu(e, x, y, paneA)
                         onDropRequested: (items, dir, action, wx, wy) => app.dropOp(items, dir, action, wx, wy)
+                        onZoomRequested: (st) => app.zoom(st)
                         dragRule: app.commander ? "copy" : app.dragRule
                         width: parent.width; height: parent.height - y
                         active: app.dual && app.activeIndex === 0
@@ -1106,6 +1159,7 @@ ShellRoot {
                         view: app.view; iconSize: app.iconSize
                         onContextRequested: (e, x, y) => app.showMenu(e, x, y, paneB)
                         onDropRequested: (items, dir, action, wx, wy) => app.dropOp(items, dir, action, wx, wy)
+                        onZoomRequested: (st) => app.zoom(st)
                         dragRule: app.commander ? "copy" : app.dragRule
                         width: parent.width; height: parent.height - y
                         active: app.dual && app.activeIndex === 1
@@ -1217,7 +1271,7 @@ ShellRoot {
                 Text {
                     visible: !app.commander
                     anchors { right: parent.right; rightMargin: 14; verticalCenter: parent.verticalCenter }
-                    text: "Pravý klik: menu a farba · F3 dva panely · F5 kopírovať · F6 presunúť · Del kôš · Alt+P náhľad"
+                    text: "Pravý klik: ponuka · pravé ťahanie: Kopírovať / Presunúť sem · F2 premenovať · Del do Koša · Ctrl+Z späť · Medzerník náhľad"
                     color: theme.fgDim; opacity: 0.8; font { family: theme.fontUi; pixelSize: 11 }
                 }
                 // Total Commander: lišta F-kláves (klik = to isté ako kláves)
@@ -1480,7 +1534,13 @@ ShellRoot {
                 onVisibleChanged: if (!visible) root.forceActiveFocus()
             }
 
-            ContextMenu { id: ctx; theme: theme }
+            // bočné tlačidlá myši Späť / Dopredu (ako v Prieskumníkovi); iné tlačidlá prejdú k položkám pod ním
+            MouseArea {
+                anchors.fill: parent; z: 900
+                acceptedButtons: Qt.BackButton | Qt.ForwardButton
+                onPressed: (m) => { if (m.button === Qt.BackButton) app.activePane.back(); else app.activePane.forward(); }
+            }
+            ContextMenu { id: ctx; theme: theme; onVisibleChanged: if (!visible) root.forceActiveFocus() }   // klávesy (Ctrl+Z, Del…) hneď po ponuke
         }
     }
 }
