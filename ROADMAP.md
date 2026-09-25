@@ -378,19 +378,22 @@ flowchart TD
 - [ ] Vlastné a komunitné balíčky v ~/.local/share/latteos/maskoti (iba dáta) + galéria
 - [ ] Softvérové sklo pre panely a popupy LatteOS (rozmazaný výrez tapety ako v starej vetve), GPU blur ostáva pre okná
 - [ ] **Súbory = plná funkčnosť Total Commandera** (zadanie 25. 9.: „nejde o to, čo používam, ale o plnú funkčnosť originálu“):
-  - [ ] Panely: dva panely, **karty** v každom (Ctrl+T, Ctrl+W, Ctrl+Tab, uzamknutá karta), lišta diskov, história Späť/Dopredu,
-        **hotlist** priečinkov (Ctrl+D), rovnaký priečinok v druhom paneli (Alt+Enter/Ctrl+↑), výmena panelov (Ctrl+U)
+  - [x] Panely: dva panely, **karty** v každom (Ctrl+T, Ctrl+W, Ctrl+Tab, uzamknutá karta), menu diskov (Alt+F1/F2), história Späť/Dopredu,
+        **hotlist** priečinkov (Ctrl+D), priečinok do panela vľavo/vpravo (Ctrl+←/→), výmena panelov (Ctrl+U), riadok „..“
   - [ ] Zobrazenia: stručné, úplné (stĺpce, triedenie kliknutím), miniatúry, strom (Ctrl+F8), vlastné stĺpce, **Rýchly náhľad** (Ctrl+Q), plochý pohľad (Ctrl+B)
-  - [ ] Výber: Num+ / Num− s maskou, Num* obrátiť, Alt+Num+ podľa prípony, uložiť a obnoviť výber, **rýchle hľadanie** písaním a rýchly filter
-  - [ ] F-klávesy: F2 obnoviť, **F3 Lister** (text, hex, binárny, obrázok, médium, kódovania), F4 editor, Shift+F4 nový súbor,
-        **F5 kopírovať / F6 presunúť** s dialógom (maska, cieľ, prepísanie: všetko/nič/staršie/premenovať, overenie, rad úloh na pozadí,
-        pauza, rýchlosť), F7 priečinok (aj vnorené a/b/c), F8/Del do koša, Shift+Del natrvalo
+  - [x] Výber: Insert/Medzerník, Ctrl/Shift+klik, Num+ / Num− s maskou, Num* obrátiť, Ctrl+A, **rýchle hľadanie** písaním a rýchly filter
+  - [ ] Výber: Alt+Num+ podľa prípony, uložiť a obnoviť výber, porovnanie výberu s druhým panelom
+  - [x] F-klávesy: F2/Ctrl+R obnoviť, F4 editor, Shift+F4 nový súbor, **F5 kopírovať / F6 presunúť** s dialógom (cieľ, maska,
+        prepísať / preskočiť / staršie / premenovať, overenie SHA-256, **rad úloh** s pauzou a zrušením, F2 = do radu), Shift+F6 premenovať,
+        F7 priečinok (aj vnorené a/b/c), F8/Del do koša, Shift+Del natrvalo, Ctrl+C/X/V súbory cez schránku, zobrazenie Ctrl+F1/F2, triedenie Ctrl+F3–F6
+  - [ ] **F3 Lister** (text, hex, binárny, obrázok, médium, kódovania), obmedzenie rýchlosti kopírovania
   - [ ] **Hromadné premenovanie** (Ctrl+M): masky [N] [E] [C] [Y][M][D], počítadlo, hľadať/nahradiť, regulárne výrazy, veľkosť písmen, náhľad, späť
   - [ ] **Porovnanie priečinkov** (Shift+F2, označí rozdiely), **Synchronizácia priečinkov** (asymetrická, podľa obsahu, náhľad akcií),
         **porovnanie súborov podľa obsahu** (diff textu, binárne)
   - [ ] **Archívy ako priečinky** (zip, 7z, rar, tar.*), zbaliť (Alt+F5), rozbaliť (Alt+F9), test archívu, viac zväzkov, heslo
   - [ ] **Hľadanie** (Alt+F7): maska mena, text v obsahu (aj regex, kódovanie), veľkosť, dátum, atribúty, v archívoch, výsledok do panelu
-  - [ ] Veľkosť priečinkov (medzerník, Alt+Shift+Enter), vlastnosti a **zmena atribútov/práv a dátumov**, symbolické a pevné odkazy
+  - [x] Veľkosť priečinkov (medzerník, Alt+Shift+Enter)
+  - [ ] Vlastnosti a **zmena atribútov/práv a dátumov**, symbolické a pevné odkazy
   - [ ] **Kontrolné súčty** (MD5/SHA1/SHA256 vytvoriť a overiť), **rozdeliť / spojiť** súbory, kódovanie UUE/Base64
   - [ ] **Riadok príkazu** s históriou (v aktuálnom priečinku), terminál tu, lišta **vlastných tlačidiel**, vlastné menu a klávesové skratky
   - [ ] Sieť: FTP/SFTP (✓ základ), SMB zdieľanie, WebDAV, cloud (✓ rclone); ťahanie myšou medzi panelmi a do iných aplikácií

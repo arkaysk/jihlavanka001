@@ -100,6 +100,43 @@ Poradie: 1. Monitor (hotové nižšie) → 2. Digitálna pohoda podľa Pulse →
     alebo animácie Hyprlandu;
   - pri stupni Softvér ostanú vypnuté (pravidlo „každý prvok má variant bez shaderov“).
 
+### 25. 9. 2026, 2:05: Súbory ako Total Commander — 1. časť ✅
+Režim Total Commander (tlačidlo v hlavičke) teraz vie:
+- **Karty** nad každým panelom:
+  - Ctrl+T nová, Ctrl+W zavrieť, Ctrl+Tab ďalšia;
+  - dvojklik kartu uzamkne (zmena priečinka potom otvorí novú kartu), stredné tlačidlo ju zavrie;
+  - pravý klik = ponuka; karty sa pamätajú.
+- **Riadok „..“** hore, **Backspace** o úroveň vyššie. Po návrate hore ostane kurzor na priečinku, z ktorého si prišiel.
+- **Označovanie**:
+  - Insert alebo Medzerník (pri priečinku aj **spočíta veľkosť**), Ctrl+klik, Shift+klik rozsah;
+  - **Num+ / Num−** s maskou (`*.jpg;*.png`), **Num\*** obráti výber, Ctrl+A všetko.
+  - Označené sú **červené** ako v TC a stavový riadok ukazuje počet a veľkosť.
+- **Rýchle hľadanie** písaním (skočí na prvú zhodu), Home/End, PageUp/PageDown.
+- **F5 / F6 dialóg**:
+  - cieľ (dá sa upraviť, F6 s novým menom = premenovanie), maska „iba súbory“;
+  - pri existujúcom súbore: opýtať sa / prepísať / preskočiť / prepísať staršie / premenovať kópiu;
+  - overenie SHA-256;
+  - **OK** alebo **Do radu (F2)**.
+- **Rad úloh** na pozadí s priebehom v stavovom riadku. Klik naň otvorí zoznam úloh s **pauzou** a **zrušením**.
+  Kopíruje `latte-kopia` s priebehom po bajtoch a nedokončené súbory nenecháva (`.latte-part`).
+- **Kolízie mien:** dialóg „V cieli už existuje N položiek“ ponúka Prepísať všetky, Preskočiť existujúce, Prepísať iba
+  staršie, Premenovať kópie a Zrušiť.
+- **F7** vytvorí aj vnorené priečinky `a/b/c`, Shift+F4 nový súbor, Shift+F6 premenovanie.
+  F8/Del presunie do koša s potvrdením, Shift+Del zmaže natrvalo.
+- **Ctrl+C / Ctrl+X / Ctrl+V** kopírujú súbory cez schránku, aj z iných aplikácií.
+- Ďalšie klávesy:
+  - **Ctrl+D** hotlist, **Alt+F1/F2** menu diskov, **Ctrl+U** výmena panelov, **Ctrl+←/→** priečinok do druhého panela;
+  - **Ctrl+F1/F2** zoznam alebo podrobnosti, Ctrl+Shift+F1 miniatúry, **Ctrl+F3–F6** triedenie podľa mena, typu, času a veľkosti;
+  - **Ctrl+Q** rýchly náhľad, Ctrl+R obnoviť.
+- Otestované naživo:
+  - maska `*.txt` označila 3 súbory;
+  - F5 ukázal kolíziu pri a.txt a „Premenovať kópie“ vytvorilo „a (2).txt“;
+  - fungovala nová karta, F7 `x/y/z` a veľkosť priečinka medzerníkom.
+
+  Testovacie priečinky som zmazal a tvoje nastavenia Súborov vrátil.
+- Ďalej (2. časť): Lister (F3), hromadné premenovanie (Ctrl+M), porovnanie a synchronizácia priečinkov, archívy ako priečinky,
+  hľadanie Alt+F7, atribúty a dátumy, kontrolné súčty, rozdelenie a spojenie, riadok príkazu, vlastné tlačidlá, strom a plochý pohľad.
+
 ### 25. 9. 2026, 1:30: Maskoti podľa tvojich predlôh a správanie podľa povahy ✅
 - **Podoba:** sprity som **vyrezal priamo z tvojich dvoch obrázkov kolekcie** (`resources/art/maskoti/`, nástroj `vyrez.py`:
   nájde postavy v riadkoch „Kľud“ a „V pohybe“ a odstráni tmavé pozadie). Každá postava je balíček PNG snímok + `pet.json`.

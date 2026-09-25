@@ -228,8 +228,8 @@ ShellRoot {
         if (e.isDir || /\.(rpm|flatpakref|flatpak|appimage|exe|msi|apk|deb|run|zip|rar|7z|iso)$/i.test(e.name))
             items.push({ glyph: "help", label: "Bude to fungovať?", hint: "App Manager", action: () => app.run(["latte-app", "aplikacie", "check", e.path]) });
         if (app.dual) {
-            items.push({ glyph: "copy", label: "Kopírovať do druhého", hint: "F5", action: () => app.copyToOther(false) });
-            items.push({ glyph: "arrows-exchange", label: "Presunúť do druhého", hint: "F6", action: () => app.copyToOther(true) });
+            items.push({ glyph: "copy", label: "Kopírovať do druhého", hint: "F5", action: () => app.openOp(false) });
+            items.push({ glyph: "arrows-exchange", label: "Presunúť do druhého", hint: "F6", action: () => app.openOp(true) });
         }
         if (e.isDir) {
             items.push({ glyph: "star", label: app.favorites.indexOf(e.path) >= 0 ? "Odobrať z Obľúbených" : "Pridať do Obľúbených", action: () => app.toggleFavorite(e.path) });
@@ -307,6 +307,7 @@ ShellRoot {
                 if (st.showDetail !== undefined) app.showDetail = !!st.showDetail;
                 if (st.view) app.view = st.view;
                 if (st.iconSize) app.iconSize = st.iconSize;
+                if (st.tabs && st.tabs.length === 2) { app.tabs = st.tabs; app.tabIdx = st.tabIdx || [0, 0]; }
                 if (st.left) paneA.go(st.left);
                 if (st.right) paneB.go(st.right);
             } catch (e) {}
@@ -324,7 +325,7 @@ ShellRoot {
     function saveState() {
         if (!app.stateLoaded) return;
         saver.command = ["sh", "-c", "mkdir -p \"$(dirname \"$1\")\" && printf '%s' \"$2\" > \"$1\"", "sh", app.stateFile,
-                         JSON.stringify({ dual: app.dual, left: paneA.path, right: paneB.path, mode: app.mode,
+                         JSON.stringify({ dual: app.dual, left: paneA.path, right: paneB.path, mode: app.mode, tabs: app.tabs, tabIdx: app.tabIdx,
                                          showDetail: app.showDetail, view: app.view, iconSize: app.iconSize })];
         saver.running = true;
     }
@@ -425,6 +426,186 @@ ShellRoot {
         trashRefresh.restart();
     }
 
+    // ═══ Total Commander (zadanie 25. 9.: plná funkčnosť originálu) ════════════════════════════
+    // karty: pre každý panel zoznam { path, locked }; uzamknutá karta pri zmene priečinka otvorí novú
+    property var tabs: [[{ path: app.home, locked: false }], [{ path: "/", locked: false }]]
+    property var tabIdx: [0, 0]
+    function paneAt(i) { return i === 0 ? paneA : paneB; }
+    function idxOf(pane) { return pane === paneA ? 0 : 1; }
+    function setTabs(i, list, idx) {
+        const t = tabs.slice(), ti = tabIdx.slice();
+        t[i] = list; ti[i] = Math.max(0, Math.min(list.length - 1, idx)); tabs = t; tabIdx = ti; saveState();
+    }
+    function onPanePath(i, p) {
+        const list = tabs[i].slice(), k = tabIdx[i];
+        if (!list[k]) return;
+        if (list[k].path === p) return;
+        if (list[k].locked) { list.splice(k + 1, 0, { path: p, locked: false }); setTabs(i, list, k + 1); return; }
+        list[k] = { path: p, locked: false }; setTabs(i, list, k);
+    }
+    function newTab(i) { const list = tabs[i].slice(); list.splice(tabIdx[i] + 1, 0, { path: paneAt(i).path, locked: false }); setTabs(i, list, tabIdx[i] + 1); }
+    function closeTab(i, k) {
+        if (k === undefined) k = tabIdx[i];
+        const list = tabs[i].slice(); if (list.length <= 1) { app.status = "Posledná karta sa nedá zavrieť"; return; }
+        list.splice(k, 1);
+        const ni = Math.min(k, list.length - 1); setTabs(i, list, ni); paneAt(i).go(list[ni].path);
+    }
+    function switchTab(i, k) { const list = tabs[i]; if (!list.length) return; k = (k + list.length) % list.length; setTabs(i, list, k); paneAt(i).go(list[k].path); }
+    function toggleLock(i, k) { const list = tabs[i].slice(); list[k] = { path: list[k].path, locked: !list[k].locked }; setTabs(i, list, tabIdx[i]); }
+    function tabName(t) { return (t.path === app.trashDir ? "Kôš" : (t.path.split("/").pop() || "/")); }
+
+    // hotlist priečinkov (Ctrl+D) = Obľúbené + pridať aktuálny
+    function hotlist(x, y) {
+        const p = app.activePane, items = [];
+        for (const s of app.sidebarModel.slice(1, 2)) for (const it of s.items) items.push({ glyph: it.glyph, label: it.label, hint: it.path.replace(app.home, "~"), action: () => p.go(it.path) });
+        items.push({ separator: true });
+        items.push({ glyph: "star", label: app.favorites.indexOf(p.path) >= 0 ? "Odobrať aktuálny priečinok" : "Pridať aktuálny priečinok", action: () => app.toggleFavorite(p.path) });
+        ctx.open(x, y, items, "Hotlist priečinkov (Ctrl+D)");
+    }
+    function driveMenu(i, x, y) {
+        ctx.open(x, y, app.disks.concat(app.cloudDirs.map(c => ({ path: app.home + "/Cloud/" + c, glyph: "cloud", label: c, sub: "cloud" })))
+                           .map(d => ({ glyph: d.glyph, label: d.label, hint: d.sub || "", action: () => { app.dual = app.dual || i === 1; app.paneAt(i).go(d.path); app.activeIndex = i; } })),
+                 i === 0 ? "Disk vľavo (Alt+F1)" : "Disk vpravo (Alt+F2)");
+    }
+    function swapPanels() { const a = paneA.path, b = paneB.path, ta = tabs[0], tb = tabs[1], ia = tabIdx[0], ib = tabIdx[1]; tabs = [tb, ta]; tabIdx = [ib, ia]; paneA.go(b); paneB.go(a); }
+    function toSide(i) {                       // Ctrl+←/→: priečinok pod kurzorom (alebo aktuálny) do panela vľavo/vpravo
+        const e = app.sel, target = e && e.isDir ? e.path : app.activePane.path;
+        app.dual = true; app.paneAt(i).go(target);
+    }
+
+    // veľkosti priečinkov (Medzerník, Alt+Shift+Enter)
+    Process {
+        id: duProc
+        property var pane: null
+        stdout: SplitParser { onRead: (l) => { const t = l.indexOf("\t"); if (t > 0 && duProc.pane) duProc.pane.setDirSize(l.slice(t + 1), parseInt(l.slice(0, t)) || 0); } }
+    }
+    function dirSizes(pane, paths) {
+        if (!paths.length || duProc.running) return;
+        duProc.pane = pane; duProc.command = ["du", "-sb", "--"].concat(paths); duProc.running = true;
+        app.status = "Počítam veľkosť " + (paths.length === 1 ? paths[0].split("/").pop() : paths.length + " priečinkov") + "…";
+    }
+
+    // všeobecný dialóg s textovým poľom (F7, Shift+F4, výber maskou, premenovanie)
+    property var ask: null                    // { title, text, hint, action(text) }
+    function askInput(title, text, hint, action) { ask = { title: title, text: text, hint: hint || "", action: action }; }
+
+    // ── rad úloh kopírovania a presunu (F5 / F6), vykonáva latte-kopia ─────────────────
+    property var jobs: []                     // { move, target, sources, mode, mask, label, state: čaká|beží|hotovo|chyba, msg }
+    property var job: null
+    property int jobPct: 0
+    property string jobFile: ""
+    property bool jobPaused: false
+    property bool jobsOpen: false
+    Process {
+        id: jobProc
+        stdout: SplitParser {
+            onRead: (l) => {
+                const f = l.split(" ");
+                if (f[0] === "P") { app.jobPct = parseInt(f[1]) || 0; app.jobFile = f.slice(4).join(" "); }
+                else if (f[0] === "E") { if (app.job) app.job.msg = l.slice(2); }
+                else if (f[0] === "OK" && app.job) app.job.result = "skopírované " + f[1] + (parseInt(f[2]) ? ", preskočené " + f[2] : "");
+            }
+        }
+        onExited: (code) => {
+            const j = app.job;
+            if (j) { j.state = code === 0 && !j.msg ? "hotovo" : "chyba"; app.status = (j.state === "hotovo" ? "Hotovo: " : "Chyba: ") + j.label + (j.result ? " · " + j.result : "") + (j.msg ? " · " + j.msg : ""); }
+            app.job = null; app.jobPct = 0; app.jobFile = ""; app.jobPaused = false; app.jobs = app.jobs.slice();
+            paneA.refresh(); paneB.refresh(); trashRefresh.restart();
+            Qt.callLater(app.nextJob);
+        }
+    }
+    function enqueue(j) { j.state = "čaká"; jobs = jobs.concat([j]); if (!job) nextJob(); else app.status = "Do radu: " + j.label + " (" + jobs.filter(x => x.state === "čaká").length + " čaká)"; }
+    function nextJob() {
+        if (job) return;
+        const j = jobs.find(x => x.state === "čaká"); if (!j) return;
+        j.state = "beží"; job = j; jobs = jobs.slice();
+        jobProc.command = ["latte-kopia", j.move ? "presun" : "kopiruj", "--rezim", j.mode, "--maska", j.mask || "*"].concat(j.verify ? ["--overit"] : []).concat([j.target]).concat(j.sources);
+        jobProc.running = true;
+        app.status = (j.move ? "Presúvam " : "Kopírujem ") + j.label;
+    }
+    function pauseJob() { if (!jobProc.running) return; run(["kill", jobPaused ? "-CONT" : "-STOP", String(jobProc.processId)]); jobPaused = !jobPaused; }
+    function cancelJob() { if (!jobProc.running) return; if (jobPaused) run(["kill", "-CONT", String(jobProc.processId)]); jobProc.signal(15); if (job) job.msg = "zrušené"; }
+    function clearDone() { jobs = jobs.filter(x => x.state === "čaká" || x.state === "beží"); }
+
+    // dialóg F5 / F6
+    property var op: null                     // { move, items[], target, mask, mode, verify }
+    function openOp(move) {
+        const items = app.activePane.selection();
+        if (!items.length) { app.status = "Nič nie je vybrané"; return; }
+        const tgt = app.dual ? app.otherPane.path : app.activePane.path;
+        op = { move: move, items: items, target: (items.length === 1 && !app.dual ? items[0].path : tgt + "/"), mask: "*.*", mode: "ask", verify: false };
+    }
+    Process {
+        id: conflictProc
+        property var pending: null
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const names = this.text.split("\n").filter(l => l !== ""), j = conflictProc.pending;
+                if (!j) return;
+                if (names.length) { app.conflict = { job: j, names: names }; return; }
+                j.mode = "preskocit"; app.enqueue(j);
+            }
+        }
+    }
+    property var conflict: null               // { job, names[] }
+    function startOp(queueOnly) {
+        const o = op; if (!o) return;
+        const target = o.target.trim(); if (target === "") return;
+        const j = { move: o.move, target: target, sources: o.items.map(e => e.path), mode: o.mode, mask: o.mask, verify: o.verify,
+                    label: (o.items.length === 1 ? o.items[0].name : o.items.length + " položiek") + " → " + target.replace(app.home, "~") };
+        op = null;
+        app.activePane.clearMarks();
+        if (j.mode === "ask") {
+            const dir = target.endsWith("/") ? target : (o.items.length > 1 ? target : target.substring(0, target.lastIndexOf("/")));
+            if (o.items.length === 1 && !target.endsWith("/")) { j.mode = "preskocit"; enqueue(j); return; }   // premenovanie na nové meno
+            conflictProc.pending = j; conflictProc.command = ["latte-kopia", "konflikty", dir].concat(j.sources); conflictProc.running = true;
+            return;
+        }
+        enqueue(j);
+    }
+    function resolveConflict(mode) { const c = conflict; conflict = null; if (!c || !mode) { app.status = "Zrušené"; return; } c.job.mode = mode; enqueue(c.job); }
+
+    // mazanie: do koša (F8 / Del), natrvalo (Shift+Del) s potvrdením
+    property var delAsk: null                 // { items[], permanent }
+    function askDelete(permanent) {
+        const items = app.activePane.selection(); if (!items.length) return;
+        delAsk = { items: items, permanent: permanent };
+    }
+    function doDelete() {
+        const d = delAsk; delAsk = null; if (!d) return;
+        const paths = d.items.map(e => e.path);
+        if (d.permanent) run(["rm", "-rf", "--"].concat(paths), "Odstránené natrvalo: " + (paths.length === 1 ? d.items[0].name : paths.length + " položiek"));
+        else run(["latte-kos", "vyhod"].concat(paths), "Do koša: " + (paths.length === 1 ? d.items[0].name : paths.length + " položiek"));
+        app.activePane.clearMarks(); trashRefresh.restart(); refreshBoth.restart();
+    }
+    Timer { id: refreshBoth; interval: 500; onTriggered: { paneA.refresh(); paneB.refresh(); } }
+
+    // schránka súborov (Ctrl+C / Ctrl+X / Ctrl+V) — text/uri-list, spolupracuje s inými aplikáciami
+    property bool cutMode: false
+    function clipCopy(cut) {
+        const items = app.activePane.selection(); if (!items.length) return;
+        cutMode = cut;
+        run(["sh", "-c", 'printf "%s\\n" "$@" | wl-copy --type text/uri-list', "sh"].concat(items.map(e => "file://" + encodeURI(e.path))),
+            (cut ? "Vystrihnuté: " : "Skopírované: ") + (items.length === 1 ? items[0].name : items.length + " položiek") + " (Ctrl+V vloží)");
+    }
+    Process {
+        id: pasteProc
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const src = this.text.split(/\r?\n/).filter(l => l.startsWith("file://")).map(l => decodeURI(l.slice(7)));
+                if (!src.length) { app.status = "Schránka neobsahuje súbory"; return; }
+                app.enqueue({ move: app.cutMode, target: app.activePane.path + "/", sources: src, mode: "premenovat", mask: "*",
+                              label: (src.length === 1 ? src[0].split("/").pop() : src.length + " položiek") + " → " + app.activePane.path.replace(app.home, "~") });
+                app.cutMode = false;
+            }
+        }
+    }
+    function clipPaste() { pasteProc.command = ["wl-paste", "--no-newline", "--type", "text/uri-list"]; pasteProc.running = true; }
+
+    // rýchle hľadanie písaním (ako v TC / Prieskumníkovi)
+    property string quick: ""
+    Timer { id: quickReset; interval: 1600; onTriggered: app.quick = "" }
+
     FloatingWindow {
 
         onClosed: Qt.quit()              // zavretie z kompozitora (✕ v titulku, Super+Q) ukončí aj proces
@@ -439,27 +620,77 @@ ShellRoot {
             anchors.fill: parent
             focus: true
             Keys.onPressed: (ev) => {
-                const p = app.activePane;
-                if (app.connectOpen) return;
-                if (ev.key === Qt.Key_Down) { p.moveRow(1); ev.accepted = true; }
-                else if (ev.key === Qt.Key_Up) { p.moveRow(-1); ev.accepted = true; }
-                else if (ev.key === Qt.Key_Right && p.icons) { p.moveSelection(1); ev.accepted = true; }
-                else if (ev.key === Qt.Key_Left && p.icons) { p.moveSelection(-1); ev.accepted = true; }
-                else if (ev.key === Qt.Key_P && (ev.modifiers & Qt.AltModifier)) { app.showDetail = !app.showDetail; ev.accepted = true; }
-                else if (app.commander && ev.key === Qt.Key_F3) { if (app.sel) { if (app.sel.isDir) p.openCurrent(); else app.openPath(app.sel.path); } ev.accepted = true; }
-                else if (app.commander && ev.key === Qt.Key_F4) { if (app.sel && !app.sel.isDir) app.run(["latte-otvor", "spusti", "latteos-heidelberg", app.sel.path], "Upraviť: " + app.sel.name); ev.accepted = true; }
-                else if (app.commander && ev.key === Qt.Key_F7) { app.newFolder(p); ev.accepted = true; }
-                else if (app.commander && ev.key === Qt.Key_F8) { app.trash(); ev.accepted = true; }
-                else if (ev.key === Qt.Key_F9) { app.connectError = ""; app.connectOpen = true; ev.accepted = true; }
-                else if (ev.key === Qt.Key_Return || ev.key === Qt.Key_Enter) { p.openCurrent(); ev.accepted = true; }
-                else if (ev.key === Qt.Key_Backspace) { p.up(); ev.accepted = true; }
-                else if (ev.key === Qt.Key_Tab && app.dual) { app.activeIndex = 1 - app.activeIndex; ev.accepted = true; }
-                else if (ev.key === Qt.Key_F3) { app.dual = !app.dual; if (!app.dual) app.activeIndex = 0; ev.accepted = true; }
-                else if (ev.key === Qt.Key_F5) { app.copyToOther(false); ev.accepted = true; }
-                else if (ev.key === Qt.Key_F6) { app.copyToOther(true); ev.accepted = true; }
-                else if (ev.key === Qt.Key_Delete) { app.trash(); ev.accepted = true; }
-                else if (ev.key === Qt.Key_H && (ev.modifiers & Qt.ControlModifier)) { p.showHidden = !p.showHidden; ev.accepted = true; }
-                else if (ev.key === Qt.Key_Escape) { app.confirm = ""; app.status = ""; }
+                const p = app.activePane, ctrl = ev.modifiers & Qt.ControlModifier, shift = ev.modifiers & Qt.ShiftModifier, alt = ev.modifiers & Qt.AltModifier;
+                const i = app.activeIndex, k = ev.key;
+                if (app.connectOpen || app.ask || app.op || app.conflict || app.delAsk) return;
+                ev.accepted = true;
+                // ── pohyb ──
+                if (k === Qt.Key_Down) p.moveRow(1);
+                else if (k === Qt.Key_Up) p.moveRow(-1);
+                else if (k === Qt.Key_Right && p.icons && !ctrl) p.moveSelection(1);
+                else if (k === Qt.Key_Left && p.icons && !ctrl) p.moveSelection(-1);
+                else if (k === Qt.Key_PageDown) p.moveSelection(15);
+                else if (k === Qt.Key_PageUp) p.moveSelection(-15);
+                else if (k === Qt.Key_Home) p.home_();
+                else if (k === Qt.Key_End) p.end_();
+                else if (k === Qt.Key_Return || k === Qt.Key_Enter) {
+                    if (alt && shift) app.dirSizes(p, (function () { const l = []; for (let x = 0; x < p.count; x++) { const e = p.entryAt(x); if (e.isDir) l.push(e.path); } return l; })());
+                    else p.openCurrent();
+                }
+                else if (k === Qt.Key_Backspace) p.up();
+                else if (k === Qt.Key_Tab && !ctrl && app.dual) app.activeIndex = 1 - i;
+                // ── karty ──
+                else if (k === Qt.Key_T && ctrl) app.newTab(i);
+                else if (k === Qt.Key_W && ctrl) app.closeTab(i);
+                else if ((k === Qt.Key_Tab || k === Qt.Key_Backtab) && ctrl) app.switchTab(i, app.tabIdx[i] + ((shift || k === Qt.Key_Backtab) ? -1 : 1));
+                else if (k === Qt.Key_D && ctrl) { const q = header.mapToItem(null, 60, header.height); app.hotlist(q.x, q.y); }
+                else if (k === Qt.Key_F1 && alt) { const q = header.mapToItem(null, 20, header.height); app.driveMenu(0, q.x, q.y); }
+                else if (k === Qt.Key_F2 && alt) { const q = header.mapToItem(null, header.width / 2, header.height); app.driveMenu(1, q.x, q.y); }
+                else if (k === Qt.Key_U && ctrl) app.swapPanels();
+                else if (k === Qt.Key_Left && ctrl) app.toSide(0);
+                else if (k === Qt.Key_Right && ctrl) app.toSide(1);
+                // ── zobrazenie a triedenie ──
+                else if (k === Qt.Key_F1 && ctrl && shift) app.view = "ikony";
+                else if (k === Qt.Key_F1 && ctrl) app.view = "zoznam";
+                else if (k === Qt.Key_F2 && ctrl) app.view = "detaily";
+                else if (k === Qt.Key_F3 && ctrl) { p.sortReversed = p.sortField === 0 ? !p.sortReversed : false; p.sortField = 0; }
+                else if (k === Qt.Key_F4 && ctrl) { p.sortReversed = p.sortField === 3 ? !p.sortReversed : false; p.sortField = 3; }
+                else if (k === Qt.Key_F5 && ctrl) { p.sortReversed = p.sortField === 1 ? !p.sortReversed : false; p.sortField = 1; }
+                else if (k === Qt.Key_F6 && ctrl) { p.sortReversed = p.sortField === 2 ? !p.sortReversed : false; p.sortField = 2; }
+                else if ((k === Qt.Key_Q && ctrl) || (k === Qt.Key_P && alt)) app.showDetail = !app.showDetail;
+                else if ((k === Qt.Key_R && ctrl) || (k === Qt.Key_F2 && !shift)) { p.refresh(); app.status = "Obnovené"; }
+                else if (k === Qt.Key_H && ctrl) p.showHidden = !p.showHidden;
+                // ── označovanie ──
+                else if (k === Qt.Key_Insert) { p.toggleMark(p.cur); p.moveSelection(1); }
+                else if (k === Qt.Key_Space && !ctrl) { const e = p.current; if (e) { p.toggleMark(p.cur); if (e.isDir && p.isMarked(e.path)) app.dirSizes(p, [e.path]); p.moveSelection(1); } }
+                else if (k === Qt.Key_A && ctrl) p.markAll();
+                else if (k === Qt.Key_Plus && !ctrl) app.askInput("Označiť podľa masky (Num +)", "*.*", "napr. *.jpg;*.png · priečinky sa neoznačia, pridaj aj „/“ na koniec: foto*/", (t) => p.markMask(t.replace(/\/$/, ""), true, t.endsWith("/")));
+                else if (k === Qt.Key_Minus && !ctrl) app.askInput("Zrušiť označenie podľa masky (Num −)", "*.*", "napr. *.tmp", (t) => p.markMask(t.replace(/\/$/, ""), false, true));
+                else if (k === Qt.Key_Asterisk) p.invertMarks();
+                // ── schránka súborov ──
+                else if (k === Qt.Key_C && ctrl) app.clipCopy(false);
+                else if (k === Qt.Key_X && ctrl) app.clipCopy(true);
+                else if (k === Qt.Key_V && ctrl) app.clipPaste();
+                // ── F-klávesy ──
+                else if (k === Qt.Key_F3 && app.commander) { if (app.sel) { if (app.sel.isDir) p.openCurrent(); else app.openPath(app.sel.path); } }
+                else if (k === Qt.Key_F3) { app.dual = !app.dual; if (!app.dual) app.activeIndex = 0; }
+                else if (k === Qt.Key_F4 && shift) app.askInput("Nový súbor (Shift+F4)", "nový.txt", "súbor sa vytvorí v " + p.path.replace(app.home, "~") + " a otvorí v Heidelbergu",
+                                                             (t) => app.run(["sh", "-c", 'f="$1/$2"; [ -e "$f" ] || : > "$f"; latte-otvor spusti latteos-heidelberg "$f"', "sh", p.path, t], "Nový súbor: " + t));
+                else if (k === Qt.Key_F4) { if (app.sel && !app.sel.isDir) app.run(["latte-otvor", "spusti", "latteos-heidelberg", app.sel.path], "Upraviť: " + app.sel.name); }
+                else if (k === Qt.Key_F5) app.openOp(false);
+                else if (k === Qt.Key_F6 && shift) { const e = app.sel; if (e) app.askInput("Premenovať (Shift+F6)", e.name, "", (t) => app.rename(e, t)); }
+                else if (k === Qt.Key_F6) app.openOp(true);
+                else if (k === Qt.Key_F7) app.askInput("Nový priečinok (F7)", "", "aj vnorené: a/b/c", (t) => app.run(["mkdir", "-p", "--", p.path + "/" + t], "Nový priečinok: " + t));
+                else if ((k === Qt.Key_F8 || k === Qt.Key_Delete) && shift) app.askDelete(true);
+                else if (k === Qt.Key_F8 || k === Qt.Key_Delete) app.askDelete(false);
+                else if (k === Qt.Key_F9) { app.connectError = ""; app.connectOpen = true; }
+                else if (k === Qt.Key_Escape) { if (app.quick !== "") app.quick = ""; else if (p.markedCount) p.clearMarks(); app.confirm = ""; app.status = ""; }
+                // ── rýchle hľadanie písaním ──
+                else if (!ctrl && !alt && ev.text && ev.text.length === 1 && ev.text > " ") {
+                    app.quick += ev.text; quickReset.restart();
+                    if (!p.quickFind(app.quick)) app.status = "Nič sa nezačína na „" + app.quick + "“";
+                }
+                else ev.accepted = false;
             }
 
             SideBar {
@@ -515,32 +746,84 @@ ShellRoot {
                 readonly property real detailW: 280
                 readonly property real paneW: (width - (app.showDetail ? detailW + spacing : 0) - (app.dual ? spacing : 0)) / (app.dual ? 2 : 1)
 
-                FilePane {
-                    id: paneA
-                    theme: theme
-                    tags: app.tags
-                    view: app.view; iconSize: app.iconSize
-                    onContextRequested: (e, x, y) => app.showMenu(e, x, y, paneA)
-                    width: body.paneW; height: body.height
-                    active: app.dual && app.activeIndex === 0
-                    Component.onCompleted: go(app.home)
-                    onPathChanged: app.saveState()
-                    onFocusRequested: { app.activeIndex = 0; app.confirm = ""; root.forceActiveFocus(); }
-                    onOpenFile: (p) => app.openPath(p)
+                component TabBar: Row {
+                    id: tb
+                    property int side: 0
+                    visible: app.tabs[side].length > 1 || app.commander
+                    height: visible ? 30 : 0; spacing: 3
+                    Repeater {
+                        model: app.tabs[tb.side]
+                        Rectangle {
+                            required property var modelData
+                            required property int index
+                            readonly property bool on: app.tabIdx[tb.side] === index
+                            width: Math.min(170, tl.implicitWidth + 30 + (modelData.locked ? 14 : 0)); height: 26; radius: 8
+                            color: on ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, app.activeIndex === tb.side ? 0.22 : 0.1) : (tm.containsMouse ? theme.hover : theme.field)
+                            Row { x: 8; anchors.verticalCenter: parent.verticalCenter; spacing: 4
+                                  Glyph { visible: modelData.locked; name: "lock"; size: 11; color: theme.primary; anchors.verticalCenter: parent.verticalCenter }
+                                  Text { id: tl; width: Math.min(implicitWidth, 130); elide: Text.ElideRight; text: app.tabName(modelData); color: theme.fg
+                                         font { family: theme.fontUi; pixelSize: 11; weight: on ? Font.Bold : Font.Normal } } }
+                            MouseArea {
+                                id: tm; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+                                onClicked: (m) => {
+                                    if (m.button === Qt.MiddleButton) { app.closeTab(tb.side, index); return; }
+                                    if (m.button === Qt.RightButton) {
+                                        const q = mapToItem(null, m.x, m.y);
+                                        ctx.open(q.x, q.y, [
+                                            { glyph: "plus", label: "Nová karta", hint: "Ctrl+T", action: () => app.newTab(tb.side) },
+                                            { glyph: "lock", label: modelData.locked ? "Odomknúť kartu" : "Uzamknúť kartu", hint: "dvojklik", action: () => app.toggleLock(tb.side, index) },
+                                            { glyph: "columns-2", label: "Otvoriť v druhom paneli", action: () => { app.dual = true; app.paneAt(1 - tb.side).go(modelData.path); } },
+                                            { separator: true },
+                                            { glyph: "x", label: "Zavrieť kartu", hint: "Ctrl+W", enabled: app.tabs[tb.side].length > 1, action: () => app.closeTab(tb.side, index) }
+                                        ], app.tabName(modelData));
+                                        return;
+                                    }
+                                    app.activeIndex = tb.side; app.switchTab(tb.side, index); root.forceActiveFocus();
+                                }
+                                onDoubleClicked: app.toggleLock(tb.side, index)
+                            }
+                        }
+                    }
+                    Rectangle { width: 26; height: 26; radius: 8; color: pm.containsMouse ? theme.hover : "transparent"
+                                Glyph { anchors.centerIn: parent; name: "plus"; size: 13; color: theme.fgDim }
+                                MouseArea { id: pm; anchors.fill: parent; hoverEnabled: true; onClicked: app.newTab(tb.side) } }
                 }
-                FilePane {
-                    id: paneB
-                    theme: theme
-                    tags: app.tags
-                    view: app.view; iconSize: app.iconSize
-                    onContextRequested: (e, x, y) => app.showMenu(e, x, y, paneB)
+                Column {
+                    width: body.paneW; height: body.height; spacing: 4
+                    TabBar { side: 0 }
+                    FilePane {
+                        id: paneA
+                        theme: theme
+                        tags: app.tags
+                        dotdot: app.commander
+                        view: app.view; iconSize: app.iconSize
+                        onContextRequested: (e, x, y) => app.showMenu(e, x, y, paneA)
+                        width: parent.width; height: parent.height - y
+                        active: app.dual && app.activeIndex === 0
+                        Component.onCompleted: go(app.home)
+                        onPathChanged: { app.onPanePath(0, path); app.saveState(); }
+                        onFocusRequested: { app.activeIndex = 0; app.confirm = ""; root.forceActiveFocus(); }
+                        onOpenFile: (p) => app.openPath(p)
+                    }
+                }
+                Column {
                     visible: app.dual
-                    width: app.dual ? body.paneW : 0; height: body.height
-                    active: app.dual && app.activeIndex === 1
-                    Component.onCompleted: go("/")
-                    onPathChanged: app.saveState()
-                    onFocusRequested: { app.activeIndex = 1; app.confirm = ""; root.forceActiveFocus(); }
-                    onOpenFile: (p) => app.openPath(p)
+                    width: app.dual ? body.paneW : 0; height: body.height; spacing: 4
+                    TabBar { side: 1 }
+                    FilePane {
+                        id: paneB
+                        theme: theme
+                        tags: app.tags
+                        dotdot: app.commander
+                        view: app.view; iconSize: app.iconSize
+                        onContextRequested: (e, x, y) => app.showMenu(e, x, y, paneB)
+                        width: parent.width; height: parent.height - y
+                        active: app.dual && app.activeIndex === 1
+                        Component.onCompleted: go("/")
+                        onPathChanged: { app.onPanePath(1, path); app.saveState(); }
+                        onFocusRequested: { app.activeIndex = 1; app.confirm = ""; root.forceActiveFocus(); }
+                        onOpenFile: (p) => app.openPath(p)
+                    }
                 }
 
                 // detail vybranej položky (návrh V2: pravý panel)
@@ -604,12 +887,12 @@ ShellRoot {
                         }
                         Action { visible: !!parent.e; glyph: "external-link"; label: parent.e && parent.e.isDir ? "Otvoriť priečinok" : "Otvoriť"; onClicked: app.activePane.openCurrent() }
                         Action { visible: !!parent.e; glyph: "clipboard"; label: "Kopírovať cestu"; onClicked: app.run(["wl-copy", "--", app.sel.path], "Cesta skopírovaná") }
-                        Action { visible: !!parent.e && app.dual; glyph: "copy"; label: "Kopírovať do druhého (F5)"; onClicked: app.copyToOther(false) }
-                        Action { visible: !!parent.e && app.dual; glyph: "arrows-exchange"; label: "Presunúť do druhého (F6)"; onClicked: app.copyToOther(true) }
+                        Action { visible: !!parent.e && app.dual; glyph: "copy"; label: "Kopírovať do druhého (F5)"; onClicked: app.openOp(false) }
+                        Action { visible: !!parent.e && app.dual; glyph: "arrows-exchange"; label: "Presunúť do druhého (F6)"; onClicked: app.openOp(true) }
                         Action {
                             visible: !!parent.e; danger: true; glyph: "trash"
                             label: app.confirm === "trash" ? "Naozaj do koša?" : "Do koša (Delete)"
-                            onClicked: app.trash()
+                            onClicked: app.askDelete(false)
                         }
                     }
                 }
@@ -620,6 +903,11 @@ ShellRoot {
                 anchors { left: side.right; right: parent.right; bottom: parent.bottom }
                 height: 30; color: "transparent"
                 Rectangle { width: parent.width; height: 1; color: theme.line }
+                Rectangle {   // priebeh úlohy z radu (F5/F6)
+                    visible: !!app.job
+                    anchors { left: parent.left; bottom: parent.bottom }
+                    width: parent.width * app.jobPct / 100; height: 3; color: app.jobPaused ? theme.fgDim : theme.primary
+                }
                 Rectangle {   // priebeh kopírovania
                     visible: app.copyPct >= 0
                     anchors { left: parent.left; bottom: parent.bottom }
@@ -627,7 +915,12 @@ ShellRoot {
                 }
                 Text {
                     x: 14; anchors.verticalCenter: parent.verticalCenter
-                    text: (app.activePane ? app.activePane.count + " položiek" : "") + (app.copyPct >= 0 ? "   ·   " + app.copyPct + " % · " + app.copyLabel : (app.status !== "" ? "   ·   " + app.status : ""))
+                    text: (app.activePane ? (app.activePane.markedCount ? "označené " + app.activePane.markedCount + (app.activePane.markedBytes ? " · " + app.human(app.activePane.markedBytes) : "") + " z " + app.activePane.count : app.activePane.count + " položiek") : "")
+                          + (app.quick !== "" ? "   ·   hľadám: " + app.quick : "")
+                          + (app.job ? "   ·   " + (app.jobPaused ? "⏸ " : "") + app.jobPct + " % " + (app.jobFile || app.job.label) : "")
+                          + (app.jobs.filter(j => j.state === "čaká").length ? "   ·   v rade " + app.jobs.filter(j => j.state === "čaká").length : "")
+                          + (app.copyPct >= 0 ? "   ·   " + app.copyPct + " % · " + app.copyLabel : (app.status !== "" && !app.job ? "   ·   " + app.status : ""))
+                    MouseArea { anchors.fill: parent; enabled: app.jobs.length > 0; onClicked: app.jobsOpen = !app.jobsOpen }
                     color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
                 }
                 Text {
@@ -642,7 +935,7 @@ ShellRoot {
                     anchors { right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
                     spacing: 4
                     Repeater {
-                        model: [["F3", "Zobraziť"], ["F4", "Upraviť"], ["F5", "Kopírovať"], ["F6", "Presunúť"], ["F7", "Nový priečinok"], ["F8", "Do koša"], ["F9", "Server"]]
+                        model: [["F3", "Zobraziť"], ["F4", "Upraviť"], ["F5", "Kopírovať"], ["F6", "Presunúť"], ["F7", "Priečinok"], ["F8", "Zmazať"], ["F9", "Server"]]
                         Rectangle {
                             required property var modelData
                             width: fkt.implicitWidth + 16; height: 24; radius: 6; color: fkm.containsMouse ? theme.hover : theme.field
@@ -653,10 +946,10 @@ ShellRoot {
                                     const k = modelData[0], p = app.activePane;
                                     if (k === "F3") { if (app.sel) { if (app.sel.isDir) p.openCurrent(); else app.openPath(app.sel.path); } }
                                     else if (k === "F4") { if (app.sel && !app.sel.isDir) app.run(["latte-otvor", "spusti", "latteos-heidelberg", app.sel.path], "Upraviť: " + app.sel.name); }
-                                    else if (k === "F5") app.copyToOther(false);
-                                    else if (k === "F6") app.copyToOther(true);
-                                    else if (k === "F7") app.newFolder(p);
-                                    else if (k === "F8") app.trash();
+                                    else if (k === "F5") app.openOp(false);
+                                    else if (k === "F6") app.openOp(true);
+                                    else if (k === "F7") app.askInput("Nový priečinok (F7)", "", "aj vnorené: a/b/c", (t) => app.run(["mkdir", "-p", "--", p.path + "/" + t], "Nový priečinok: " + t));
+                                    else if (k === "F8") app.askDelete(false);
                                     else if (k === "F9") { app.connectError = ""; app.connectOpen = true; }
                                     root.forceActiveFocus();
                                 }
@@ -749,6 +1042,141 @@ ShellRoot {
                     }
                 }
                 onVisibleChanged: if (visible) { pwIn.text = ""; urlIn.forceActiveFocus(); } else root.forceActiveFocus()
+            }
+
+            // ═══ dialógy Total Commandera ═══════════════════════════════════════════════
+            component Dlg: Rectangle {
+                id: dlgRoot
+                default property alias content: box.data
+                property string title
+                property real boxW: 560
+                signal dismissed()
+                anchors.fill: parent; color: Qt.rgba(0, 0, 0, 0.4); z: 60
+                MouseArea { anchors.fill: parent; onClicked: dlgRoot.dismissed() }
+                Rectangle {
+                    anchors.centerIn: parent; width: dlgRoot.boxW; height: box.implicitHeight + 64; radius: 16
+                    color: theme.surface; border { color: theme.outline; width: 1 }
+                    MouseArea { anchors.fill: parent }
+                    Text { x: 20; y: 16; text: dlgRoot.title; color: theme.fg; font { family: theme.fontDisplay; pixelSize: 18; weight: Font.DemiBold } }
+                    Column { id: box; x: 20; y: 50; width: parent.width - 40; spacing: 10 }
+                }
+            }
+            component Field: Rectangle {
+                id: fld
+                property alias text: fin.text
+                property alias input: fin
+                signal accepted()
+                width: parent.width; height: 38; radius: 10; color: theme.field; border { color: fin.activeFocus ? theme.primary : "transparent"; width: 1 }
+                TextInput { id: fin; anchors { fill: parent; leftMargin: 12; rightMargin: 12 } verticalAlignment: TextInput.AlignVCenter; clip: true
+                            color: theme.fg; selectByMouse: true; font { family: theme.fontMono; pixelSize: 13 }
+                            // Enter spracovať tu a zastaviť, inak by prebublal do okna (otvoril by položku pod kurzorom)
+                            Keys.onReturnPressed: (ev) => { ev.accepted = true; fld.accepted(); }
+                            Keys.onEnterPressed: (ev) => { ev.accepted = true; fld.accepted(); } }
+            }
+            component Btn: Rectangle {
+                id: bt
+                property string label; property bool primary: false; property bool on: false
+                signal clicked()
+                width: btl.implicitWidth + 26; height: 34; radius: 10
+                color: primary ? theme.primary : (on ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.2) : (btm.containsMouse ? theme.hover : theme.field))
+                border { color: on ? theme.primary : "transparent"; width: 1 }
+                Text { id: btl; anchors.centerIn: parent; text: bt.label; color: bt.primary ? theme.fgOnPrimary : theme.fg; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold } }
+                MouseArea { id: btm; anchors.fill: parent; hoverEnabled: true; onClicked: bt.clicked() }
+            }
+            component Note: Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+
+            // vstupné pole (F7, Shift+F4, maska, premenovanie)
+            Dlg {
+                visible: !!app.ask
+                title: app.ask ? app.ask.title : ""
+                onDismissed: { app.ask = null; root.forceActiveFocus(); }
+                Field { id: askIn; onAccepted: { const a = app.ask; app.ask = null; if (a && askIn.text.trim() !== "") a.action(askIn.text.trim()); root.forceActiveFocus(); }
+                        input.Keys.onEscapePressed: { app.ask = null; root.forceActiveFocus(); } }
+                Note { visible: !!app.ask && app.ask.hint !== ""; text: app.ask ? app.ask.hint : "" }
+                Row { spacing: 8
+                      Btn { label: "OK (Enter)"; primary: true; onClicked: askIn.accepted() }
+                      Btn { label: "Zrušiť (Esc)"; onClicked: { app.ask = null; root.forceActiveFocus(); } } }
+                onVisibleChanged: if (visible) { askIn.text = app.ask.text; askIn.input.selectAll(); askIn.input.forceActiveFocus(); }
+            }
+
+            // F5 kopírovať / F6 presunúť
+            Dlg {
+                id: opDlg
+                visible: !!app.op
+                boxW: 640
+                title: app.op ? (app.op.move ? "Presunúť / premenovať (F6)" : "Kopírovať (F5)") + " · " + (app.op.items.length === 1 ? app.op.items[0].name : app.op.items.length + " položiek") : ""
+                onDismissed: { app.op = null; root.forceActiveFocus(); }
+                Note { text: app.op ? (app.op.items.length === 1 ? app.op.items[0].path : app.op.items.slice(0, 4).map(e => e.name).join(", ") + (app.op.items.length > 4 ? " … +" + (app.op.items.length - 4) : "")) : "" }
+                Text { text: "CIEĽ"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 10; weight: Font.Bold; letterSpacing: 0.6 } }
+                Field { id: opTarget; onAccepted: { app.op.target = opTarget.text; app.op.mask = opMask.text; app.startOp(false); root.forceActiveFocus(); }
+                        input.Keys.onEscapePressed: { app.op = null; root.forceActiveFocus(); }
+                        input.Keys.onPressed: (ev) => { if (ev.key === Qt.Key_F2) { app.op.target = opTarget.text; app.op.mask = opMask.text; app.startOp(true); root.forceActiveFocus(); ev.accepted = true; } } }
+                Row { spacing: 10; width: parent.width
+                      Text { anchors.verticalCenter: parent.verticalCenter; text: "Iba súbory:"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+                      Field { id: opMask; width: 180; onAccepted: opTarget.accepted() } }
+                Text { text: "AK UŽ SÚBOR V CIELI EXISTUJE"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 10; weight: Font.Bold; letterSpacing: 0.6 } }
+                Flow { width: parent.width; spacing: 6
+                    Repeater { model: [["ask", "Opýtať sa"], ["prepisat", "Prepísať"], ["preskocit", "Preskočiť"], ["starsie", "Prepísať staršie"], ["premenovat", "Premenovať kópiu"]]
+                        Btn { required property var modelData; label: modelData[1]; on: !!app.op && app.op.mode === modelData[0]
+                              onClicked: { const o = app.op; o.mode = modelData[0]; app.op = Object.assign({}, o); } } } }
+                Row { spacing: 8
+                      Btn { label: (app.op && app.op.verify ? "☑" : "☐") + " Overiť po skopírovaní (SHA-256)"; onClicked: { const o = app.op; o.verify = !o.verify; app.op = Object.assign({}, o); } } }
+                Row { spacing: 8
+                      Btn { label: "OK (Enter)"; primary: true; onClicked: opTarget.accepted() }
+                      Btn { label: "Do radu (F2)"; onClicked: { app.op.target = opTarget.text; app.op.mask = opMask.text; app.startOp(true); root.forceActiveFocus(); } }
+                      Btn { label: "Zrušiť (Esc)"; onClicked: { app.op = null; root.forceActiveFocus(); } } }
+                onVisibleChanged: if (visible) { opTarget.text = app.op.target; opMask.text = app.op.mask; opTarget.input.forceActiveFocus(); opTarget.input.selectAll(); }
+            }
+
+            // kolízie mien v cieli
+            Dlg {
+                visible: !!app.conflict
+                title: app.conflict ? "V cieli už existuje " + app.conflict.names.length + (app.conflict.names.length === 1 ? " položka" : " položiek") : ""
+                onDismissed: app.resolveConflict("")
+                Note { text: app.conflict ? app.conflict.names.slice(0, 8).join(", ") + (app.conflict.names.length > 8 ? " …" : "") : "" }
+                Flow { width: parent.width; spacing: 6
+                       Btn { label: "Prepísať všetky"; primary: true; onClicked: app.resolveConflict("prepisat") }
+                       Btn { label: "Preskočiť existujúce"; onClicked: app.resolveConflict("preskocit") }
+                       Btn { label: "Prepísať iba staršie"; onClicked: app.resolveConflict("starsie") }
+                       Btn { label: "Premenovať kópie"; onClicked: app.resolveConflict("premenovat") }
+                       Btn { label: "Zrušiť"; onClicked: app.resolveConflict("") } }
+            }
+
+            // mazanie
+            Dlg {
+                visible: !!app.delAsk
+                title: app.delAsk ? (app.delAsk.permanent ? "Odstrániť natrvalo?" : "Presunúť do koša?") : ""
+                onDismissed: { app.delAsk = null; root.forceActiveFocus(); }
+                Note { text: app.delAsk ? (app.delAsk.items.length === 1 ? app.delAsk.items[0].path : app.delAsk.items.length + " položiek: " + app.delAsk.items.slice(0, 6).map(e => e.name).join(", ") + (app.delAsk.items.length > 6 ? " …" : "")) : "" }
+                Note { visible: !!app.delAsk && app.delAsk.permanent; text: "Natrvalo = bez koša, nedá sa vrátiť."; color: theme.error }
+                Row { spacing: 8
+                      Btn { id: delOk; label: app.delAsk && app.delAsk.permanent ? "Odstrániť natrvalo" : "Do koša"; primary: true; onClicked: { app.doDelete(); root.forceActiveFocus(); } }
+                      Btn { label: "Zrušiť"; onClicked: { app.delAsk = null; root.forceActiveFocus(); } } }
+                Item { focus: parent.visible; Keys.onReturnPressed: { app.doDelete(); root.forceActiveFocus(); } Keys.onEscapePressed: { app.delAsk = null; root.forceActiveFocus(); } }
+            }
+
+            // rad úloh (klik na stavový riadok)
+            Rectangle {
+                visible: app.jobsOpen && app.jobs.length > 0
+                anchors { right: parent.right; bottom: statusBar.top; margins: 10 }
+                width: 460; height: Math.min(360, jcol.implicitHeight + 24); radius: 14; z: 50
+                color: theme.surface; border { color: theme.outline; width: 1 }
+                Column {
+                    id: jcol; x: 12; y: 12; width: parent.width - 24; spacing: 6
+                    Row { width: parent.width; spacing: 6
+                          Text { width: parent.width - 250; text: "Úlohy kopírovania"; color: theme.fg; font { family: theme.fontUi; pixelSize: 14; weight: Font.Bold } }
+                          Btn { visible: !!app.job; label: app.jobPaused ? "▶ Pokračovať" : "⏸ Pauza"; onClicked: app.pauseJob() }
+                          Btn { visible: !!app.job; label: "Zrušiť"; onClicked: app.cancelJob() }
+                          Btn { label: "Vyčistiť"; onClicked: app.clearDone() } }
+                    Repeater {
+                        model: app.jobs.slice().reverse().slice(0, 10)
+                        Row { required property var modelData; spacing: 8; width: jcol.width
+                              Text { width: 70; text: modelData.state === "beží" ? app.jobPct + " %" : modelData.state; color: modelData.state === "chyba" ? theme.error : (modelData.state === "hotovo" ? theme.primary : theme.fgDim)
+                                     font { family: theme.fontUi; pixelSize: 11; weight: Font.Bold } }
+                              Text { width: jcol.width - 80; elide: Text.ElideMiddle; text: (modelData.move ? "presun · " : "kópia · ") + modelData.label + (modelData.msg ? " · " + modelData.msg : "")
+                                     color: theme.fg; font { family: theme.fontUi; pixelSize: 11 } } }
+                    }
+                }
             }
 
             ContextMenu { id: ctx; theme: theme }
