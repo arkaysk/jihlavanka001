@@ -22,7 +22,7 @@ sudo usermod -aG latte "$user"
 
 echo "== binárky a skripty → /usr/bin"
 sudo install -Dm755 "$repo/target/release/latte-boot" /usr/bin/latte-boot
-for f in latte-session latte-safe latte-greeter latte-theme latte-app latte-ai latte-shellset latte-sysmon latte-apps latte-devices latte-backup latte-games latte-net latte-cloud latte-siet latte-otvor latte-kos latte-spustac latte-sandbox latte-kopia latte-tc latte-ostrovy latte-rychle latte-tapety latte-vyber; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
+for f in latte-session latte-safe latte-greeter latte-theme latte-app latte-ai latte-shellset latte-sysmon latte-apps latte-devices latte-backup latte-games latte-net latte-cloud latte-siet latte-otvor latte-kos latte-spustac latte-sandbox latte-kopia latte-tc latte-ostrovy latte-rychle latte-tapety latte-vyber latte-ponuka latte-prichytenie latte-snimka latte-emoji; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
 
 echo "== konfigurácie relácií → /usr/share/latteos"
 # bežiaci Hyprland sleduje svoje súbory a pri zmene sa znovu načíta: súbor sa preto vymieňa atomicky
@@ -48,6 +48,12 @@ if rpm -q hyprland-devel >/dev/null 2>&1 && "$repo/setup/f1/build-hyprbars.sh" |
     sudo install -Dm755 "$repo/resources/upstream/hyprland-plugins/hyprbars/hyprbars.so" /usr/lib64/latteos/hyprbars.so
 else
     echo "   hyprbars sa nepostavil (chýba hyprland-devel?) — okná bez vlastnej hlavičky budú bez tlačidiel"
+fi
+echo "== prichytenie okien k okrajom: plugin latte-okna (udalosti ťahania pre latte/prichytenie.lua)"
+if rpm -q hyprland-devel >/dev/null 2>&1 && make -s -C "$S/hypr/plugins/latte-okna" >/dev/null; then
+    sudo install -Dm755 "$S/hypr/plugins/latte-okna/latte-okna.so" /usr/lib64/latteos/latte-okna.so
+else
+    echo "   latte-okna sa nepostavil — okná sa nebudú prichytávať ťahaním (Win+←→ a Win+Z fungujú)"
 fi
 
 echo "== vzhľad: Noctalia (téma Latte), písma Manrope/Fraunces (OFL), tapety LatteOS"

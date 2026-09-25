@@ -456,10 +456,13 @@ function onAdd(_t)
   render()
 end
 
-function onOpen(_ctx)
+function onOpen(ctx)
   loadWeather()
   local saved = trim(noctalia.readFile(tabFile) or "")
   if saved == "cas" or saved == "oznamenia" or saved == "kalendar" then st.tab = saved end
+  -- Win+N = oznámenia, Win+Alt+D = kalendár (panel-toggle latteos/time:panel <záložka>)
+  local want = type(ctx) == "string" and trim(ctx) or ""
+  if want == "cas" or want == "oznamenia" or want == "kalendar" then st.tab = want end
   loadEvents()
   st.todos = C.loadTodos()
   st.timers = C.loadTimers()

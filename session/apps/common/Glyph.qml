@@ -6,6 +6,21 @@ Text {
     property string name: "file"
     property real size: 18
     readonly property var map: ({
+        "logout": 0xEBA8,
+        "arrows-minimize": 0xEA29,
+        "stack-2": 0xEEF7,
+        "focus-centered": 0xF02A,
+        "layout-sidebar": 0xEADA,
+        "layout-sidebar-right": 0xEAD9,
+        "terminal": 0xEBDC,
+        "pinned": 0xED60,
+        "arrows-move": 0xF22F,
+        "link": 0xEADE,
+        "screenshot": 0xF201,
+        "mood-smile": 0xEAF7,
+        "archive": 0xEA0B,
+        "photo-edit": 0xF360,
+        "corner-down-right": 0xEA7D,
         "folder": 0xEAAD,
         "folder-open": 0xFAF7,
         "file": 0xEAA4,

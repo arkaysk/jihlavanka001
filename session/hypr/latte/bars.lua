@@ -73,6 +73,12 @@ function B.setup(theme)
             },
         },
     })
+    -- pravý klik na titulok = ponuka okna ako vo Windows (záplata LatteOS resources/patches/hyprbars-latte-right-click.patch);
+    -- nastaví sa iba, ak ju načítaný plugin pozná (starý hyprbars ostáva v bežiacej relácii až do odhlásenia)
+    local okv, val = pcall(hl.get_config, "plugin:hyprbars:on_right_click")
+    if okv and val ~= nil then
+        hl.config({ plugin = { hyprbars = { on_right_click = "latte-ponuka okno {x} {y} {address}" } } })
+    end
     -- tlačidlá sprava doľava: zavrieť, zväčšiť, minimalizovať (ako Windows)
     local accent = "rgb(" .. (theme.border_active or "E4B283") .. ")"
     hl.plugin.hyprbars.add_button({ bg_color = "rgb(C75B4A)", fg_color = "rgb(FFFFFF)", size = 17, icon = "✕", action = "hyprctl eval 'latte.win.close()'" })

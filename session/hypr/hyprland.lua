@@ -64,7 +64,6 @@ hl.config({
     input = {
         kb_layout = "sk,us",
         kb_options = "grp:alt_shift_toggle",
-        follow_mouse = 1,
         touchpad = { natural_scroll = true },
     },
 })
@@ -115,68 +114,13 @@ do  -- herný režim prežije reload konfigurácie
     if f then local v = f:read("*l"); f:close(); if v == "1" then latte.game(true) end end
 end
 
--- ── skratky ───────────────────────────────────────────────────────────────────
-local mod = "SUPER"
-local function bind(keys, action, opts) hl.bind(keys, action, opts) end
-
-bind(mod .. " + Return", hl.dsp.exec_cmd("foot"))
-bind(mod .. " + Space",  hl.dsp.exec_cmd("noctalia msg panel-toggle launcher"))     -- Text Bar / spúšťač
-bind(mod .. " + Tab",    hl.dsp.exec_cmd("noctalia msg panel-toggle latteos/overview:panel"))  -- prehľad pásky (filtrovanie písaním)
-bind(mod .. " + SHIFT + Tab", hl.dsp.exec_cmd("noctalia msg window-switcher"))       -- rýchly prepínač okien Noctalie
-bind(mod .. " + A",      hl.dsp.exec_cmd("noctalia msg panel-toggle control-center"))
-bind(mod .. " + E",      hl.dsp.exec_cmd("latte-app subory"))                        -- Súbory (Data Manager)
-bind(mod .. " + G",      hl.dsp.exec_cmd("noctalia msg panel-toggle latteos/games:panel"))  -- Herňa (hry)
-bind(mod .. " + Z",      hl.dsp.exec_cmd("noctalia msg panel-toggle latteos/snap:panel"))  -- rozloženie okna (ako Win+Z)
-bind(mod .. " + I",      hl.dsp.exec_cmd("noctalia msg panel-toggle latteos/ai:chat"))  -- AI rozhovor
-bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd("latte-app monitor"))                   -- Monitor (správca procesov)
-bind(mod .. " + L",      hl.dsp.exec_cmd("noctalia msg session lock"))              -- zamknúť obrazovku
-bind(mod .. " + Q",      hl.dsp.window.close())
-bind(mod .. " + N",      function() latte.win.minimize() end)                       -- minimalizovať
-bind(mod .. " + SHIFT + N", hl.dsp.workspace.toggle_special("minimized"))  -- ukázať minimalizované
-bind(mod .. " + F",      hl.dsp.window.fullscreen())
-bind(mod .. " + V",      hl.dsp.window.float({ action = "toggle" }))
-bind(mod .. " + W",      function() windows.cycle() end)                            -- páska → dlaždice → plávajúce
-bind(mod .. " + ALT + W", hl.dsp.exec_cmd("latte-tapety dalsia"))                     -- ďalšia tapeta (Aura: aura next)
-bind(mod .. " + ALT + P", hl.dsp.exec_cmd("latte-tapety pauza"))                      -- pauza živej tapety
-bind(mod .. " + SHIFT + M", hl.dsp.exit())
-
--- „Zobraziť plochu“ (Super+D): prepne na prázdnu plochu a rovnakou skratkou späť
-local desktop_from = nil
-bind(mod .. " + D", function()
-    local ws = hl.get_active_workspace()
-    if desktop_from and ws and ws.id ~= desktop_from then
-        hl.dispatch(hl.dsp.focus({ workspace = desktop_from }))
-        desktop_from = nil
-    else
-        desktop_from = ws and ws.id or nil
-        hl.dispatch(hl.dsp.focus({ workspace = "empty" }))
-    end
-end)
-
--- fokus a presun okien (v páske posúva stĺpce)
-for key, dir in pairs({ left = "left", right = "right", up = "up", down = "down" }) do
-    bind(mod .. " + " .. key,          hl.dsp.focus({ direction = dir }))
-    bind(mod .. " + CTRL + " .. key,   hl.dsp.window.move({ direction = dir }))
-end
--- Super+Shift+šípka: okno na iný monitor (radar: „Presun okna na iný monitor – rozhodnuté“)
-bind(mod .. " + SHIFT + left",  hl.dsp.window.move({ monitor = "l" }))
-bind(mod .. " + SHIFT + right", hl.dsp.window.move({ monitor = "r" }))
-
-for i = 1, 9 do
-    bind(mod .. " + " .. i,           hl.dsp.focus({ workspace = i }))
-    bind(mod .. " + SHIFT + " .. i,   hl.dsp.window.move({ workspace = i }))
-end
-bind(mod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
-bind(mod .. " + mouse_up",   hl.dsp.focus({ workspace = "e-1" }))
-bind(mod .. " + mouse:272",  hl.dsp.window.drag(),   { mouse = true })
-bind(mod .. " + mouse:273",  hl.dsp.window.resize(), { mouse = true })
-
--- multimédiá
-bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
-bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),      { locked = true, repeating = true })
-bind("XF86AudioMute",        hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"),     { locked = true })
-bind("XF86MonBrightnessUp",  hl.dsp.exec_cmd("brightnessctl set 5%+"),                         { locked = true, repeating = true })
-bind("XF86MonBrightnessDown",hl.dsp.exec_cmd("brightnessctl set 5%-"),                         { locked = true, repeating = true })
+-- ── skratky: profil ovládania (latte/skratky.lua) ──────────────────────────────
+-- Predvolene Windows (Alt+Tab, Alt+F4, Ctrl+Alt+Del, samotný Win = Štart…), voliteľne Linux alebo macOS
+-- (Nastavenia › Hardvér › Klávesnica a skratky → ~/.config/latteos/profil-ovladania). Profil nastaví aj fokus
+-- (Windows: kliknutím) a vkladanie stredným tlačidlom (iba Linux).
+require("latte.skratky").setup()
+-- prichytenie okna ťahaním k okraju ako Windows (režim plávajúcich okien; plugin latte-okna)
+require("latte.prichytenie").setup()
 
 -- ── gestá (touchpad) ──────────────────────────────────────────────────────────
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
@@ -227,6 +171,8 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("latte-app plocha")
     -- App Manager: rýchle spustenie čaká skryté (otvára ho dlaždica aplikácií cez latte-spustac)
     hl.exec_cmd("latte-app spustac")
+    -- systémové ponuky ako vo Windows (Ctrl+Alt+Del, Win+X, Vypnúť, ponuka okna) čakajú skryté
+    hl.exec_cmd("latte-app ponuka")
     -- Zariadenia: rýchle nastavenia v tvare L z ostrova zariadení (latte-rychle)
     hl.exec_cmd("latte-app rychle")
     -- Digitálna pohoda: čas v aplikáciách (Monitor › Čas v aplikáciách)

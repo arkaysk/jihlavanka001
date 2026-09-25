@@ -12,5 +12,9 @@ commit="$(git -C "$src" show origin/main:hyprpm.toml | grep -E "# $ver\s*$" | he
 [ -n "$commit" ] || { echo "hyprpm.toml nepozná Hyprland $ver"; exit 1; }
 git -C "$src" cat-file -e "$commit^{commit}" 2>/dev/null || git -C "$src" fetch -q --depth 1 origin "$commit"   # plytká kópia z fetch.sh
 git -C "$src" -c advice.detachedHead=false checkout -q "$commit"
+# LatteOS záplata: pravý klik na titulok = ponuka okna, tlačidlá a ťahanie iba ľavým tlačidlom (alfatest 1)
+patch="$repo/resources/patches/hyprbars-latte-right-click.patch"
+git -C "$src" checkout -q -- hyprbars
+git -C "$src" apply "$patch"
 make -C "$src/hyprbars" -j"$(nproc)" >/dev/null
-echo "$src/hyprbars/hyprbars.so (Hyprland $ver, hyprland-plugins $commit)"
+echo "$src/hyprbars/hyprbars.so (Hyprland $ver, hyprland-plugins $commit + $(basename "$patch"))"
