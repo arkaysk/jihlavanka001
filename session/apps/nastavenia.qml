@@ -405,7 +405,9 @@ ShellRoot {
         onClosed: Qt.quit()              // zavretie z kompozitora (✕ v titulku, Super+Q) ukončí aj proces
         title: "Nastavenia — LatteOS"
         implicitWidth: 1220; implicitHeight: 780
-        color: theme.surface
+        color: theme.glass ? "transparent" : theme.surface
+        // pri skle je priehľadný iba bočný panel; obsah vpravo má plné pozadie
+        Rectangle { visible: theme.glass; anchors { left: side.right; right: parent.right; top: parent.top; bottom: parent.bottom } color: theme.surface }
 
         CardStack {
             id: side

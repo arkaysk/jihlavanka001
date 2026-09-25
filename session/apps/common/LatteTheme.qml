@@ -39,6 +39,8 @@ Scope {
     readonly property int radius: 14
     // animácie: pri stupni Softvér/Minimálny (VM, slabé PC) žiadne — kreslí CPU
     readonly property string tier: Quickshell.env("LATTE_TIER") || ""
+    // sklo: okná LatteOS nechajú bočný panel polopriehľadný a Hyprland rozmaže, čo je za ním (blur je iba pri Plnom a Štandarde)
+    readonly property bool glass: tier === "plny" || tier === "standard"
     readonly property int animMs: (tier === "softver" || tier === "minimalny" || tier === "safe") ? 0 : 180
 
     FileView {

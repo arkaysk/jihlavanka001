@@ -28,7 +28,9 @@ Rectangle {
     readonly property int rowH: 36
 
     width: 262
-    color: Qt.rgba(0, 0, 0, theme.mode === "dark" ? 0.18 : 0.04)
+    // sklo (GPU): polopriehľadný panel, Hyprland pod ním rozmaže tapetu; bez GPU plné pozadie
+    color: theme.glass ? Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, theme.mode === "dark" ? 0.55 : 0.62)
+                       : Qt.rgba(0, 0, 0, theme.mode === "dark" ? 0.18 : 0.04)
     activeFocusOnTab: true
 
     function statusMark(s) { return s === "ready" ? "●" : (s === "partial" ? "◐" : "○"); }
@@ -132,8 +134,18 @@ Rectangle {
                 height: stack.spineH + grow
                 z: open ? 100 : stack.areas.length - index        // vyššie karty ležia na nižších (chrbty)
                 radius: 14
-                clip: true
-                color: open ? stack.theme.surface : Qt.tint(stack.theme.surface, Qt.rgba(stack.theme.fg.r, stack.theme.fg.g, stack.theme.fg.b, card.hovered ? 0.07 : 0.035))
+                readonly property color base: open ? stack.theme.surface : Qt.tint(stack.theme.surface, Qt.rgba(stack.theme.fg.r, stack.theme.fg.g, stack.theme.fg.b, card.hovered ? 0.07 : 0.035))
+                color: stack.theme.glass ? Qt.rgba(base.r, base.g, base.b, open ? 0.92 : 0.78) : base
+                // tieň na kartu pod ňou (karty sú naskladané ako fyzické), lacný prechod — aj bez GPU
+                Rectangle {
+                    z: -1
+                    x: 6; width: parent.width - 12; y: parent.height - 4; height: card.open ? 14 : 10
+                    radius: 6
+                    gradient: Gradient {
+                        GradientStop { position: 0; color: Qt.rgba(0, 0, 0, stack.theme.mode === "dark" ? 0.32 : 0.14) }
+                        GradientStop { position: 1; color: "transparent" }
+                    }
+                }
                 Behavior on color { ColorAnimation { duration: stack.animMs * 0.6 } }
                 border { color: open ? Qt.rgba(stack.theme.primary.r, stack.theme.primary.g, stack.theme.primary.b, 0.55) : stack.theme.line; width: 1 }
                 property bool hovered: spineMouse.containsMouse
@@ -185,7 +197,7 @@ Rectangle {
                 Flickable {
                     id: fl
                     anchors { left: parent.left; right: parent.right; top: spine.bottom }
-                    height: card.openH - stack.spineH - 6
+                    height: Math.max(0, card.height - stack.spineH - 6)
                     opacity: Math.min(1, card.grow / Math.max(1, card.openH - stack.spineH) * 1.4)
                     visible: card.grow > 0.5
                     contentHeight: pagesCol.height

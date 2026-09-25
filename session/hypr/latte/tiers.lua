@@ -4,8 +4,8 @@ local T = {}
 
 -- efekty: blur, tiene, žiara aktívneho okna (Hyprland 0.56), animácie a ich rýchlosť
 T.levels = {
-    plny      = { blur = { size = 6, passes = 2 }, shadow = 22, glow = true,  anim = 1.0 },
-    standard  = { blur = { size = 4, passes = 1 }, shadow = 14, glow = true,  anim = 1.0 },
+    plny      = { blur = { size = 6, passes = 2 }, shadow = 22, glow = true,  anim = 1.0, orbit = true },
+    standard  = { blur = { size = 4, passes = 1 }, shadow = 14, glow = true,  anim = 1.0, orbit = true },
     usporny   = { blur = nil,                      shadow = nil, glow = false, anim = 1.6 },
     minimalny = { blur = nil,                      shadow = nil, glow = false, anim = nil },
     -- VM bez GPU: každý pohyb stojí CPU (setup/f1/RESULTS.md) → bez efektov a animácií
@@ -42,6 +42,9 @@ function T.apply(name, colors)
         hl.animation({ leaf = "border",     enabled = true, speed = 5.4 / s, bezier = "latteOut" })
         hl.animation({ leaf = "workspaces", enabled = true, speed = 2.0 / s, bezier = "latteOut", style = "slide" })
         hl.animation({ leaf = "layers",     enabled = true, speed = 3.8 / s, bezier = "latteOut", style = "fade" })
+        -- obiehajúci karamelový lem aktívneho okna (prechod farieb v rámiku sa pomaly otáča, cyklus ~10 s)
+        hl.curve("latteLin", { type = "bezier", points = { {0, 0}, {1, 1} } })
+        hl.animation({ leaf = "borderangle", enabled = t.orbit == true, speed = 100, bezier = "latteLin", style = "loop" })
     end
 end
 
