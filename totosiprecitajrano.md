@@ -100,6 +100,33 @@ Poradie: 1. Monitor (hotové nižšie) → 2. Digitálna pohoda podľa Pulse →
     alebo animácie Hyprlandu;
   - pri stupni Softvér ostanú vypnuté (pravidlo „každý prvok má variant bez shaderov“).
 
+### 25. 9. 2026, 7:30: Sklo, fork Noctalie (príprava), Total Commander 3. časť ✅ · ⚠ čaká na teba: sudo
+- **Sklo** (Hyprland nevie kresliť vnútro menu, iba okno ako celok):
+  - pri stupni Plný/Štandard je bočný panel Nastavení polopriehľadný a Hyprland pod ním rozmaže tapetu;
+  - karty v balíčku majú tiene;
+  - aktívne okno má obiehajúci karamelový lem (`borderangle` v slučke);
+  - vo VM je plné pozadie bez efektov.
+- **Fork Noctalie** je založený v `~/latte-shell`, vetva `latteos`, s plánom v `LATTEOS.md`.
+  - Plán: panely v tvare L z ostrova (kapsula = päta), textúry kmeňa, materiály tém.
+  - Noctalia v5 je C++23. **Na zostavenie chýbajú knižnice**, potrebujem, aby si spustil:
+    `sudo dnf install librsvg2-devel libsecret-devel libsodium-devel polkit-devel pipewire-devel wireplumber-devel libcurl-devel libqalculate-devel md4c-devel json-devel libical-devel jemalloc-devel`
+- **Nasadenie:** v tejto časti som nemal sudo, preto nové súbory **nie sú nasadené** v `/usr/share/latteos`.
+  Testoval som ich priamo z repozitára. Nasadíš ich cez `setup/f1/install-session.sh`
+  (alebo mi znova povoľ sudo).
+- **Total Commander, 3. časť:**
+  - **porovnanie súborov podľa obsahu**:
+    - nové okno `apps/porovnaj.qml`, text vedľa seba so zvýraznením rozdielnych znakov;
+    - Alt+↓/↑ rozdiely, D iba rozdiely;
+    - pri binárnych súboroch zoznam bajtov;
+  - **strom priečinkov** Alt+F10 / Ctrl+F8;
+  - **archívy s heslom** (AES, 7z so skrytými menami), **viac zväzkov** (.7z.001), mazanie (F8) a pridávanie súborov v archíve;
+  - **symbolické a pevné odkazy** (Ctrl+Shift+F5);
+  - **Base64/UUE** zakódovať aj dekódovať;
+  - **Alt+Num±** označí rovnakú príponu, uložiť a obnoviť výber;
+  - mená alebo cesty do schránky, zoznam súborov do textu.
+  - Heslo ide do `latte-tc` cez stdin, nie v argumentoch.
+  - `latte-app` má navyše `LATTE_APP_ARGV` (argumenty po riadkoch, kvôli cestám s medzerami).
+
 ### 25. 9. 2026, 6:40: Nastavenia — plynulejšie bočné menu a chýbajúce stránky ✅
 - **Bočné menu** (tvoja poznámka, že stará verzia bola plynulejšia). Rozdiely voči starej verzii:
   - vo VM nemalo animácie;

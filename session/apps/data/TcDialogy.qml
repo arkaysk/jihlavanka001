@@ -7,6 +7,8 @@
 //   atributy  Alt+Enter  vlastnosti, práva (osmičkovo aj rwx), dátum zmeny, rekurzívne
 //   zbal      Alt+F5  zip / 7z / tar.gz / tar.xz / tar.zst do druhého panela
 //   rozdel            rozdelenie súboru na časti (.001 …) + .crc, spojenie cez „Spojiť“
+//   strom     Alt+F10 strom priečinkov (Ctrl+F8): rozbaľovanie šípkami, Enter prejde, písaním hľadá
+//   Archív s heslom (7z/zip AES, 7z aj so skrytými menami), viac zväzkov (.7z.001), mazanie v archíve (F8)
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -35,10 +37,12 @@ Item {
         id: fld
         property alias text: fin.text
         property alias input: fin
+        property bool secret: false
         property string hint
         signal accepted()
         width: parent ? parent.width : 200; height: 34; radius: 9; color: tc.theme.field; border { color: fin.activeFocus ? tc.theme.primary : "transparent"; width: 1 }
         TextInput { id: fin; anchors { fill: parent; leftMargin: 10; rightMargin: 10 } verticalAlignment: TextInput.AlignVCenter; clip: true; selectByMouse: true
+                    echoMode: fld.secret ? TextInput.Password : TextInput.Normal
                     color: tc.theme.fg; font { family: tc.theme.fontMono; pixelSize: 12 }
                     Keys.onReturnPressed: (ev) => { ev.accepted = true; fld.accepted(); }
                     Keys.onEscapePressed: (ev) => { ev.accepted = true; tc.close(); } }
@@ -75,6 +79,9 @@ Item {
         property int code: 0
         property string txt: ""
         property int got: 0
+        property string input: ""              // heslo a pod. na stdin (nie v argumentoch príkazu)
+        stdinEnabled: input !== ""
+        onStarted: if (input !== "") write(input + "\n")
         onRunningChanged: if (running) got = 0
         onExited: (c) => { tp.code = c; if (++tp.got === 2) tp.result(tp.code, tp.txt); }
         stdout: StdioCollector { onStreamFinished: { tp.txt = this.text; if (++tp.got === 2) tp.result(tp.code, tp.txt); } }
@@ -261,6 +268,15 @@ Item {
         property string prefix: ""
         property var sel: ({})
         property string err: ""
+        property bool needPw: false
+        property string pw: ""
+        function pwArgs() { return ar.pw !== "" ? ["--heslo"] : []; }
+        function load() { arList.input = ar.pw; arList.command = ["latte-tc", "archiv", "zoznam", tc.items[0].path].concat(pwArgs()); arList.running = true; }
+        function delMarked() {
+            const l = Object.keys(ar.sel); if (!l.length) return;
+            arDel.input = ar.pw; arDel.command = ["latte-tc", "archiv", "smaz", tc.items[0].path].concat(l).concat(pwArgs()); arDel.running = true;
+        }
+        Keys.onPressed: (ev) => { if (ev.key === Qt.Key_F8 || ev.key === Qt.Key_Delete) { ar.delMarked(); ev.accepted = true; } }
         readonly property var shown: {
             const out = [], seen = {};
             for (const it of all) {
@@ -273,17 +289,27 @@ Item {
             }
             return out.sort((a, b) => (b.dir - a.dir) || a.name.localeCompare(b.name));
         }
-        Tool { id: arList; onResult: (c, out) => { try { const j = JSON.parse(out); ar.all = j.items; ar.err = j.error; } catch (e) { ar.all = []; ar.err = "archív sa nedá prečítať"; } } }
-        Tool { id: arOut; onResult: (c, out) => tc.done(c === 0 ? "Rozbalené do " + tc.dirB : "Rozbaľovanie zlyhalo") }
-        Tool { id: arTest; onResult: (c, out) => tc.done(c === 0 ? "Archív je v poriadku ✓" : "Archív je poškodený: " + out) }
-        onVisibleChanged: if (visible) { all = []; prefix = ""; sel = {}; err = ""; arList.command = ["latte-tc", "archiv", "zoznam", tc.items[0].path]; arList.running = true; }
+        Tool { id: arList; onResult: (c, out) => { try { const j = JSON.parse(out); ar.all = j.items; ar.err = j.error; ar.needPw = !!j.needPassword;
+                                                         if (ar.needPw) arPw.input.forceActiveFocus(); } catch (e) { ar.all = []; ar.err = "archív sa nedá prečítať"; } } }
+        Tool { id: arOut; onResult: (c, out) => tc.done(c === 0 ? "Rozbalené do " + tc.dirB : (c === 3 ? "Zlé alebo chýbajúce heslo" : "Rozbaľovanie zlyhalo")) }
+        Tool { id: arTest; onResult: (c, out) => tc.done(c === 0 ? "Archív je v poriadku ✓" : (c === 3 ? "Zlé alebo chýbajúce heslo" : "Archív je poškodený: " + out)) }
+        Tool { id: arDel; onResult: (c, out) => { if (c === 0) { ar.sel = {}; ar.load(); } else tc.done(c === 3 ? "Zlé heslo" : "Mazanie v archíve zlyhalo (rar a iso sa meniť nedajú)"); } }
+        onVisibleChanged: if (visible) { all = []; prefix = ""; sel = {}; err = ""; needPw = false; pw = ""; load(); forceActiveFocus(); }
         Row { id: arBar; spacing: 8
               Btn { label: "↑ .."; onClicked: { const p = ar.prefix; ar.prefix = p.includes("/") ? p.substring(0, p.lastIndexOf("/")) : ""; } }
-              Btn { label: "Rozbaliť označené (F5)"; primary: Object.keys(ar.sel).length > 0; onClicked: { const l = Object.keys(ar.sel); if (!l.length) return; arOut.command = ["latte-tc", "archiv", "rozbal", tc.items[0].path, tc.dirB].concat(l); arOut.running = true; } }
-              Btn { label: "Rozbaliť všetko (Alt+F9)"; onClicked: { arOut.command = ["latte-tc", "archiv", "rozbal", tc.items[0].path, tc.dirB]; arOut.running = true; } }
-              Btn { label: "Test"; onClicked: { arTest.command = ["latte-tc", "archiv", "test", tc.items[0].path]; arTest.running = true; } }
+              Btn { label: "Rozbaliť označené (F5)"; primary: Object.keys(ar.sel).length > 0; onClicked: { const l = Object.keys(ar.sel); if (!l.length) return; arOut.input = ar.pw; arOut.command = ["latte-tc", "archiv", "rozbal", tc.items[0].path, tc.dirB].concat(l).concat(ar.pwArgs()); arOut.running = true; } }
+              Btn { label: "Rozbaliť všetko (Alt+F9)"; onClicked: { arOut.input = ar.pw; arOut.command = ["latte-tc", "archiv", "rozbal", tc.items[0].path, tc.dirB].concat(ar.pwArgs()); arOut.running = true; } }
+              Btn { label: "Test"; onClicked: { arTest.input = ar.pw; arTest.command = ["latte-tc", "archiv", "test", tc.items[0].path].concat(ar.pwArgs()); arTest.running = true; } }
+              Btn { label: "Zmazať označené (F8)"; visible: Object.keys(ar.sel).length > 0; onClicked: ar.delMarked() }
               Text { anchors.verticalCenter: parent.verticalCenter; text: ar.all.length + " položiek · cieľ: " + tc.dirB.split("/").pop(); color: tc.theme.fgDim; font { family: tc.theme.fontUi; pixelSize: 11 } } }
-        Text { visible: ar.err !== ""; y: 40; width: parent.width; wrapMode: Text.WordWrap; text: ar.err; color: tc.theme.error; font { family: tc.theme.fontUi; pixelSize: 12 } }
+        Text { visible: ar.err !== "" && !ar.needPw; y: 40; width: parent.width; wrapMode: Text.WordWrap; text: ar.err; color: tc.theme.error; font { family: tc.theme.fontUi; pixelSize: 12 } }
+        Column {
+            visible: ar.needPw; y: 44; z: 2; width: 380; spacing: 6
+            Lbl { text: ar.err.toUpperCase() }
+            Row { spacing: 6
+                  Field { id: arPw; width: 260; secret: true; hint: "heslo archívu"; onAccepted: { ar.pw = arPw.text; ar.load(); } }
+                  Btn { label: "Otvoriť"; primary: true; onClicked: { ar.pw = arPw.text; ar.load(); } } }
+        }
         ListView {
             id: arView
             anchors { left: parent.left; right: parent.right; bottom: parent.bottom; top: arBar.bottom; topMargin: 10 }
@@ -348,11 +374,12 @@ Item {
         id: zb
         visible: tc.tool === "zbal"
         title: "Zbaliť (Alt+F5) · " + (tc.items.length === 1 ? tc.items[0].name : tc.items.length + " položiek")
-        w: 620; h: 300
+        w: 620; h: 380
         property string fmt: "zip"
+        readonly property bool pwOk: fmt === "zip" || fmt === "7z"
         Tool { id: zbRun; onResult: (c, out) => tc.done(c === 0 ? "Zbalené: " + zName.text.split("/").pop() : "Balenie zlyhalo") }
         function base() { return tc.items.length === 1 ? tc.items[0].name.replace(/\.[^./]+$/, "") : (tc.dirA.split("/").pop() || "archiv"); }
-        onVisibleChanged: if (visible) { fmt = "zip"; zName.text = tc.dirB + "/" + base() + ".zip"; zName.input.forceActiveFocus(); }
+        onVisibleChanged: if (visible) { fmt = "zip"; zName.text = tc.dirB + "/" + base() + ".zip"; zPw.text = ""; zVol.text = ""; zName.input.forceActiveFocus(); }
         onFmtChanged: zName.text = zName.text.replace(/\.(zip|7z|tar\.gz|tar\.xz|tar\.zst)$/, "") + "." + fmt
         Column {
             width: parent.width; spacing: 8
@@ -360,8 +387,17 @@ Item {
             Field { id: zName; onAccepted: zbGo.clicked() }
             Row { spacing: 4; Repeater { model: ["zip", "7z", "tar.gz", "tar.xz", "tar.zst"]
                                          Btn { required property string modelData; label: modelData; on: zb.fmt === modelData; onClicked: zb.fmt = modelData } } }
+            Row { spacing: 8; visible: zb.pwOk
+                  Column { spacing: 4; Lbl { text: "HESLO (AES-256" + (zb.fmt === "7z" ? ", skryje aj mená" : "") + ")" }
+                           Field { id: zPw; width: 250; secret: true; hint: "bez hesla"; onAccepted: zbGo.clicked() } }
+                  Column { spacing: 4; Lbl { text: "ZVÄZKY (napr. 700M, 4G)" }
+                           Field { id: zVol; width: 150; hint: "jeden súbor"; onAccepted: zbGo.clicked() } } }
             Row { spacing: 8
-                  Btn { id: zbGo; label: "Zbaliť"; primary: true; onClicked: { zbRun.command = ["latte-tc", "archiv", "zbal", zName.text].concat(tc.items.map(e => e.path)); zbRun.running = true; tc.close(); } }
+                  Btn { id: zbGo; label: "Zbaliť"; primary: true
+                        onClicked: { const pw = zb.pwOk ? zPw.text : "", vol = zb.pwOk ? zVol.text.trim() : "";
+                                     zbRun.input = pw;
+                                     zbRun.command = ["latte-tc", "archiv", "zbal", zName.text].concat(tc.items.map(e => e.path)).concat(pw ? ["--heslo"] : []).concat(vol ? ["--casti", vol] : []);
+                                     zbRun.running = true; tc.close(); } }
                   Btn { label: "Zrušiť"; onClicked: tc.close() } }
         }
     }
@@ -384,6 +420,98 @@ Item {
             Row { spacing: 8
                   Btn { id: rzGo; label: "Rozdeliť"; primary: true; onClicked: { rzRun.command = ["latte-tc", "rozdel", tc.items[0].path, rzSize.text, tc.dirB]; rzRun.running = true; tc.close(); } }
                   Btn { label: "Zrušiť"; onClicked: tc.close() } }
+        }
+    }
+
+    // ═══ strom priečinkov (Alt+F10 / Ctrl+F8) ═══════════════════════════════════════════
+    Card {
+        id: tr
+        visible: tc.tool === "strom"
+        title: "Strom priečinkov (Alt+F10) · " + tr.rootDir.replace(Quickshell.env("HOME") || "~", "~")
+        w: 620; h: 640
+        property string rootDir: "/"
+        property var rows: []              // [{ name, path, depth, more, open }]
+        property int cur: 0
+        property string find: ""
+        property bool hidden: false
+        property var pending: ({})         // path → index čakajúci na podpriečinky
+        function start() {
+            rootDir = (Quickshell.env("HOME") || "/");
+            rows = [{ name: "/", path: "/", depth: 0, more: true, open: false }];
+            cur = 0; find = ""; expand(0, tc.dirA);
+        }
+        // rozbalí riadok i; ak je `toward` pod ním, rozbaľuje ďalej až k nemu (strom sa otvorí na aktívnom priečinku)
+        property string toward: ""
+        function expand(i, towardPath) {
+            const r = rows[i]; if (!r || r.open) return;
+            toward = towardPath || "";
+            const q = trProc.createObject(tr, { row: i, parentPath: r.path });
+            q.command = ["latte-tc", "strom", r.path]; q.running = true;
+        }
+        function collapse(i) {
+            const r = rows[i]; if (!r || !r.open) return;
+            let j = i + 1; while (j < rows.length && rows[j].depth > r.depth) j++;
+            const n = rows.slice(); n.splice(i + 1, j - i - 1); n[i] = Object.assign({}, r, { open: false }); rows = n;
+        }
+        function inserted(i, parentPath, list) {
+            if (!rows[i] || rows[i].path !== parentPath) return;
+            const r = rows[i], kids = list.filter(k => tr.hidden || !k.hidden).map(k => ({ name: k.name, path: k.path, depth: r.depth + 1, more: k.more, open: false }));
+            const n = rows.slice(); n[i] = Object.assign({}, r, { open: true, more: kids.length > 0 }); n.splice.apply(n, [i + 1, 0].concat(kids)); rows = n;
+            if (toward && toward !== parentPath) {
+                const k = n.findIndex((x, idx) => idx > i && (toward === x.path || toward.startsWith(x.path === "/" ? "/" : x.path + "/")));
+                if (k >= 0) { if (toward === n[k].path) { cur = k; toward = ""; trView.positionViewAtIndex(k, ListView.Center); } else expand(k, toward); }
+            }
+        }
+        Component { id: trProc; Tool { property int row: 0; property string parentPath: ""
+                                         onResult: (c, out) => { let l = []; try { l = JSON.parse(out); } catch (e) {} tr.inserted(row, parentPath, l); destroy(); } } }
+        function go(i) { const r = rows[i]; if (r) { tc.goTo(r.path, ""); tc.close(); } }
+        onVisibleChanged: if (visible) { start(); forceActiveFocus(); }
+        Keys.onPressed: (ev) => {
+            ev.accepted = true;
+            if (ev.key === Qt.Key_Down) cur = Math.min(rows.length - 1, cur + 1);
+            else if (ev.key === Qt.Key_Up) cur = Math.max(0, cur - 1);
+            else if (ev.key === Qt.Key_PageDown) cur = Math.min(rows.length - 1, cur + 15);
+            else if (ev.key === Qt.Key_PageUp) cur = Math.max(0, cur - 15);
+            else if (ev.key === Qt.Key_Right || ev.key === Qt.Key_Plus) { if (rows[cur] && rows[cur].open) cur = Math.min(rows.length - 1, cur + 1); else expand(cur); }
+            else if (ev.key === Qt.Key_Left || ev.key === Qt.Key_Minus) {
+                if (rows[cur] && rows[cur].open) collapse(cur);
+                else { let j = cur - 1; while (j >= 0 && rows[j].depth >= rows[cur].depth) j--; if (j >= 0) cur = j; }
+            }
+            else if (ev.key === Qt.Key_Return || ev.key === Qt.Key_Enter) go(cur);
+            else if (ev.key === Qt.Key_Escape) { if (find) find = ""; else tc.close(); }
+            else if (ev.key === Qt.Key_Backspace) find = find.slice(0, -1);
+            else if (ev.text && ev.text.length === 1 && ev.text > " ") {
+                find += ev.text;
+                const f = find.toLowerCase();
+                for (let k = 0; k < rows.length; k++) { const j = (cur + k) % rows.length; if (rows[j].name.toLowerCase().startsWith(f)) { cur = j; break; } }
+            }
+            else ev.accepted = false;
+            trView.positionViewAtIndex(cur, ListView.Contain);
+        }
+        Row { id: trBar; spacing: 8
+              Btn { label: "Domov"; onClicked: { const h = Quickshell.env("HOME") || "/"; tr.start(); tr.toward = h; } }
+              Btn { label: (tr.hidden ? "☑" : "☐") + " Skryté"; onClicked: { tr.hidden = !tr.hidden; tr.start(); } }
+              Text { anchors.verticalCenter: parent.verticalCenter; text: tr.find ? "Hľadám: " + tr.find : "→ rozbaliť · ← zbaliť · Enter prejsť · písaním hľadať"
+                     color: tc.theme.fgDim; font { family: tc.theme.fontUi; pixelSize: 11 } } }
+        ListView {
+            id: trView
+            anchors { left: parent.left; right: parent.right; bottom: parent.bottom; top: trBar.bottom; topMargin: 10 }
+            clip: true; model: tr.rows
+            ScrollHint { flick: trView; colors: tc.theme }
+            delegate: Rectangle {
+                required property var modelData
+                required property int index
+                width: trView.width; height: 26; radius: 6
+                color: index === tr.cur ? Qt.rgba(tc.theme.primary.r, tc.theme.primary.g, tc.theme.primary.b, 0.2) : (tm.containsMouse ? tc.theme.hover : "transparent")
+                Text { x: 6 + modelData.depth * 16; width: 14; anchors.verticalCenter: parent.verticalCenter; text: modelData.more ? (modelData.open ? "▾" : "▸") : ""
+                       color: tc.theme.fgDim; font { family: tc.theme.fontUi; pixelSize: 12 }
+                       MouseArea { anchors.fill: parent; anchors.margins: -4; onClicked: { tr.cur = index; if (modelData.open) tr.collapse(index); else tr.expand(index); } } }
+                Glyph { x: 22 + modelData.depth * 16; anchors.verticalCenter: parent.verticalCenter; name: modelData.open ? "folder-open" : "folder"; size: 14; color: tc.theme.primary }
+                Text { x: 42 + modelData.depth * 16; width: parent.width - x - 8; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight; text: modelData.name
+                       color: tc.theme.fg; font { family: tc.theme.fontUi; pixelSize: 12; weight: modelData.path === tc.dirA ? Font.Bold : Font.Normal } }
+                MouseArea { id: tm; anchors.fill: parent; anchors.leftMargin: 22 + modelData.depth * 16; hoverEnabled: true
+                            onClicked: tr.cur = index; onDoubleClicked: tr.go(index) }
+            }
         }
     }
 }

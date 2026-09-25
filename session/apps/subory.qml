@@ -647,6 +647,62 @@ ShellRoot {
     function checksum(algo) { const it = app.activePane.selection().filter(e => !e.isDir); if (!it.length) return; sumProc.command = ["latte-tc", "sucet", algo].concat(it.map(e => e.path)); sumProc.running = true; app.status = "Počítam " + algo.toUpperCase() + "…"; }
     function verify() { const e = app.sel; if (!e || !/\.(md5|sha1|sha256|sha512)$/i.test(e.name)) { app.status = "Vyber súbor .sha256 / .md5"; return; } verProc.command = ["latte-tc", "over", e.path]; verProc.running = true; app.status = "Overujem…"; }
     function combine() { const e = app.sel; if (!e || !/\.\d{3}$/.test(e.name)) { app.status = "Vyber prvú časť (.001)"; return; } run(["latte-tc", "spoj", e.path, app.dual ? app.otherPane.path : app.activePane.path], "Spájam " + e.name + "…"); refreshBoth.restart(); }
+    // ── Súbory / Označiť (TC): porovnanie obsahu, odkazy, kódovanie, mená do schránky, uložený výber ──
+    function markExt(on) {
+        const p = app.activePane, e = p.current; if (!e || e.isDir) return;
+        const m = e.name.match(/\.[^.]+$/), ext = m ? m[0].toLowerCase() : "";
+        const mk = Object.assign({}, p.marked);
+        for (let i = 0; i < p.count; i++) { const x = p.entryAt(i); if (x.isDir) continue; const xm = x.name.match(/\.[^.]+$/);
+            if ((xm ? xm[0].toLowerCase() : "") === ext) { if (on) mk[x.path] = x.size; else delete mk[x.path]; } }
+        p.setMarks(mk); app.status = (on ? "Označené" : "Odznačené") + " všetky " + (ext || "bez prípony");
+    }
+    function compareFiles() {
+        const it = app.activePane.selection().filter(e => !e.isDir);
+        let a = "", b = "";
+        if (it.length >= 2) { a = it[0].path; b = it[1].path; }
+        else if (it.length === 1 && app.dual) { a = it[0].path; b = app.otherPane.path + "/" + it[0].name;
+                                                const o = app.otherPane.current; if (o && !o.isDir && o.name !== it[0].name) b = o.path; }
+        else { app.status = "Označ dva súbory alebo súbor s rovnomenným v druhom paneli"; return; }
+        run(["latte-app", "porovnaj", a, b], "Porovnávam " + a.split("/").pop() + " ↔ " + b.split("/").pop());
+    }
+    function makeLink(kind) {
+        const e = app.sel; if (!e) return;
+        const dir = app.dual ? app.otherPane.path : app.activePane.path;
+        app.askInput(kind === "symbolicky" ? "Symbolický odkaz (Ctrl+Shift+F5)" : "Pevný odkaz", (dir === app.activePane.path ? "odkaz na " : "") + e.name,
+                     "vznikne v " + dir.replace(app.home, "~") + " a ukazuje na " + e.name + (kind === "pevny" ? " · pevný odkaz iba pre súbor na tom istom disku" : ""),
+                     (t) => { run(["latte-tc", "odkaz", kind, e.path, dir + "/" + t], (kind === "symbolicky" ? "Symbolický" : "Pevný") + " odkaz: " + t); refreshBoth.restart(); });
+    }
+    function encode(kind) {
+        const it = app.activePane.selection().filter(e => !e.isDir); if (!it.length) { app.status = "Vyber súbor"; return; }
+        const dir = app.dual ? app.otherPane.path : app.activePane.path;
+        run(["sh", "-c", 'k="$1"; d="$2"; shift 2; for f in "$@"; do latte-tc kod "$k" "$f" "$d" || exit 1; done', "sh", kind, dir].concat(it.map(e => e.path)), "Zakódované (" + kind.toUpperCase() + ") do " + dir.replace(app.home, "~"));
+        refreshBoth.restart();
+    }
+    function decode() {
+        const e = app.sel; if (!e || e.isDir) return;
+        run(["latte-tc", "dekod", e.path, app.dual ? app.otherPane.path : app.activePane.path], "Dekódované: " + e.name); refreshBoth.restart();
+    }
+    function copyNames(withPath) {
+        const it = app.activePane.selection(); if (!it.length) return;
+        run(["wl-copy", "--", it.map(e => withPath ? e.path : e.name).join("\n")], it.length + (withPath ? " ciest" : " mien") + " v schránke");
+    }
+    function listToFile() {
+        const it = app.activePane.selection(); if (!it.length) return;
+        app.askInput("Zoznam súborov do textu", "zoznam.txt", "uloží sa do " + app.activePane.path.replace(app.home, "~") + " (cesta a veľkosť na riadok)",
+                     (t) => run(["sh", "-c", 'o="$1"; shift; for f in "$@"; do printf "%s\t%s\n" "$f" "$(stat -c %s -- "$f")"; done > "$o"', "sh", app.activePane.path + "/" + t].concat(it.map(e => e.path)), "Zoznam uložený: " + t));
+    }
+    property var savedSel: []
+    function saveSelection() { savedSel = app.activePane.selection().map(e => e.name); app.status = "Výber uložený (" + savedSel.length + ")"; }
+    function restoreSelection() {
+        const p = app.activePane, mk = {};
+        for (let i = 0; i < p.count; i++) { const x = p.entryAt(i); if (savedSel.indexOf(x.name) >= 0) mk[x.path] = x.isDir ? 0 : x.size; }
+        p.setMarks(mk); app.status = "Výber obnovený (" + Object.keys(mk).length + ")";
+    }
+    function addToArchive() {
+        const o = app.otherPane.current, it = app.activePane.selection();
+        if (!app.dual || !o || !/\.(7z|zip|tar|tar\.gz|tgz|tar\.xz)$/i.test(o.name) || !it.length) { app.status = "V druhom paneli vyber archív 7z/zip/tar"; return; }
+        run(["latte-tc", "archiv", "pridaj", o.path].concat(it.map(e => e.path)), "Pridávam do " + o.name + "…"); refreshBoth.restart();
+    }
     function commandsMenu(x, y) {
         const e = app.sel;
         ctx.open(x, y, [
@@ -654,7 +710,9 @@ ShellRoot {
             { glyph: "refresh", label: "Späť posledné premenovanie", action: () => { app.run(["latte-tc", "spat"], "Vrátené posledné hromadné premenovanie"); refreshBoth.restart(); } },
             { glyph: "search", label: "Hľadať súbory…", hint: "Alt+F7", action: () => app.tool("hladaj") },
             { glyph: "list", label: "Plochý pohľad (všetko z podpriečinkov)", hint: "Ctrl+B", action: () => app.branchView() },
+            { glyph: "folder", label: "Strom priečinkov…", hint: "Alt+F10", action: () => app.tool("strom") },
             { separator: true },
+            { glyph: "columns-2", label: "Porovnať súbory podľa obsahu", action: () => app.compareFiles() },
             { glyph: "columns-2", label: "Porovnať priečinky (označiť rozdiely)", hint: "Shift+F2", action: () => app.compareDirs(false) },
             { glyph: "columns-2", label: "Porovnať podľa obsahu", action: () => app.compareDirs(true) },
             { glyph: "refresh", label: "Synchronizovať priečinky…", action: () => app.tool("sync") },
@@ -662,6 +720,20 @@ ShellRoot {
             { glyph: "file-zip", label: "Zbaliť…", hint: "Alt+F5", action: () => app.tool("zbal") },
             { glyph: "file-zip", label: "Otvoriť archív ako priečinok", hint: "Enter", enabled: !!e && app.archiveRe.test(e.name), action: () => app.tool("archiv") },
             { glyph: "download", label: "Rozbaliť celý archív do druhého panela", hint: "Alt+F9", enabled: !!e && app.archiveRe.test(e.name), action: () => app.extractAll() },
+            { glyph: "plus", label: "Pridať označené do archívu v druhom paneli", action: () => app.addToArchive() },
+            { separator: true },
+            { glyph: "external-link", label: "Vytvoriť symbolický odkaz…", hint: "Ctrl+Shift+F5", enabled: !!e, action: () => app.makeLink("symbolicky") },
+            { glyph: "external-link", label: "Vytvoriť pevný odkaz…", enabled: !!e && !e.isDir, action: () => app.makeLink("pevny") },
+            { glyph: "file-code", label: "Zakódovať (Base64)", enabled: !!e, action: () => app.encode("base64") },
+            { glyph: "file-code", label: "Zakódovať (UUE)", enabled: !!e, action: () => app.encode("uue") },
+            { glyph: "file-code", label: "Dekódovať (Base64 / UUE)", enabled: !!e && !e.isDir, action: () => app.decode() },
+            { separator: true },
+            { glyph: "check", label: "Označiť rovnakú príponu", hint: "Alt+Num +", enabled: !!e && !e.isDir, action: () => app.markExt(true) },
+            { glyph: "clipboard", label: "Kopírovať mená do schránky", action: () => app.copyNames(false) },
+            { glyph: "clipboard", label: "Kopírovať mená s cestou", action: () => app.copyNames(true) },
+            { glyph: "file-text", label: "Zoznam súborov do textu…", action: () => app.listToFile() },
+            { glyph: "star", label: "Uložiť výber", action: () => app.saveSelection() },
+            { glyph: "history", label: "Obnoviť výber", enabled: app.savedSel.length > 0, action: () => app.restoreSelection() },
             { separator: true },
             { glyph: "check", label: "Vytvoriť kontrolný súčet SHA-256", action: () => app.checksum("sha256") },
             { glyph: "check", label: "Vytvoriť kontrolný súčet MD5", action: () => app.checksum("md5") },
@@ -761,7 +833,7 @@ ShellRoot {
                 else if (k === Qt.Key_F2 && ctrl) app.view = "detaily";
                 else if (k === Qt.Key_F3 && ctrl) { p.sortReversed = p.sortField === 0 ? !p.sortReversed : false; p.sortField = 0; }
                 else if (k === Qt.Key_F4 && ctrl) { p.sortReversed = p.sortField === 3 ? !p.sortReversed : false; p.sortField = 3; }
-                else if (k === Qt.Key_F5 && ctrl) { p.sortReversed = p.sortField === 1 ? !p.sortReversed : false; p.sortField = 1; }
+                else if (k === Qt.Key_F5 && ctrl && !shift) { p.sortReversed = p.sortField === 1 ? !p.sortReversed : false; p.sortField = 1; }
                 else if (k === Qt.Key_F6 && ctrl) { p.sortReversed = p.sortField === 2 ? !p.sortReversed : false; p.sortField = 2; }
                 else if ((k === Qt.Key_Q && ctrl) || (k === Qt.Key_P && alt)) app.showDetail = !app.showDetail;
                 else if ((k === Qt.Key_R && ctrl) || (k === Qt.Key_F2 && !shift)) { p.refresh(); app.status = "Obnovené"; }
@@ -770,6 +842,8 @@ ShellRoot {
                 else if (k === Qt.Key_Insert) { p.toggleMark(p.cur); p.moveSelection(1); }
                 else if (k === Qt.Key_Space && !ctrl) { const e = p.current; if (e) { p.toggleMark(p.cur); if (e.isDir && p.isMarked(e.path)) app.dirSizes(p, [e.path]); p.moveSelection(1); } }
                 else if (k === Qt.Key_A && ctrl) p.markAll();
+                else if (k === Qt.Key_Plus && alt) app.markExt(true);
+                else if (k === Qt.Key_Minus && alt) app.markExt(false);
                 else if (k === Qt.Key_Plus && !ctrl) app.askInput("Označiť podľa masky (Num +)", "*.*", "napr. *.jpg;*.png · priečinky sa neoznačia, pridaj aj „/“ na koniec: foto*/", (t) => p.markMask(t.replace(/\/$/, ""), true, t.endsWith("/")));
                 else if (k === Qt.Key_Minus && !ctrl) app.askInput("Zrušiť označenie podľa masky (Num −)", "*.*", "napr. *.tmp", (t) => p.markMask(t.replace(/\/$/, ""), false, true));
                 else if (k === Qt.Key_Asterisk) p.invertMarks();
@@ -784,6 +858,8 @@ ShellRoot {
                 else if (k === Qt.Key_F9 && alt) app.extractAll();
                 else if (k === Qt.Key_F2 && shift) app.compareDirs(false);
                 else if (k === Qt.Key_B && ctrl) app.branchView();
+                else if ((k === Qt.Key_F10 && alt) || (k === Qt.Key_F8 && ctrl)) app.tool("strom");
+                else if (k === Qt.Key_F5 && ctrl && shift) app.makeLink("symbolicky");
                 // ── F-klávesy ──
                 else if (k === Qt.Key_F3 && app.commander) { if (app.sel) { if (app.sel.isDir) p.openCurrent(); else app.lister(app.sel); } }
                 else if (k === Qt.Key_F3) { app.dual = !app.dual; if (!app.dual) app.activeIndex = 0; }

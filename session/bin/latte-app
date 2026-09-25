@@ -7,5 +7,6 @@ qml="/usr/share/latteos/apps/$app.qml"
 [ -f "$qml" ] || { echo "neznáma aplikácia: $app"; exit 1; }
 case "${LATTE_TIER:-softver}" in softver|safe|minimalny) export QT_QUICK_BACKEND=software ;; esac
 export LATTE_APP_ARGS="$*"
+export LATTE_APP_ARGV="$(printf '%s\n' "$@")"     # jednotlivé argumenty po riadkoch (cesty s medzerami)
 export QS_ICON_THEME="${QS_ICON_THEME:-breeze}"      # ikony súborov (mime) a aplikácií; Breeze je v obraze
 exec qs -n -p "$qml"

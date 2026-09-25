@@ -258,7 +258,7 @@ flowchart TD
 - [x] **Kapsa** (schránka, plugin latteos/kapsa): na lište posledná odložená vec, v paneli „Navrchu“ + sloty histórie
   (text aj obrázky, cliphist), klik vytiahne navrch, × vyhodí, Vysypať. Drag and drop do kapsy ostáva (vyžaduje zdroj ťahania v shelli).
 - [x] **Prehľad pásky** (Super+Tab, plugin latteos/overview): okná po plochách v poradí pásky, filtrovanie písaním, Enter/klik zameria.
-- [ ] Fork Noctalie v5 (`latte-shell`), vlastný repozitár.
+- [ ] Fork Noctalie v5 (`latte-shell`), vlastný repozitár — **založený 25. 9.** (`~/latte-shell`, vetva `latteos`, plán v LATTEOS.md); zostavenie čaká na `-devel` knižnice (sudo).
 - [ ] Téma **Latte** a **Úsporná**, farby z tapety (Noctalia má vlastný generátor, matugen ako záloha).
 - [ ] Prvky pre stupeň Plný podľa Caelestie: dashboard s výkonom, vizualizér, animované widgety.
 - [ ] Každý prvok shellu musí mať variant bez shaderov.
@@ -383,9 +383,11 @@ flowchart TD
   - [x] Panely: dva panely, **karty** v každom (Ctrl+T, Ctrl+W, Ctrl+Tab, uzamknutá karta), menu diskov (Alt+F1/F2), história Späť/Dopredu,
         **hotlist** priečinkov (Ctrl+D), priečinok do panela vľavo/vpravo (Ctrl+←/→), výmena panelov (Ctrl+U), riadok „..“
   - [x] Zobrazenia: stručné, úplné (stĺpce, triedenie kliknutím), miniatúry, **Rýchly náhľad** (Ctrl+Q), plochý pohľad (Ctrl+B)
-  - [ ] Strom priečinkov (Ctrl+F8), vlastné stĺpce
+  - [x] **Strom priečinkov** (Alt+F10 / Ctrl+F8, dialóg ako v TC; rozbaľovanie šípkami, hľadanie písaním)
+  - [ ] Strom ako trvalý panel vedľa zoznamu, vlastné stĺpce
   - [x] Výber: Insert/Medzerník, Ctrl/Shift+klik, Num+ / Num− s maskou, Num* obrátiť, Ctrl+A, **rýchle hľadanie** písaním a rýchly filter
-  - [ ] Výber: Alt+Num+ podľa prípony, uložiť a obnoviť výber, porovnanie výberu s druhým panelom
+  - [x] **Výber:** Alt+Num± podľa prípony, uložiť a obnoviť výber
+  - [ ] Porovnanie výberu s druhým panelom
   - [x] F-klávesy: F2/Ctrl+R obnoviť, F4 editor, Shift+F4 nový súbor, **F5 kopírovať / F6 presunúť** s dialógom (cieľ, maska,
         prepísať / preskočiť / staršie / premenovať, overenie SHA-256, **rad úloh** s pauzou a zrušením, F2 = do radu), Shift+F6 premenovať,
         F7 priečinok (aj vnorené a/b/c), F8/Del do koša, Shift+Del natrvalo, Ctrl+C/X/V súbory cez schránku, zobrazenie Ctrl+F1/F2, triedenie Ctrl+F3–F6
@@ -393,19 +395,21 @@ flowchart TD
   - [ ] Obmedzenie rýchlosti kopírovania, Lister pre médiá (zvuk, video)
   - [x] **Hromadné premenovanie** (Ctrl+M): masky [N] [N1-3] [E] [C] [C:3] [Y][M][D] [h][m][s] [P], počítadlo, hľadať/nahradiť, regex, veľkosť písmen, živý náhľad s kolíziami, späť
   - [x] **Porovnanie priečinkov** (Shift+F2, označí nové a novšie na oboch stranách, aj podľa obsahu), **Synchronizácia priečinkov** (→ ← ↔, podľa obsahu, plán pred vykonaním)
-  - [ ] Porovnanie dvoch súborov podľa obsahu (diff textu vedľa seba, binárne)
+  - [x] **Porovnanie dvoch súborov podľa obsahu** (`apps/porovnaj.qml`: text vedľa seba so zvýraznením znakov, skoky na rozdiely, binárne bajty)
   - [x] **Archívy ako priečinky** (zip, 7z, rar, tar.*, iso, deb, rpm… cez bsdtar): prechádzanie, rozbaliť označené/všetko (Alt+F9), test; zbaliť (Alt+F5) do zip/7z/tar.gz/tar.xz/tar.zst
-  - [ ] Archívy: viac zväzkov, heslo, pridať/zmazať súbor v archíve
+  - [x] **Archívy:** heslo (AES, 7z so skrytými menami), viac zväzkov (.7z.001), pridať a zmazať súbor v archíve
   - [x] **Hľadanie** (Alt+F7): maska, priečinok, text v obsahu (aj regex), veľkosť, vek, aj priečinky, v archívoch, priebežné výsledky, „Do panela“; plochý pohľad Ctrl+B
   - [x] Veľkosť priečinkov (medzerník, Alt+Shift+Enter)
   - [x] Vlastnosti a **zmena práv a dátumu** (Alt+Enter, aj rekurzívne)
-  - [ ] Vytvorenie symbolických a pevných odkazov, zmena vlastníka (so správcom)
+  - [x] **Symbolické a pevné odkazy** (Ctrl+Shift+F5)
+  - [ ] Zmena vlastníka (so správcom)
   - [x] **Kontrolné súčty** (SHA-256/MD5 vytvoriť, overiť), **rozdeliť / spojiť** súbory (.001 … + .crc so SHA-256)
-  - [ ] Kódovanie UUE/Base64
+  - [x] **Kódovanie UUE/Base64** (zakódovať aj dekódovať)
   - [x] **Riadok príkazu** s históriou (↑/↓, Ctrl+Enter vloží meno, cd), terminál tu, lišta **vlastných tlačidiel** (~/.config/latteos/subory-tlacidla.json), ponuka Príkazy
   - [ ] Úprava tlačidiel a klávesových skratiek v UI, vlastné menu
   - [ ] Sieť: FTP/SFTP (✓ základ), SMB zdieľanie, WebDAV, cloud (✓ rclone); ťahanie myšou medzi panelmi a do iných aplikácií
-  - [ ] Kopírovať mená/cesty do schránky, zoznam súborov do textu, tlač zoznamu
+  - [x] **Kopírovať mená/cesty do schránky, zoznam súborov do textu**
+  - [ ] Tlač zoznamu
   - [ ] Rozšírenia ako pluginy TC (packer, súborový systém, lister, stĺpce) cez vlastné rozhranie LatteOS
 - [ ] Živá tapeta podľa aura (mpv, pauza pri zakrytí a hre, farby z videa); výber tapiet a prechody podľa skwd-wall
 - [ ] Shaderové efekty (prechody skwd-wall) na popupy a panely LatteOS a cez plugin Hyprlandu na okná — iba stupeň Plný (H)
