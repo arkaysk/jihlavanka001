@@ -109,22 +109,48 @@ Poradie: 1. Monitor (hotové nižšie) → 2. Digitálna pohoda podľa Pulse →
     alebo animácie Hyprlandu;
   - pri stupni Softvér ostanú vypnuté (pravidlo „každý prvok má variant bez shaderov“).
 
+### 25. 9. 2026, 10:50: Panely v tvare L podľa tvojej skice (fork Noctalie beží), Tapety (Aura), lišta ✅
+- **Fork Noctalie `latte-shell` je hotový a nainštalovaný** ako `/usr/local/bin/noctalia`.
+  - Beží pri ďalšom štarte Noctalie, teda po voľbe **2 v SAFE menu** alebo po prihlásení.
+  - Každý panel z lišty (Čas, Šálka, vyhľadávanie, Kapsa, Zariadenia…) vyrastie z ostrova ako na tvojej skici:
+    - panel visí 10 px nad lištou ako okná;
+    - „krk“ v šírke ostrova ho spojí s ostrovom;
+    - vnútorný roh je vydutý;
+    - ostrov sa prefarbí na farbu panelu.
+  - Overené v headless kompozitore kliknutím na hodiny, šálku a vyhľadávanie.
+  - Návrat na pôvodnú Noctaliu: `sudo rm /usr/local/bin/noctalia`.
+- **Lišta:**
+  - pravý roh (Zariadenia) je zrkadlom dlaždice aplikácií (rovnaká animovaná textúra, klik = Zariadenia v tvare L);
+  - Súbory majú výraznú dlaždicu ako šálka (klik Domov, stredný Plocha, pravý Stiahnuté).
+  - Nové widgety sa ukážu po prihlásení.
+- **Tapety (Aura celá, GPL-3.0):** aplikácia Tapety (v ponuke aplikácií, na ploche v ponuke pravého kliku, v Nastaveniach › Pozadie):
+  - Knižnica;
+  - Objavovať: MotionBGS živé 1080p/4K, Wallhaven, Bing, Minimalistické, s kategóriami, hľadaním a sťahovaním;
+  - Obrazovky;
+  - Nastavenia: automatická pauza, batéria, zvuk, striedanie, obľúbené, farby z tapety.
+  - Obrázky fungujú hneď (tapeta Noctalie). **Živé video sa spustí až na počítači s GPU** (vo VM zhodí Hyprland).
+  - Skratky Super+Alt+W (ďalšia) a Super+Alt+P (pauza).
+- **Nápad skwd-wall pre okná:** navrhujem prehľad okien (Super+Tab) v štýle „Slices“ zo skwd-wall. Okná budú šikmé
+  pásy vedľa seba, vybrané sa roztiahne a posúvajú sa plynulo. Dá sa spraviť v Quickshelli. Skutočné skosenie okien
+  priamo v páske potrebuje plugin Hyprlandu so shaderom, to až na HW.
+
 ### Zadanie 25. 9. ráno (tvoje pripomienky pri testovaní) — stav
 - [x] L okná: spodná hrana okna má odstup od lišty ako maximalizované okno (10 px, gaps_out)
 - [x] App Manager: päta bez ikony (stačí textúra)
-- [ ] Zariadenia: pravý roh ešte upraviť (povieš, čo presne)
+- [x] Zariadenia: pravý roh = zrkadlo dlaždice aplikácií
 - [x] Pravý klik na maskota → výber a nastavenia *(pozri nižšie)*
 - [x] Plocha: premenovať priečinok, ponuky ako vo Windows (Zobraziť, Zoradiť podľa, Nový…), ťahanie ikon, zoradenie
 - [x] TC premenovanie: kurzor hneď v poli, názov označený, Enter/klik mimo uloží a **neotvorí** priečinok
 - [x] TC klikateľná adresa (/ home / user / …)
 - [x] TC drag & drop medzi panelmi a na priečinok (Shift = presunúť), Zoradiť podľa v ponuke
-- [ ] Lišta: výraznejšie hodinky (hrubšie písmo alebo iná farba) + počasie za dátumom
-- [ ] Lišta: šálka výraznejšia (väčšia ikona)
-- [ ] Lišta: prepínač režimu okien odlíšiť od okien (odstup, iný vzhľad); skupina okien rastie doprava
-- [ ] Lišta: vyhľadávanie sa plynulo posúva doprava s počtom okien, pri schránke sa zmenší až na polovicu
-- [ ] Lišta: schránka má byť rovnako vysoká a v rovnakom kontajneri ako ostatné ostrovy
-- [ ] Živé tapety: **aura integrovať kompletne** (GPL-3.0 je v poriadku, LatteOS je otvorený)
-- [ ] Nápad: okná v páske a dlaždiciach by sa posúvali ako tapety v skwd-wall
+- [x] Lišta: výraznejšie hodinky + počasie za dátumom
+- [x] Lišta: šálka výraznejšia; Súbory rovnako výrazné
+- [x] Lišta: prepínač režimu okien odlíšený od okien
+- [x] Lišta: vyhľadávanie za oknami, zužuje sa s počtom okien
+- [x] Lišta: Kapsa v rovnakom ostrove ako ostatné
+- [x] Živé tapety: Aura integrovaná (aplikácia Tapety); video až s GPU
+- [x] Panely z lišty spojené s ostrovom podľa skice (aj šálka, vyhľadávanie, Kapsa, Zariadenia)
+- [ ] Nápad: okná v páske a dlaždiciach by sa posúvali ako tapety v skwd-wall (návrh: prehľad Slices)
 
 ### 25. 9. 2026, 7:30: Sklo, fork Noctalie (príprava), Total Commander 3. časť ✅ · ⚠ čaká na teba: sudo
 - **Sklo** (Hyprland nevie kresliť vnútro menu, iba okno ako celok):
