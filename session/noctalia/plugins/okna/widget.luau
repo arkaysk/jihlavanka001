@@ -22,10 +22,15 @@ end
 local function render()
   local m = mode()
   local kids = {
-    ui.row({ width = 26, height = 26, radius = 13, align = "center", justify = "center", fill = "primary/0.18",
+    -- prepínač režimu okien nevyzerá ako okno (zadanie 25. 9.): menší štvorec s rámikom, šípka a oddeľovač od okien
+    ui.row({ height = 24, paddingH = 5, gap = 2, radius = 7, align = "center", justify = "center", fill = "surface/0.6",
+             border = "outline", borderWidth = 1,
              tooltip = "Režim okien: " .. modes[m][2] .. " · klik: ďalší (Super+W)",
              onClick = function() C.eval('require("latte.windows").cycle()'); noctalia.setUpdateInterval(300) end },
-           { ui.glyph({ name = modes[m][1], size = 15, color = "primary" }) }),
+           { ui.glyph({ name = modes[m][1], size = 13, color = "on_surface_variant" }),
+             ui.glyph({ name = "chevron-right", size = 10, color = "on_surface_variant" }) }),
+    ui.box({ width = 1, height = 20, fill = "outline" }),
+    ui.spacer({ width = 3 }),
   }
   for _, w in ipairs(wins) do
     local addr, min = w.address, C.isMin(w)

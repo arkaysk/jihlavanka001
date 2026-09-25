@@ -32,7 +32,21 @@ local function open()
   else noctalia.runAsync({ "noctalia", "msg", "panel-open", "launcher", p }) end
 end
 
+-- šírka hľadania (zadanie 25. 9.): kým je miesto, 400 px a ostrov sa s pribúdajúcimi oknami posúva doprava
+-- (je v ľavej časti lišty hneď za oknami); od ~8 okien sa zužuje o 34 px na okno, najviac na polovicu
 local render
+local windows = 0
+local function barWidth()
+  return math.max(200, 400 - math.max(0, windows - 8) * 34)
+end
+local lastCount = -1
+local function countWindows()
+  noctalia.runAsync({ "sh", "-c", "hyprctl -j clients 2>/dev/null | grep -c '\"mapped\": true'" }, function(r)
+    local n = tonumber(string.match(r.stdout or "", "%d+") or "0") or 0
+    if n ~= lastCount then lastCount = n; windows = n; render() end
+  end)
+end
+
 local function setMode(i)
   index = ((i - 1) % #modes) + 1
   noctalia.writeFile(modeFile, modes[index].id)
@@ -45,7 +59,7 @@ render = function()
   for i = 1, #modes do
     table.insert(dots, ui.box({ width = i == index and 10 or 5, height = 5, radius = 3, fill = i == index and "primary" or "on_surface/0.25" }))
   end
-  barWidget.render(ui.row({ width = 400, height = 34, gap = 4, align = "center" }, {
+  barWidget.render(ui.row({ width = barWidth(), height = 34, gap = 4, align = "center" }, {
     ui.button({ glyph = m.glyph, variant = "ghost", controlSize = "sm", tooltip = "Režim: " .. m.name .. " · koliesko alebo ‹ › mení",
                 onClick = function() setMode(index + 1) end }),
     ui.row({ flexGrow = 1, height = 34, align = "center", gap = 8, onClick = open, tooltip = "Klik: " .. m.name .. " · pravý klik: rýchle nastavenia" }, {
@@ -57,9 +71,12 @@ render = function()
   }))
 end
 
+local tick = 0
 function update()
-  noctalia.setUpdateInterval(20000)          -- zmena „Bez AI“ v Nastaveniach sa prejaví do 20 s
-  load()
+  noctalia.setUpdateInterval(2000)           -- okná každé 2 s; „Bez AI“ z Nastavení každých 20 s
+  tick = tick + 1
+  if tick % 10 == 1 then load() end
+  countWindows()
   render()
 end
 

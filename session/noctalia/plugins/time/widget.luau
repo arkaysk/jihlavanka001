@@ -43,7 +43,11 @@ function update()
   end
   if changed then C.saveTimers(tm) end
   noctalia.setUpdateInterval(extra ~= "" and 1000 or 5000)
-  barWidget.setText(hm .. extra)
+  -- výraznejšie hodiny (zadanie 25. 9.): hrubé písmo vo farbe akcentu, minútka/stopky tlmene za nimi
+  barWidget.render(ui.row({ gap = 4, align = "center", height = 30 }, {
+    ui.label({ text = hm, fontSize = 15, fontWeight = "bold", color = "primary" }),
+    extra ~= "" and ui.label({ text = extra, fontSize = 12, color = "on_surface_variant" }) or nil,
+  }))
   barWidget.setTooltip({ { "Klik", "časové pásma, stopky, budík, minútka" } })
   remind(t)
 end

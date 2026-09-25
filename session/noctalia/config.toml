@@ -65,9 +65,11 @@ capsule_border     = "outline"
 capsule_padding    = 8
 font_scale         = 1.05
 
-start  = ["group:apps", "group:time", "group:system"]
-center = ["group:search", "latte-kapsa"]
-end    = ["latte-cat", "group:devices"]
+# hľadanie ide hneď za okná: s pribúdajúcimi oknami sa plynulo posúva doprava až ku Kapse a potom sa zužuje
+# (textbar si šírku počíta z počtu okien, najviac na polovicu) — zadanie 25. 9.
+start  = ["group:apps", "group:time", "group:system", "group:search"]
+center = []
+end    = ["group:kapsa", "latte-cat", "group:devices"]
 
 [[bar.main.capsule_group]]
 id      = "apps"
@@ -76,12 +78,17 @@ enabled = true
 
 [[bar.main.capsule_group]]
 id      = "time"
-members = ["latte-time", "latte-bell", "latte-date"]
+members = ["latte-time", "latte-bell", "latte-date", "weather"]    # počasie za dátumom (poloha z [location])
 enabled = true
 
 [[bar.main.capsule_group]]
 id      = "system"
 members = ["latte-cup", "latte-okna"]
+enabled = true
+
+[[bar.main.capsule_group]]
+id      = "kapsa"                  # Kapsa v rovnakom ostrove (výška a tvar) ako ostatné položky
+members = ["latte-kapsa"]
 enabled = true
 
 [[bar.main.capsule_group]]
@@ -110,6 +117,10 @@ tooltip_format = "{:%A, %-d. %B %Y}"
 # oznámení (pravý klik = Nerušiť) · dátum s počtom úloh „št 24. 9. (3)“ (kalendár a úlohy)
 [widget.latte-time]
 type = "latteos/time:clock"
+
+[widget.weather]
+show_condition   = false         # ikona počasia + teplota (popis v bubline)
+show_temperature = true
 
 [widget.latte-bell]
 type = "latteos/time:bell"

@@ -59,8 +59,8 @@ local function render()
                     onPointerMove = calibrateAt(56 + (i - 1) * (SLOT_W + GAP), SLOT_W, SLOT_H) }) }))
   end
   barWidget.render(ui.row({
+    -- ostrov kreslí lišta (skupina „kapsa“ v config.toml), widget už nemá vlastný rámik
     width = width(), height = H, gap = GAP, align = "center", paddingH = PAD, radius = 14,
-    fill = "surface_variant", border = "outline", borderWidth = 1,
     onHover = function(state) if state == "true" then calibrated = false end end,
   }, kids))
 end
