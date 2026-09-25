@@ -396,8 +396,11 @@ Rectangle {
             DropArea {
                 id: rowDrop
                 anchors.fill: parent; keys: ["latte-subory", "text/uri-list"]; enabled: rowItem.fileIsDir
-                onEntered: (d) => pane.dragEnter(d, rowItem.filePath)
-                onExited: { pane.dragLeave(drag, rowItem.filePath); pane.dragEnter(drag, pane.path); }
+                onEntered: (d) => { pane.dragEnter(d, rowItem.filePath); if (!(d.source && d.source.fromPane === pane)) springrowItem.restart(); }
+                onExited: { springrowItem.stop(); pane.dragLeave(drag, rowItem.filePath); pane.dragEnter(drag, pane.path); }
+                // podržanie nad priečinkom ho otvorí (ako Windows / macOS); iba cieľ v inom paneli alebo zvonku —
+                // v tom istom paneli by zmena priečinka zrušila rozbehnuté ťahanie
+                Timer { id: springrowItem; interval: 900; onTriggered: if (rowDrop.containsDrag) pane.go(rowItem.filePath) }
                 onDropped: (d) => pane.acceptDrop(d, rowItem.filePath, rowDrop)
                 Rectangle { anchors.fill: parent; radius: 8; color: Qt.rgba(pane.theme.primary.r, pane.theme.primary.g, pane.theme.primary.b, 0.25); visible: parent.containsDrag }
             }
@@ -485,8 +488,11 @@ Rectangle {
             DropArea {
                 id: cellDrop
                 anchors.fill: parent; keys: ["latte-subory", "text/uri-list"]; enabled: cell.fileIsDir
-                onEntered: (d) => pane.dragEnter(d, cell.filePath)
-                onExited: { pane.dragLeave(drag, cell.filePath); pane.dragEnter(drag, pane.path); }
+                onEntered: (d) => { pane.dragEnter(d, cell.filePath); if (!(d.source && d.source.fromPane === pane)) springcell.restart(); }
+                onExited: { springcell.stop(); pane.dragLeave(drag, cell.filePath); pane.dragEnter(drag, pane.path); }
+                // podržanie nad priečinkom ho otvorí (ako Windows / macOS); iba cieľ v inom paneli alebo zvonku —
+                // v tom istom paneli by zmena priečinka zrušila rozbehnuté ťahanie
+                Timer { id: springcell; interval: 900; onTriggered: if (cellDrop.containsDrag) pane.go(cell.filePath) }
                 onDropped: (d) => pane.acceptDrop(d, cell.filePath, cellDrop)
                 Rectangle { anchors { fill: parent; margins: 3 } radius: 10; color: Qt.rgba(pane.theme.primary.r, pane.theme.primary.g, pane.theme.primary.b, 0.25); visible: parent.containsDrag }
             }

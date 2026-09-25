@@ -3,6 +3,7 @@
 //   vypnut         Alt+F4 na prázdnej ploche: „Čo má počítač urobiť?“ s výberom a OK / Zrušiť
 //   win-x          Win+X a pravý klik na dlaždicu aplikácií (ako pravý klik na Štart)
 //   projekcia      Win+P: Iba obrazovka PC · Duplikovať · Rozšíriť · Iba druhá obrazovka (vpravo dole ako Windows)
+//   rozlozenia     podržanie myši nad □ (Windows 11): malá ponuka rozložení pod kurzorom, zmizne po odchode myši
 //   okno X Y ADR   pravý klik na titulok okna (hyprbars) a Alt+Medzerník: Obnoviť, Minimalizovať, Maximalizovať,
 //                  rozloženia, navrchu, na plochu, Zavrieť
 // Klik mimo alebo Esc ponuku zavrie. Nič sa nevypne bez potvrdenia (vypnutie / reštart cez dialóg alebo druhé kliknutie).
@@ -34,6 +35,7 @@ ShellRoot {
         function winx(x: int, y: int): void { pn.show("win-x", x, y, ""); }
         function okno(x: int, y: int, address: string): void { pn.show("okno", x, y, address); }
         function oknoRel(x: int, y: int): void { pn.rel = true; pn.show("okno", x, y, ""); }
+        function rozlozenia(x: int, y: int, address: string): void { pn.flyAddr = address; pn.flyAt = Qt.point(x, y); pn.flyOn = true; flyLeave.restart(); }
         function zavri(): void { pn.kind = ""; }
         function projekcia(): void { monProc.running = true; }
     }
@@ -61,6 +63,54 @@ ShellRoot {
             }
         }
     }
+    // ── rozloženia nad □ (Windows 11): vlastná malá vrstva pri kurzore, bez fokusu klávesnice; klik mimo ide aplikáciám
+    property bool flyOn: false
+    property point flyAt: Qt.point(0, 0)
+    property string flyAddr: ""
+    readonly property var flyGroups: [
+        [["lava", 0, 0, 0.5, 1], ["prava", 0.5, 0, 0.5, 1]],
+        [["l23", 0, 0, 2/3, 1], ["p13", 2/3, 0, 1/3, 1]],
+        [["l13", 0, 0, 1/3, 1], ["p23", 1/3, 0, 2/3, 1]],
+        [["lh", 0, 0, 0.5, 0.5], ["ph", 0.5, 0, 0.5, 0.5], ["ld", 0, 0.5, 0.5, 0.5], ["pd", 0.5, 0.5, 0.5, 0.5]]]
+    Timer { id: flyLeave; interval: 2500; onTriggered: if (!flyHover.hovered) pn.flyOn = false }
+    PanelWindow {
+        visible: pn.flyOn
+        anchors { top: true; left: true }
+        margins { left: Math.max(0, pn.flyAt.x - 250); top: pn.flyAt.y + 6 }
+        implicitWidth: 2 * 104 + 10 + 24; implicitHeight: 2 * 56 + 10 + 24
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.namespace: "latte-rozlozenia"
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+        color: "transparent"
+        Rectangle {
+            anchors.fill: parent; radius: 14
+            color: theme.surface; border { color: theme.outline; width: 1 }
+            HoverHandler { id: flyHover; onHoveredChanged: if (!hovered) flyLeave.restart() }
+            Grid {
+                x: 12; y: 12; columns: 2; spacing: 10
+                Repeater {
+                    model: pn.flyGroups
+                    Item {
+                        required property var modelData
+                        width: 104; height: 56
+                        Repeater {
+                            model: parent.modelData
+                            Rectangle {
+                                required property var modelData
+                                x: modelData[1] * 104 + 2; y: modelData[2] * 56 + 2; width: modelData[3] * 104 - 4; height: modelData[4] * 56 - 4; radius: 6
+                                color: cm2.containsMouse ? theme.primary : Qt.rgba(theme.fg.r, theme.fg.g, theme.fg.b, 0.14)
+                                border { color: cm2.containsMouse ? theme.primary : Qt.rgba(theme.fg.r, theme.fg.g, theme.fg.b, 0.25); width: 1 }
+                                MouseArea { id: cm2; anchors.fill: parent; hoverEnabled: true
+                                            onClicked: { pn.flyOn = false; pn.hyprEval("latte.okno.rozlozenie('" + pn.flyAddr + "','" + parent.modelData[0] + "')"); } }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // ── Win+P: monitory (hyprctl monitors all), prvý = obrazovka PC (interný eDP alebo prvý v zozname) ─────────
     property var mons: []
     property string projMode: ""

@@ -73,11 +73,16 @@ function B.setup(theme)
             },
         },
     })
-    -- pravý klik na titulok = ponuka okna ako vo Windows (záplata LatteOS resources/patches/hyprbars-latte-right-click.patch);
-    -- nastaví sa iba, ak ju načítaný plugin pozná (starý hyprbars ostáva v bežiacej relácii až do odhlásenia)
+    -- pravý klik na titulok = ponuka okna a podržanie myši nad □ = rozloženia ako vo Windows 11 (záplata LatteOS
+    -- resources/patches/hyprbars-latte.patch); nastaví sa iba, ak ju načítaný plugin pozná (starý hyprbars ostáva
+    -- v bežiacej relácii až do odhlásenia). Tlačidlá sa počítajú od kraja: 0 ✕, 1 □, 2 –.
     local okv, val = pcall(hl.get_config, "plugin:hyprbars:on_right_click")
     if okv and val ~= nil then
         hl.config({ plugin = { hyprbars = { on_right_click = "latte-ponuka okno {x} {y} {address}" } } })
+    end
+    local okh, valh = pcall(hl.get_config, "plugin:hyprbars:on_button_hover")
+    if okh and valh ~= nil then
+        hl.config({ plugin = { hyprbars = { on_button_hover = "latte-ponuka rozlozenia {x} {y} {address} {index}" } } })
     end
     -- tlačidlá sprava doľava: zavrieť, zväčšiť, minimalizovať (ako Windows)
     local accent = "rgb(" .. (theme.border_active or "E4B283") .. ")"
