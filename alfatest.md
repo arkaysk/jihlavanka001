@@ -44,19 +44,22 @@ nerobím. Hotová je iba úprava okna L (bod 0).
 | Bočné tlačidlá myši v Nastaveniach a App Manageri | ✅ |
 | Nastavenia › Myš: tlačidlá → akcie, Piper, opakovanie klávesov | ✅ |
 | Panel úloh: klik na aktívne okno minimalizuje, stredný klik nové okno, pravý klik na Štart = Win+X | ✅ (po prihlásení) |
+| Barista: voľba profilu ovládania pri prvom štarte | ✅ |
+| Win+P: Iba obrazovka PC / Duplikovať / Rozšíriť / Iba druhá | ✅ (s dvomi monitormi až na HW) |
+| Lišta rozložení Windows 11 pri ťahaní okna k hornému okraju v strede | ✅ |
 
 **Treba vyskúšať rukou:** samotný Win po Win+E, Alt+Tab, prichytenie okna myšou, pravé ťahanie súboru na Ploche
 a v Súboroch.
 
 **Ostáva (poradie):**
-1. Barista: voľba profilu pri prvom štarte (dnes platí Windows bez otázky).
-2. Súbor podržaný nad oknom v páske ho prenesie dopredu; súbor pustený na ikonu aplikácie ju otvorí;
-   priečinok sa pri podržaní otvorí.
-3. Win11: lišta rozložení pri ťahaní okna k hornému stredu a pri podržaní myši nad □.
-4. Kláves Menu, Shift+koliesko a Ctrl+koliesko vo všetkých našich zoznamoch (dnes v Súboroch).
-5. Rýchlosť dvojkliku, nájsť kurzor (Ctrl), Win+P ako rýchla voľba (dnes Správca zariadení › Obrazovky).
-6. macOS: Cmd+C/V cez xremap, horúce rohy.
-7. Klávesnica na obrazovke (wvkbd), čítačka (Orca), diktovanie (s AI).
+1. Súbor podržaný nad oknom v páske ho prenesie dopredu; súbor pustený na ikonu aplikácie ju otvorí;
+   priečinok sa pri podržaní otvorí. (Lišta Noctalie nie je cieľom ťahania, treba vrstvu nad oválom okien.)
+2. Win11: rozloženia pri podržaní myši nad □ (ďalšia záplata hyprbars s časovačom).
+3. Kláves Menu, Shift+koliesko a Ctrl+koliesko vo všetkých našich zoznamoch (dnes v Súboroch).
+4. Rýchlosť dvojkliku, nájsť kurzor (Ctrl).
+5. macOS: Cmd+C/V cez xremap, horúce rohy.
+6. Klávesnica na obrazovke (wvkbd nie je vo Fedore, treba zostaviť zo zdroja; GPL-3.0), čítačka (Orca),
+   diktovanie (s AI).
 
 ---
 

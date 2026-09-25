@@ -127,6 +127,12 @@ s dlaždicami ako Linux.
 **Nastavenia › Myš:** bočným a ďalším tlačidlám (6, 7) sa dá priradiť akcia systému, odkaz na Piper pre herné myši,
 rýchlosť a oneskorenie opakovania klávesov.
 
+**Doplnené neskôr v noci:**
+- **Barista** sa pri prvom štarte opýta na profil ovládania (Windows / Linux / macOS).
+- **Win+P** ako vo Windows: Iba obrazovka PC · Duplikovať · Rozšíriť · Iba druhá obrazovka (vpravo dole).
+- **Lišta rozložení ako Windows 11:** keď ťaháš okno k hornému okraju do stredu, ukáže sa lišta s rozloženiami
+  (polovice, ⅔+⅓, ⅓+⅔, štvrtiny). Pustíš ho na políčko a okno sa tak rozloží. Úplne hore sa okno maximalizuje.
+
 **Treba vyskúšať rukou** (obrazovka bola zamknutá, klávesy a myš som testovať nemohol, iba headless a cez hyprctl):
 1. samotný Win otvorí App Manager a **po Win+E ho neotvorí**;
 2. Alt+Tab, Alt+F4, Ctrl+Alt+Del, Win+Shift+S, Win+V, Win+.;
