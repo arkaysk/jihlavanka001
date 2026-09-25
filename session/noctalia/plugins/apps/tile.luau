@@ -90,3 +90,5 @@ end
 
 -- klik = App Manager: rýchle spustenie (vyskakovacie okno); ak je plný App Manager otvorený, iba ho vytiahne dopredu
 function onClick() noctalia.runAsync({ "latte-spustac" }) end
+-- pravý klik ako na tlačidlo Štart vo Windows: ponuka Win+X (Nainštalované aplikácie, Správca zariadení, Terminál…)
+function onRightClick() noctalia.runAsync({ "latte-ponuka", "win-x" }) end

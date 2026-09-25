@@ -111,7 +111,8 @@ ShellRoot {
             { glyph: "x", label: "Zavrieť", hint: "Alt+F4", danger: true, action: q("latte.okno.zavriet('" + a + "')") },
         ];
     }
-    onKindChanged: if (kind === "win-x") menu.open(atX, atY, winxItems(), "")
+    // Win+X: nad dlaždicou aplikácií (lišta 56 px + okraj 10 px), ako ponuka nad tlačidlom Štart
+    onKindChanged: if (kind === "win-x") { if (atY >= 9000) menu.openAbove(atX, layer.height - 72, winxItems(), ""); else menu.open(atX, atY, winxItems(), ""); }
 
     PanelWindow {
         id: layer

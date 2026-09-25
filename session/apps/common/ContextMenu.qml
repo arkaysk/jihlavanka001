@@ -23,6 +23,11 @@ Item {
         box.y = Math.max(6, Math.min(y, height - box.implicitHeight - 6));
         box.forceActiveFocus();
     }
+    // ponuka nad bodom (spodný okraj v bottomY), napr. nad ostrovom lišty ako Win+X nad tlačidlom Štart
+    function openAbove(x, bottomY, list, heading) {
+        open(x, 0, list, heading);
+        box.y = Math.max(6, Math.min(bottomY - box.implicitHeight, height - box.implicitHeight - 6));
+    }
     // vymení obsah na tom istom mieste (napr. „Premenovať…“ → textové pole)
     // (pri textovom poli si fokus vezme pole — kurzor je hneď v ňom a názov je označený)
     function replace(list, heading) { items = list; title = heading || ""; visible = true; if (!list.some(i => i.input !== undefined)) box.forceActiveFocus(); }

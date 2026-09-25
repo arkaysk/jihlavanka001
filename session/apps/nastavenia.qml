@@ -65,6 +65,8 @@ ShellRoot {
     property string storage: ""
     property string mascot: "macka"
     property string barAnim: ""        // prázdne = podľa stupňa (VM: pod kurzorom)
+    property string ctrlProfile: "windows"   // profil ovládania (latte/skratky.lua): windows | linux | mac
+    property string numlockPref: ""          // "" = podľa typu počítača, on, off
     property string mascotEscape: ""   // "off" = maskot neuteká
     property string cupQuick: ""       // prázdne = šálka ukazuje stupeň a režim okien, "off" = skryté
     property string deskIcons: ""      // prázdne = ikony na ploche s košom, "off" = bez ikon
@@ -129,7 +131,7 @@ ShellRoot {
             { key: "start", label: "Štart a režim", glyph: "shield", status: "ready" },
             { key: "cas", label: "Dátum, čas a poloha", glyph: "clock", status: "ready" },
             { key: "jazyk", label: "Jazyk a región", glyph: "language", status: "ready" },
-            { key: "klavesnica", label: "Klávesnica a skratky", glyph: "keyboard", status: "partial" },
+            { key: "klavesnica", label: "Klávesnica a skratky", glyph: "keyboard", status: "ready" },
             { key: "bezpecnost", label: "Bezpečnosť", glyph: "shield-lock", status: "ready" },
             { key: "zdielanie", label: "Zdieľanie", glyph: "share", status: "partial" },
             { key: "o", label: "O LatteOS", glyph: "info-circle", status: "ready" } ] }
@@ -221,6 +223,38 @@ ShellRoot {
     }
     FileView { path: app.cfgHome + "/latteos/mascot"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.mascot = text().trim() || "homebrew"; onLoadFailed: app.mascot = "homebrew" }
+    FileView { path: app.cfgHome + "/latteos/profil-ovladania"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.ctrlProfile = (["linux", "mac"].indexOf(text().trim()) >= 0) ? text().trim() : "windows"; onLoadFailed: app.ctrlProfile = "windows" }
+    FileView { path: app.cfgHome + "/latteos/numlock"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.numlockPref = text().trim(); onLoadFailed: app.numlockPref = "" }
+    // zápis voľby a hneď hyprctl reload (skratky, fokus a Num Lock platia bez odhlásenia)
+    function writePrefReload(name, value, msg) {
+        if (value === "") run(["sh", "-c", "rm -f \"$1\"; hyprctl reload", "sh", app.cfgHome + "/latteos/" + name], msg);
+        else run(["sh", "-c", "mkdir -p \"$(dirname \"$1\")\" && printf '%s\\n' \"$2\" > \"$1\" && hyprctl reload", "sh", app.cfgHome + "/latteos/" + name, value], msg);
+    }
+    readonly property var shortcutSets: ({
+        windows: [["Alt + Tab", "Prepínanie okien (drž Alt)"], ["Alt + F4", "Zavrieť okno (na ploche: Vypnúť)"], ["Ctrl + Alt + Del", "Zamknúť, odhlásiť, Správca úloh"],
+                  ["Win  alebo  Ctrl + Esc", "Štart (App Manager)"], ["Win + E", "Súbory"], ["Win + I", "Nastavenia"], ["Win + S / Win + R", "Hľadať a spustiť (Text Bar)"],
+                  ["Win + X", "Ponuka pre pokročilých (aj pravý klik na dlaždicu aplikácií)"], ["Win + A", "Rýchle nastavenia (Zariadenia)"], ["Win + N", "Oznámenia a kalendár"],
+                  ["Win + V", "História schránky (Kapsa)"], ["Win + .", "Emoji"], ["Win + Shift + S  /  PrtSc", "Výstrižok oblasti"], ["Win + PrtSc", "Snímka celej obrazovky do Obrázkov"],
+                  ["Shift + PrtSc", "Snímka s kreslením"], ["Win + D", "Plocha (a späť)"], ["Win + M / Win + Shift + M", "Minimalizovať všetko / vrátiť"], ["Win + Home", "Minimalizovať ostatné"],
+                  ["Win + ↑ / ↓", "Maximalizovať / obnoviť, minimalizovať"], ["Win + ← / →", "Prichytiť k polovici (plávajúce okná)"], ["Win + Z", "Rozloženia okna"],
+                  ["Win + Tab", "Prehľad okien"], ["Win + Ctrl + D / ← → / F4", "Nová plocha / prepnúť / zavrieť"], ["Win + 1…9", "N-té okno na lište"],
+                  ["Win + Shift + ← / →", "Okno na iný monitor"], ["Win + L", "Zamknúť"], ["Win + P", "Monitory"], ["Win + Plus / Mínus / Esc", "Lupa"],
+                  ["Win + C", "AI rozhovor"], ["Win + G", "Herňa"], ["Alt + Medzerník", "Ponuka okna (aj pravý klik na titulok)"], ["Ctrl + Shift + Esc", "Správca úloh (Monitor)"],
+                  ["Alt + Shift", "Rozloženie klávesnice sk / us"]],
+        linux: [["Super", "Spúšťač aplikácií"], ["Super + Medzerník / Alt + F2", "Text Bar"], ["Super + Enter / Ctrl + Alt + T", "Terminál"], ["Super + Q", "Zavrieť okno"],
+                ["Alt + Tab", "Prepínanie okien"], ["Super + Tab", "Prehľad pásky"], ["Super + šípky", "Fokus (v páske stĺpce)"], ["Super + Ctrl + šípky", "Presun okna"],
+                ["Super + 1…9 / Shift", "Plocha / okno na plochu"], ["Ctrl + Alt + ← / →", "Predošlá / ďalšia plocha"], ["Super + F", "Celá obrazovka"], ["Super + V", "Plávajúce okno"],
+                ["Super + W", "Režim okien"], ["Super + N / Shift + N", "Minimalizovať / ukázať minimalizované"], ["Super + D", "Plocha"], ["Super + A", "Zariadenia"],
+                ["Super + I", "AI rozhovor"], ["PrtSc / Super + Shift + S", "Snímka oblasti"], ["Super + ťahanie ľavým / pravým", "Presun / veľkosť okna"],
+                ["Stredný klik", "Vloží označený text"], ["Ctrl + Alt + Del", "Zamknúť, odhlásiť, Správca úloh"], ["Super + L", "Zamknúť"]],
+        mac: [["Cmd + Medzerník", "Text Bar (Spotlight)"], ["Cmd + Tab / Cmd + `", "Prepínanie okien"], ["Cmd + Q / Cmd + W", "Zavrieť okno"], ["Cmd + M / Cmd + H", "Minimalizovať"],
+              ["Cmd + Option + H", "Minimalizovať ostatné"], ["Cmd + Shift + 3 / 4 / 5", "Snímka: celá / oblasť / s kreslením"], ["Cmd + Ctrl + Q", "Zamknúť"],
+              ["Cmd + Option + Esc", "Správca úloh (vynútiť ukončenie)"], ["Cmd + Ctrl + Medzerník", "Emoji"], ["Cmd + Ctrl + F", "Celá obrazovka"], ["Cmd + ,", "Nastavenia"],
+              ["Cmd + Ctrl + ↑ / ← →", "Prehľad / plochy"], ["Cmd + D", "Plocha"], ["Cmd + V", "História schránky (Kapsa)"],
+              ["Cmd + C / V v aplikáciách", "zatiaľ Ctrl + C / V (premapovanie Cmd pripravujeme)"]]
+    })
     FileView { path: app.cfgHome + "/latteos/bar-anim"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.barAnim = text().trim(); onLoadFailed: app.barAnim = "" }
     FileView { path: app.cfgHome + "/latteos/desktop-icons"; printErrors: false; watchChanges: true; onFileChanged: reload()
@@ -530,7 +564,7 @@ ShellRoot {
             uzamknutie: "Čo sa stane, keď počítač chvíľu nepoužívaš. Pred akciou obrazovka 2 s pomaly stmavne — pohyb myšou to zruší.",
             pristupnost: "Väčšie rozhranie, vyšší kontrast, žiadny pohyb, väčší kurzor.",
             oznamenia: "Kde a ako sa ukazujú oznámenia. História a Nerušiť sú aj v paneli Čas na lište.",
-            klavesnica: "Rozloženia klávesnice sk a us, prepínanie Alt+Shift. Skratky LatteOS:"
+            klavesnica: "Profil ovládania (Windows, Linux, macOS), Num Lock a prehľad skratiek. Rozloženia sk a us, prepínanie Alt+Shift."
         })[k] || dalsie.intros[k] || (plans[k] ? "Pripravujeme. Čo tu bude:" : "");
     }
     readonly property var plans: ({
@@ -573,7 +607,7 @@ ShellRoot {
         if (k === "uzamknutie") return "Zamknúť: " + (idleMin(idle.lock) ? idleMin(idle.lock) + " min" : "nikdy") + "\nObrazovka: " + (idleMin(idle.screen) ? idleMin(idle.screen) + " min" : "nikdy") + "\nUspať: " + (idleMin(idle.suspend) ? idleMin(idle.suspend) + " min" : "nikdy");
         if (k === "pristupnost") return "Mierka rozhrania " + Math.round((parseFloat(access.ui_scale) || 1) * 100) + " %" + (access.high_contrast === "true" ? " · vysoký kontrast" : "") + (noAnim ? " · bez animácií" : "") + "\nKurzor " + cursorSize + " px";
         if (k === "oznamenia") return (dnd ? "Nerušiť: zapnuté" : "Nerušiť: vypnuté") + "\nPoloha: " + ({ top_right: "vpravo hore", top_center: "hore v strede", top_left: "vľavo hore", bottom_right: "vpravo dole", bottom_left: "vľavo dole" })[notif.position || "top_right"];
-        if (k === "klavesnica") return "Rozloženia sk, us (Alt+Shift)\nEditor skratiek: plán";
+        if (k === "klavesnica") return "Profil " + ({ windows: "Windows", linux: "Linux", mac: "macOS" })[ctrlProfile] + " · rozloženia sk, us (Alt+Shift)";
         if (dalsie.pages[k]) return dalsie.stateText(k);
         if (plans[k]) return "Zatiaľ len plán";
         return "—";
@@ -593,7 +627,7 @@ ShellRoot {
             zalohy: "~/.config/latteos/backup.conf\n<cieľ>/LatteOS-zaloha-<meno>/<dátum>\n~/.config/systemd/user/latte-backup.timer",
             jazyk: "~/.config/latteos/locale (načíta latte-session)\n/etc/locale.conf (systém)",
             pristupnost: "~/.local/state/noctalia/settings.toml [accessibility]\n~/.config/latteos/no-animations, cursor-size",
-            klavesnica: "/usr/share/latteos/hypr/hyprland.lua\n~/.config/latteos/hyprland.lua"
+            klavesnica: "~/.config/latteos/profil-ovladania, numlock\n/usr/share/latteos/hypr/latte/skratky.lua\n~/.config/latteos/hyprland.lua"
         })[k] || dalsie.stored[k] || "—";
     }
 
@@ -2114,25 +2148,38 @@ ShellRoot {
     Component {
         id: pKlavesy
         Column {
-            spacing: 4
+            spacing: 10
+            Heading { text: "PROFIL OVLÁDANIA" }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Skratky, fokus okien a stredné tlačidlo myši podľa toho, na čo si zvyknutý. Myšou ide všetko rovnako v každom profile. Platí hneď." }
+            Segments {
+                options: [["windows", "Windows 7–11"], ["linux", "Linux (GNOME, KDE, tiling)"], ["mac", "macOS"]]
+                value: app.ctrlProfile
+                onPicked: (v) => { app.ctrlProfile = v; app.writePrefReload("profil-ovladania", v === "windows" ? "" : v, "Profil ovládania: " + v); }
+            }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 }
+                   text: app.ctrlProfile === "windows" ? "Okno sa aktivuje kliknutím, stredný klik nevkladá text, samotný kláves Win otvorí Štart (App Manager). Klávesnice bez Win: Ctrl + Esc."
+                       : app.ctrlProfile === "linux" ? "Okno sa aktivuje už prejdením myšou, stredný klik vloží označený text, Super + ťahanie presúva okná."
+                       : "Kláves Cmd je kláves Win (Super). Okno sa aktivuje kliknutím. Cmd + C / V v aplikáciách príde s premapovaním klávesov." }
+            Heading { text: "NUM LOCK PO ŠTARTE"; topPadding: 8 }
+            Segments {
+                options: [["", "Podľa počítača (stolný zapnutý)"], ["on", "Zapnutý"], ["off", "Vypnutý"]]
+                value: app.numlockPref
+                onPicked: (v) => { app.numlockPref = v; app.writePrefReload("numlock", v, "Num Lock: " + (v || "podľa počítača")); }
+            }
+            Heading { text: "SKRATKY PROFILU"; topPadding: 8 }
             Repeater {
-                model: [["Super + Medzerník", "Text Bar / spúšťač"], ["Super + Tab", "Prehľad pásky (píš pre filter)"], ["Super + Shift + Tab", "Rýchly prepínač okien"],
-                        ["Super + Z", "Rozloženie okna (polovice, štvrtiny…)"], ["Super + I", "AI rozhovor"], ["Super + G", "Herňa (hry)"], ["Super + E", "Súbory"],
-                        ["Super + A", "Riadiace centrum"], ["Super + W", "Režim okien: páska → dlaždice → plávajúce"], ["Super + D", "Zobraziť plochu (a späť)"],
-                        ["Super + Enter", "Terminál"], ["Super + Q", "Zavrieť okno"], ["Super + F", "Celá obrazovka"], ["Super + V", "Plávajúce okno"],
-                        ["Super + šípky", "Fokus (v páske stĺpce)"], ["Super + Ctrl + šípky", "Presun okna"], ["Super + Shift + ←/→", "Okno na iný monitor"],
-                        ["Super + 1…9", "Plocha 1…9"], ["Super + Shift + 1…9", "Okno na plochu"], ["Ctrl + Shift + Esc", "Monitor (správca procesov)"],
-                        ["Super + L", "Zamknúť"], ["Alt + Shift", "Prepnúť rozloženie sk / us"], ["3 prsty ←/→", "Plochy"], ["4 prsty ↑ / ↓", "Prehľad pásky / plocha"]]
+                model: app.shortcutSets[app.ctrlProfile] || []
                 Row {
                     required property var modelData
                     spacing: 16
-                    Rectangle { width: 190; height: 30; radius: 8; color: theme.field
+                    Rectangle { width: 240; height: 30; radius: 8; color: theme.field
                                 Text { anchors.centerIn: parent; text: modelData[0]; color: theme.fg; font { family: theme.fontMono; pixelSize: 12; weight: Font.Bold } } }
                     Text { anchors.verticalCenter: parent.verticalCenter; text: modelData[1]; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 } }
                 }
             }
-            Text { topPadding: 10; width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
-                   text: "Vlastné skratky: ~/.config/latteos/hyprland.lua (načíta sa na konci a môže prepísať čokoľvek). Editor skratiek pripravujeme." }
+            Text { topPadding: 6; width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Vo všetkých profiloch: hlasitosť, jas a prehrávanie hudby na multimediálnych klávesoch, Herňa (Win + G), Súbory (Win + E), gestá 3 a 4 prstami. V hernom režime samotný Win nič neotvorí.\nVlastné skratky: ~/.config/latteos/hyprland.lua (načíta sa na konci a môže prepísať čokoľvek)." }
         }
     }
     Component {
