@@ -102,7 +102,7 @@ ShellRoot {
     TileOverlay {
         id: tile
         theme: theme
-        foot: rq.foot; spec: rq.sceneRight || rq.sceneAll; glyph: "adjustments"; mirror: true
+        foot: rq.foot; spec: rq.sceneRight || rq.sceneAll; mirror: true
         motion: rq.barAnimRaw === "vzdy" ? "vzdy" : "vypnute"; popupOpen: rq.open
         canvasW: lpop.panelW; canvasH: lpop.sceneH; ox: lpop.footOx; oy: lpop.trunkH
     }

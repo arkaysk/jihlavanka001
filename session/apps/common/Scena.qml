@@ -31,6 +31,8 @@ Item {
     property real anchorX: canvasW / 2
     property real anchorY: canvasH / 2
     property color base: colors.surfaceVariant   // podklad pod textúrou
+    property var dim: null                  // stlmenie pod textom [alfa vľavo, alfa vpravo] farbou dimColor, orezané s výsekom
+    property color dimColor: colors.surface
     readonly property bool gpu: ["softver", "minimalny", "safe"].indexOf(Quickshell.env("LATTE_TIER") || "softver") < 0
     readonly property int fps: gpu ? 24 : 8
     readonly property bool moving: motion === "vzdy" || (motion === "kurzor" && awake)
@@ -63,7 +65,8 @@ Item {
         Component.onCompleted: if (sc.frameDir) for (let i = 0; i < sc.frameCount; i++) loadImage(frameUrl(i))
         Connections { target: sc; function onOhniskoChanged() { cv.requestPaint(); } function onAnchorXChanged() { cv.requestPaint(); }
                       function onSpecChanged() { cv.requestPaint(); } function onOxChanged() { cv.requestPaint(); }
-                      function onOyChanged() { cv.requestPaint(); } function onRadiiChanged() { cv.requestPaint(); } }
+                      function onOyChanged() { cv.requestPaint(); } function onRadiiChanged() { cv.requestPaint(); }
+                      function onDimChanged() { cv.requestPaint(); } }
         onPaint: {
             const c = getContext("2d"); c.reset();
             const w = width, h = height, R = sc.radii || [0, 0, 0, 0];
@@ -75,6 +78,14 @@ Item {
             c.lineTo(0, R[0]); if (R[0]) c.arcTo(0, 0, R[0], 0, R[0]);
             c.closePath();
             c.clip();
+            paintScene(c, w, h);
+            if (sc.dim && sc.dim.length === 2) {
+                const g = c.createLinearGradient(0, 0, w, 0), d = sc.dimColor;
+                g.addColorStop(0, Qt.rgba(d.r, d.g, d.b, sc.dim[0])); g.addColorStop(1, Qt.rgba(d.r, d.g, d.b, sc.dim[1]));
+                c.fillStyle = g; c.fillRect(0, 0, w, h);
+            }
+        }
+        function paintScene(c, w, h) {
             c.fillStyle = sc.kind === "solid" ? (sc.arg || sc.base) : sc.base;
             c.fillRect(0, 0, w, h);
             if (sc.kind === "solid") return;

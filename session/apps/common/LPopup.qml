@@ -6,6 +6,8 @@
 //   panel = obsah nad kmeňom (predvolený obsah komponentu)
 // Medzi kmeňom a pätou je vyduté zaoblenie (tvar L z kresby). Otváranie: kmeň sa vysunie z hornej hrany päty
 // (šírka aj výška naraz, spomalený dobeh), v druhej polovici sa objaví panel. Zatváranie opačne.
+// GIF / obrázok (framed): päta bez ikony, ostrov má rám (TileOverlay) a ten sa pri otváraní plynulo roztiahne na obrys
+// celého L — pri p = 0 obrys presne kopíruje ostrov (všetky rohy zaoblené), kmeň rastie z jeho hornej hrany.
 // side: "left" (App Manager vľavo) alebo "right" (Zariadenia vpravo, zrkadlovo; obsah sa nezrkadlí).
 import QtQuick
 import Quickshell
@@ -24,7 +26,10 @@ Item {
     property real dim: 0.55                 // stlmenie textúry pod textom kmeňa
     property var islands: []                // všetky ostrovy lišty (latte-ostrovy): L nesmie prekryť susedné položky
     property real gap: 10                   // medzera kmeňa nad lištou, ako maximalizované okno (Hyprland gaps_out)
-    property string footGlyph: ""           // ikona ostrova (päta ho prekryje, preto ju nakreslí znova — vždy, aj pri animácii)
+    property string footGlyph: ""           // ikona ostrova (päta ho prekryje, preto ju nakreslí znova; pri GIF / obrázku nie)
+    readonly property bool framed: sceneSpec.startsWith("file:")
+    readonly property color frameColor: framed ? theme.primary : theme.outline
+    readonly property real frameWidth: framed ? 1.5 : 1
     property var image: null                // spoločný AnimatedImage pre GIF textúru (päta, kmeň aj dlaždica na lište)
     property string frameDir: ""            // snímky GIF ako PNG (z TileOverlay)
     property int frameCount: 0
@@ -69,11 +74,21 @@ Item {
         return Math.max(0, g);
     }
     readonly property real trunkBottom: barTop - gap
-    readonly property real trunkY: trunkBottom - trunkH * armP
+    // spodok kmeňa počas otvárania: vychádza z hornej hrany ostrova a dvíha sa do medzery nad lištou
+    readonly property real tbE: foot.y - (foot.y - trunkBottom) * armP
+    readonly property real trunkY: tbE - trunkH * armP
     readonly property real rad: 16
     // spoločné plátno textúry (kmeň + päta); TileOverlay na lište ukazuje ten istý výsek päty
     readonly property real sceneH: trunkH + foot.y + foot.h - trunkBottom
+    readonly property real sceneTop: trunkBottom - trunkH          // vrch plátna na obrazovke (pevný počas animácie)
     readonly property real footOx: foot.x - left0
+    readonly property real footTopR: footRadius * (1 - armP)       // horné rohy päty: kým kmeň nevyrastie, päta = ostrov
+    // rohy obrysu (spoločné pre obrys aj orezanie textúry): pri p = 0 rohy ostrova, potom rohy panelu
+    readonly property real shapeTop: panelP > 0.01 ? trunkY - panelH * panelP : trunkY
+    readonly property real roomW: Math.max(0, (armW - foot.w) / 2)
+    readonly property real rOuter: Math.min(footRadius + (panelRadius - footRadius) * armP, (foot.y + foot.h - shapeTop) / 2)
+    readonly property real rFar: roomW >= 1 ? Math.min(rOuter, (tbE - shapeTop) / 2) : rOuter   // kmeň je spočiatku nízky
+    readonly property real rTrunk: Math.min(rad, roomW, (tbE - shapeTop) / 2)
 
     // spoločný čas textúry (päta a kmeň kreslia ten istý obraz vo fáze)
     property real t: 0
@@ -92,24 +107,19 @@ Item {
     // kmeň: textúra, zaoblený vonkajší dolný roh
     Item {
         id: trunkClip
-        x: lp.armX; y: lp.trunkY; width: lp.armW; height: lp.trunkBottom - lp.trunkY
+        x: lp.armX; y: lp.trunkY; width: lp.armW; height: lp.tbE - lp.trunkY
         visible: lp.armP > 0.01
         Scena {
             id: trunkScene
             anchors.fill: parent
             colors: lp.theme; spec: lp.sceneSpec; motion: lp.motion; time: lp.t; mirror: lp.isRight; image: lp.image; frameDir: lp.frameDir; frameCount: lp.frameCount
             ohnisko: lp.ohnisko; anchorX: lp.footOx + lp.foot.w / 2; anchorY: lp.sceneH - lp.foot.h / 2
-            radii: lp.isRight ? [0, 0, 0, lp.rad] : [0, 0, lp.rad, 0]          // vonkajší dolný roh kmeňa
-            ox: trunkClip.x - lp.left0; oy: lp.trunkY - (lp.trunkBottom - lp.trunkH); canvasW: lp.panelW; canvasH: lp.trunkH + lp.foot.y + lp.foot.h - lp.trunkBottom
-        }
-        // stlmenie pod textom: textúra ostáva viditeľná pri päte, pokojná pod písmom
-        Rectangle {
-            anchors.fill: parent
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0; color: Qt.rgba(lp.theme.surface.r, lp.theme.surface.g, lp.theme.surface.b, lp.isRight ? lp.dim : 0.05) }
-                GradientStop { position: 1; color: Qt.rgba(lp.theme.surface.r, lp.theme.surface.g, lp.theme.surface.b, lp.isRight ? 0.05 : lp.dim) }
-            }
+            // vonkajší dolný roh kmeňa; horné rohy iba kým nie je panel (potom ich kreslí panel)
+            readonly property real ro: lp.panelP > 0.01 ? 0 : Math.min(lp.rOuter, height)
+            readonly property real rf: lp.panelP > 0.01 ? 0 : Math.min(lp.rFar, height / 2)
+            radii: lp.isRight ? [rf, ro, 0, lp.rTrunk] : [ro, rf, lp.rTrunk, 0]
+            dim: lp.isRight ? [lp.dim, 0.05] : [0.05, lp.dim]           // stlmenie pod textom: pri päte textúra, pod písmom pokoj
+            ox: trunkClip.x - lp.left0; oy: lp.trunkY - lp.sceneTop; canvasW: lp.panelW; canvasH: lp.sceneH
         }
         Item { id: trunkContent; anchors.fill: parent; opacity: lp.panelP }
     }
@@ -117,17 +127,19 @@ Item {
     Item {
         id: footClip
         // od vrchu lišty (ak je susedný ostrov vyšší, päta sa k kmeňu dotiahne stĺpcom nad vlastným ostrovom)
-        x: lp.foot.x; y: lp.trunkBottom; width: lp.foot.w; height: lp.foot.y + lp.foot.h - lp.trunkBottom
+        x: lp.foot.x; y: lp.tbE; width: lp.foot.w; height: lp.foot.y + lp.foot.h - lp.tbE
         visible: lp.p > 0.01
         Scena {
             anchors.fill: parent
             colors: lp.theme; spec: lp.sceneSpec; motion: lp.motion; time: lp.t; mirror: lp.isRight; image: lp.image; frameDir: lp.frameDir; frameCount: lp.frameCount
             ohnisko: lp.ohnisko; anchorX: lp.footOx + lp.foot.w / 2; anchorY: lp.sceneH - lp.foot.h / 2
-            radii: [0, 0, lp.footRadius, lp.footRadius]                           // spodok päty = tvar ostrova
-            ox: lp.foot.x - lp.left0; oy: lp.trunkH; canvasW: lp.panelW; canvasH: lp.trunkH + lp.foot.y + lp.foot.h - lp.trunkBottom
+            // spodok päty = tvar ostrova; vonkajší horný roh pokračuje oblúkom obrysu, kým je kmeň nízky
+            readonly property real ro: Math.max(0, lp.rOuter - (lp.tbE - lp.trunkY))
+            radii: lp.isRight ? [lp.footTopR, ro, lp.footRadius, lp.footRadius] : [ro, lp.footTopR, lp.footRadius, lp.footRadius]
+            ox: lp.foot.x - lp.left0; oy: lp.tbE - lp.sceneTop; canvasW: lp.panelW; canvasH: lp.sceneH
         }
         Rectangle {
-            visible: lp.footGlyph !== ""
+            visible: lp.footGlyph !== "" && !lp.framed
             x: (parent.width - 30) / 2; y: parent.height - lp.foot.h / 2 - 15; width: 30; height: 30; radius: 10
             color: Qt.rgba(lp.theme.surfaceVariant.r, lp.theme.surfaceVariant.g, lp.theme.surfaceVariant.b, 0.85)
             Glyph { anchors.centerIn: parent; name: lp.footGlyph || "apps"; size: 18; color: lp.theme.primary }
@@ -138,7 +150,7 @@ Item {
         id: notch
         // vyduté zaoblenie leží v medzere nad lištou (nezasahuje do susedných ostrovov)
         readonly property real s: lp.gap > 1 ? Math.min(lp.rad, lp.gap) : Math.min(lp.rad, lp.sideGap)
-        x: lp.isRight ? lp.foot.x - s : lp.foot.x + lp.foot.w; y: lp.trunkBottom
+        x: lp.isRight ? lp.foot.x - s : lp.foot.x + lp.foot.w; y: lp.tbE
         width: Math.max(1, s); height: Math.max(1, s)
         visible: lp.armP > 0.5 && s >= 2
         onSChanged: requestPaint()
@@ -157,33 +169,40 @@ Item {
         id: outline
         anchors.fill: parent
         visible: lp.p > 0.01
-        readonly property real sig: lp.p + lp.foot.x + lp.foot.y + lp.foot.w + lp.panelW + lp.panelH + lp.gap
+        readonly property real sig: lp.p + lp.foot.x + lp.foot.y + lp.foot.w + lp.panelW + lp.panelH + lp.gap + lp.frameWidth
         onSigChanged: requestPaint()
         onVisibleChanged: requestPaint()
         onPaint: {
             const c = getContext("2d"); c.reset();
             if (!visible) return;
-            const f = lp.foot, fw = f.w, W = lp.armW, Rp = lp.panelRadius, Rt = lp.rad, Rf = lp.footRadius;
-            const top = lp.panelP > 0.01 ? lp.trunkY - lp.panelH * lp.panelP : lp.trunkY;
-            const tb = lp.trunkBottom, fb = f.y + f.h, s = Math.min(notch.s, W - fw);
-            // u = vzdialenosť od vonkajšej hrany päty (vľavo pri App Manageri, vpravo pri Zariadeniach)
-            const X = (u) => lp.isRight ? f.x + f.w - u : f.x + u;
-            c.strokeStyle = lp.theme.outline; c.lineWidth = 1;
+            const f = lp.foot, fw = f.w, W = lp.armW, Rf = lp.footRadius, room = lp.roomW, top = lp.shapeTop;
+            const tb = lp.tbE, fb = f.y + f.h, s = Math.min(notch.s, room), Rt = lp.rTrunk;
+            // horné rohy: pri p = 0 rohy ostrova, potom rohy panelu (obrys sa plynulo presunie z ostrova na celé okno)
+            const Rp = lp.rOuter, Rr = lp.rFar, h = lp.frameWidth / 2;
+            // u = vzdialenosť od vonkajšej hrany päty (vľavo pri App Manageri, vpravo pri Zariadeniach: zrkadlo);
+            // čiara leží celá vnútri tvaru (posun o polovicu hrúbky), oblúky presne cez arc (arcTo robil výbežky)
+            c.save();
+            if (lp.isRight) { c.translate(f.x + f.w, 0); c.scale(-1, 1); } else c.translate(f.x, 0);
+            c.strokeStyle = lp.frameColor; c.lineWidth = lp.frameWidth;
+            const P = Math.PI;
             c.beginPath();
-            c.moveTo(X(0) + (lp.isRight ? -0.5 : 0.5), top + Rp);
-            c.arcTo(X(0), top + 0.5, X(Rp), top + 0.5, Rp);
-            c.lineTo(X(W - Rp), top + 0.5);
-            c.arcTo(X(W), top + 0.5, X(W), top + Rp, Rp);
-            c.lineTo(X(W), tb - Rt);
-            c.arcTo(X(W), tb - 0.5, X(W - Rt), tb - 0.5, Rt);
-            if (s >= 2) { c.lineTo(X(fw + s), tb - 0.5); c.quadraticCurveTo(X(fw), tb - 0.5, X(fw), tb + s); }
-            else c.lineTo(X(fw), tb - 0.5);
-            c.lineTo(X(fw), fb - Rf);
-            c.arcTo(X(fw), fb - 0.5, X(fw - Rf), fb - 0.5, Rf);
-            c.lineTo(X(Rf), fb - 0.5);
-            c.arcTo(X(0), fb - 0.5, X(0), fb - Rf, Rf);
+            c.moveTo(h, top + Rp);
+            c.arc(Rp, top + Rp, Rp - h, P, 1.5 * P);
+            c.lineTo(W - Rr, top + h);
+            c.arc(W - Rr, top + Rr, Rr - h, 1.5 * P, 2 * P);
+            if (room >= 1) {
+                c.lineTo(W - h, tb - Rt);
+                if (Rt > h) c.arc(W - Rt, tb - Rt, Rt - h, 0, 0.5 * P);
+                if (s >= 2) { c.lineTo(fw + s, tb - h); c.quadraticCurveTo(fw - h, tb - h, fw - h, tb + s); }
+                else c.lineTo(fw - h, tb - h);
+            }
+            c.lineTo(fw - h, fb - Rf);
+            c.arc(fw - Rf, fb - Rf, Rf - h, 0, 0.5 * P);
+            c.lineTo(Rf, fb - h);
+            c.arc(Rf, fb - Rf, Rf - h, 0.5 * P, P);
             c.closePath();
             c.stroke();
+            c.restore();
         }
     }
     // obsah panelu (nad kmeňom)

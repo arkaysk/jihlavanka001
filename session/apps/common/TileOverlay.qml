@@ -1,6 +1,7 @@
 // TileOverlay — textúra ostrova na lište pre GIF / obrázok (zadanie 25. 9.): Noctalia v dlaždici kreslí iba svoje textúry
 // (para, matrix, farba), preto GIF nad ostrov dokreslí táto vrstva. Ukazuje presne ten výsek spoločného plátna, ktorý
-// je v okne v tvare L pätou, takže po otvorení okna obraz plynule pokračuje do kmeňa. Ikona je v strede vždy.
+// je v okne v tvare L pätou, takže po otvorení okna obraz plynule pokračuje do kmeňa. Bez ikony v strede (zadanie
+// 25. 9. večer): ostrov je iba pekne orámovaný a ten istý rám pri otvorení okna prejde plynulo na celý tvar L (LPopup).
 // Kliknutia prepúšťa (prázdna maska) na dlaždicu Noctalie pod ňou. GIF je jeden (image) a zdieľa ho aj LPopup.
 //   hrá: pohyb „vždy“ (bar-anim) alebo keď je okno otvorené; v hernom režime stojí a vrstva sa skryje.
 import QtQuick
@@ -15,7 +16,6 @@ Scope {
     property string spec: "para"
     property string motion: "vzdy"          // vzdy | vypnute (z bar-anim)
     property bool popupOpen: false
-    property string glyph: "apps"
     property bool mirror: false
     property real footRadius: 16
     // spoločné plátno okna L (rovnaké čísla ako LPopup: ox/oy výseku päty, rozmer plátna)
@@ -53,10 +53,14 @@ Scope {
             ox: to.ox; oy: to.oy; canvasW: to.canvasW; canvasH: to.canvasH
             ohnisko: to.ohnisko; anchorX: to.ox + to.foot.w / 2; anchorY: to.canvasH - to.foot.h / 2
         }
+        // rám ostrova: rovnaká farba a hrúbka ako obrys okna L (LPopup.frameColor/frameWidth), jemný svetlý lem dnu
         Rectangle {
-            anchors.centerIn: parent; width: 30; height: 30; radius: 10
-            color: Qt.rgba(to.theme.surfaceVariant.r, to.theme.surfaceVariant.g, to.theme.surfaceVariant.b, 0.85)
-            Glyph { anchors.centerIn: parent; name: to.glyph; size: 18; color: to.theme.primary }
+            anchors.fill: parent; radius: to.footRadius; color: "transparent"
+            border { width: 1.5; color: to.theme.primary }
+        }
+        Rectangle {
+            anchors { fill: parent; margins: 1.5 } radius: to.footRadius - 1.5; color: "transparent"
+            border { width: 1; color: Qt.rgba(1, 1, 1, 0.10) }
         }
     }
 }

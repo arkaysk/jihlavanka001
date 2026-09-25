@@ -1578,9 +1578,21 @@ ShellRoot {
                         Scena { anchors.fill: parent; colors: app.latteTheme; spec: app.barScene; time: lPrev.t; motion: app.barAnim === "vypnuty" ? "vypnute" : "vzdy"
                                 oy: 50; canvasW: 660; canvasH: 103; radii: [0, 0, 16, 16]
                                 image: prevGif.image; frameDir: prevGif.frameDir; frameCount: prevGif.frameCount; ohnisko: prevGif.ohnisko; anchorX: 50; anchorY: 103 - 21.5 }
-                        Rectangle { x: 35; y: 10 + 6.5; width: 30; height: 30; radius: 10
+                        Rectangle { x: 35; y: 10 + 6.5; width: 30; height: 30; radius: 10; visible: !app.barScene.startsWith("file:")
                                     color: Qt.rgba(app.latteTheme.surfaceVariant.r, app.latteTheme.surfaceVariant.g, app.latteTheme.surfaceVariant.b, 0.85)
                                     Glyph { anchors.centerIn: parent; name: "apps"; size: 18; color: app.latteTheme.primary } }
+                    }
+                    // GIF / obrázok: bez ikony, iba rám okolo celého L (ako LPopup.framed)
+                    Canvas {
+                        width: 660; height: 103; visible: app.barScene.startsWith("file:")
+                        onVisibleChanged: requestPaint()
+                        onPaint: {
+                            const c = getContext("2d"), h = 1, P = Math.PI; c.reset();
+                            c.strokeStyle = app.latteTheme.primary; c.lineWidth = 2;
+                            c.beginPath(); c.moveTo(h, 16); c.arc(16, 16, 16 - h, P, 1.5 * P); c.lineTo(644, h); c.arc(644, 16, 16 - h, 1.5 * P, 2 * P);
+                            c.lineTo(660 - h, 34); c.arc(644, 34, 16 - h, 0, 0.5 * P); c.lineTo(110, 50 - h); c.quadraticCurveTo(100 - h, 50 - h, 100 - h, 60);
+                            c.lineTo(100 - h, 87); c.arc(84, 87, 16 - h, 0, 0.5 * P); c.lineTo(16, 103 - h); c.arc(16, 87, 16 - h, 0.5 * P, P); c.closePath(); c.stroke();
+                        }
                     }
                     Rectangle { x: 106; y: 60; width: 225; height: 43; radius: 16; color: theme.hover
                                 Text { anchors.centerIn: parent; text: "05:35  ·  pi 25. 9."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 14 } } }
@@ -1624,7 +1636,7 @@ ShellRoot {
                           onBrowse: app.browse(["--typ", "obrazok", "--nazov", "Obrázok pre textúru L", "--start", app.home + "/Obrázky"], (p) => app.setBarFile(p[0]))
                           onDropped: (p) => app.setBarFile(p[0]) }
                 Text { color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 }
-                       text: "Obrázok vyplní celý pás L (orezaný na šírku). Dlaždica na lište ukáže pri obrázku textúru Para." }
+                       text: "Obrázok vyplní celý pás L (orezaný na šírku). Dlaždica na lište ukáže ten istý obraz bez ikony, iba s rámom; pri otvorení okna sa rám roztiahne na celé L." }
             }
             Heading { text: "Pravé L (Zariadenia)"; font.pixelSize: 11 }
             Segments {

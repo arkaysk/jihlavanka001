@@ -177,7 +177,7 @@ ShellRoot {
     TileOverlay {
         id: tile
         theme: theme
-        foot: sp.foot; spec: sp.barScene; glyph: "apps"; mirror: false
+        foot: sp.foot; spec: sp.barScene; mirror: false
         motion: sp.barAnimRaw === "vzdy" ? "vzdy" : "vypnute"; popupOpen: sp.open
         canvasW: lpop.panelW; canvasH: lpop.sceneH; ox: lpop.footOx; oy: lpop.trunkH
     }
