@@ -258,7 +258,13 @@ Item {
 
     // ── Myš, touchpad a ovládače ────────────────────────────────────────────────────
     property var inp: ({ sensitivity: 0, accel_profile: "adaptive", left_handed: false, natural_scroll: false, scroll_factor: 1,
-                         tp_natural_scroll: true, tap_to_click: true, disable_while_typing: true, tp_scroll_factor: 1 })
+                         tp_natural_scroll: true, tap_to_click: true, disable_while_typing: true, tp_scroll_factor: 1,
+                         repeat_delay: 600, repeat_rate: 25, b275: "", b276: "", b277: "", b278: "" })
+    // ďalšie tlačidlá myši → akcia systému ("" = nechať aplikáciám, napr. Späť / Dopredu v prehliadači a Súboroch)
+    readonly property var mouseActions: [["", "V aplikáciách (predvolené)"], ["noctalia msg panel-toggle latteos/overview:panel", "Prehľad okien"],
+        ["latte-spustac prepni", "Štart (App Manager)"], ["hyprctl eval 'latte.keys.show_desktop()'", "Plocha"],
+        ["noctalia msg screenshot-region", "Výstrižok"], ["noctalia msg panel-toggle latteos/kapsa:panel", "Kapsa"],
+        ["noctalia msg mic-mute", "Stlmiť mikrofón"], ["noctalia msg media play-pause", "Hudba: prehrať / pauza"]]
     FileView { id: inpFile; path: dd.cfg + "/vstup.json"; printErrors: false
                onLoaded: { try { dd.inp = Object.assign({}, dd.inp, JSON.parse(text())); } catch (e) {} } }
     Process { id: inpApply }
@@ -268,7 +274,11 @@ Item {
         const lua = "hl.config({ input = { sensitivity = " + o.sensitivity.toFixed(2) + ", accel_profile = \"" + o.accel_profile + "\", left_handed = " + b(o.left_handed)
                   + ", natural_scroll = " + b(o.natural_scroll) + ", scroll_factor = " + o.scroll_factor.toFixed(2)
                   + ", touchpad = { natural_scroll = " + b(o.tp_natural_scroll) + ", tap_to_click = " + b(o.tap_to_click)
-                  + ", disable_while_typing = " + b(o.disable_while_typing) + ", scroll_factor = " + o.tp_scroll_factor.toFixed(2) + " } } })";
+                  + ", disable_while_typing = " + b(o.disable_while_typing) + ", scroll_factor = " + o.tp_scroll_factor.toFixed(2) + " }"
+                  + ", repeat_delay = " + Math.round(o.repeat_delay) + ", repeat_rate = " + Math.round(o.repeat_rate) + " } })"
+                  // tlačidlá myši: najprv zrušiť staré priradenie (hyprctl eval sa volá pri každej zmene)
+                  + ["275", "276", "277", "278"].map(k => " pcall(hl.unbind, \"mouse:" + k + "\")"
+                        + (o["b" + k] ? " hl.bind(\"mouse:" + k + "\", hl.dsp.exec_cmd(\"" + o["b" + k].replace(/"/g, "\\\"") + "\"))" : "")).join("");
         inpFile.setText(JSON.stringify(o));
         inpApply.command = ["sh", "-c", "mkdir -p \"$1\" && printf '%s\\n' '-- LatteOS: Nastavenia › Myš a touchpad (vygenerované, neupravovať ručne)' \"$2\" > \"$1/vstup.lua\" && hyprctl eval \"$2\" >/dev/null", "sh", dd.cfg, lua];
         inpApply.running = true;
@@ -303,6 +313,37 @@ Item {
             Switch { label: "Pre ľavákov"; sub: "Vymení ľavé a pravé tlačidlo."; checked: dd.inp.left_handed; onToggled: (v) => dd.setInput("left_handed", v) }
             Switch { label: "Prirodzené rolovanie kolieskom"; sub: "Obsah sa posúva rovnakým smerom ako prsty (ako na mobile)."; checked: dd.inp.natural_scroll; onToggled: (v) => dd.setInput("natural_scroll", v) }
             Slide { label: "Rýchlosť rolovania"; from: 0.2; to: 3; step: 0.1; value: dd.inp.scroll_factor; fmt: dd.inp.scroll_factor.toFixed(1) + "×"; onChanged: (v) => dd.setInput("scroll_factor", v) }
+            Heading { topPadding: 8; text: "TLAČIDLÁ MYŠI" }
+            Note { text: "Bočné tlačidlá robia predvolene Späť a Dopredu v prehliadači, Súboroch, Nastaveniach a App Manageri (ako vo Windows). Môžeš im priradiť akciu systému; herné myši majú ďalšie tlačidlá (6, 7)." }
+            Repeater {
+                model: [["b275", "Bočné tlačidlo Späť"], ["b276", "Bočné tlačidlo Dopredu"], ["b277", "Tlačidlo 6"], ["b278", "Tlačidlo 7"]]
+                Column {
+                    required property var modelData
+                    width: parent.width; spacing: 6
+                    Text { text: modelData[1]; color: dd.t.fg; font { family: dd.t.fontUi; pixelSize: 13; weight: Font.DemiBold } }
+                    Flow {
+                        width: parent.width; spacing: 6
+                        Repeater {
+                            model: dd.mouseActions
+                            Rectangle {
+                                required property var modelData
+                                readonly property string key: parent.parent.modelData[0]
+                                readonly property bool on: (dd.inp[key] || "") === modelData[0]
+                                width: mbt.implicitWidth + 22; height: 30; radius: 9
+                                color: on ? Qt.rgba(dd.t.primary.r, dd.t.primary.g, dd.t.primary.b, 0.18) : (mbm.containsMouse ? dd.t.hover : dd.t.field)
+                                border { color: on ? dd.t.primary : "transparent"; width: 1.5 }
+                                Text { id: mbt; anchors.centerIn: parent; text: modelData[1]; color: dd.t.fg; font { family: dd.t.fontUi; pixelSize: 12; weight: on ? Font.Bold : Font.Medium } }
+                                MouseArea { id: mbm; anchors.fill: parent; hoverEnabled: true; onClicked: dd.setInput(key, modelData[0]) }
+                            }
+                        }
+                    }
+                }
+            }
+            Note { text: "DPI, profily v pamäti myši a podsvietenie herných myší (Logitech, Razer, SteelSeries…) nastavíš aplikáciou Piper." }
+            Btn { glyph: "mouse"; label: "Piper — nastavenie hernej myši"; onClicked: dd.app.run(["latte-app", "aplikacie", "detail", "org.freedesktop.Piper"]) }
+            Heading { topPadding: 8; text: "KLÁVESNICA" }
+            Slide { label: "Oneskorenie opakovania"; from: 200; to: 1000; step: 50; value: dd.inp.repeat_delay; fmt: Math.round(dd.inp.repeat_delay) + " ms"; onChanged: (v) => dd.setInput("repeat_delay", v) }
+            Slide { label: "Rýchlosť opakovania"; from: 10; to: 50; step: 1; value: dd.inp.repeat_rate; fmt: Math.round(dd.inp.repeat_rate) + " znakov/s"; onChanged: (v) => dd.setInput("repeat_rate", v) }
             Heading { topPadding: 8; text: "TOUCHPAD" }
             Switch { label: "Ťuknutie = klik"; checked: dd.inp.tap_to_click; onToggled: (v) => dd.setInput("tap_to_click", v) }
             Switch { label: "Vypnúť počas písania"; sub: "Dlaň na touchpade nepohne ukazovateľom."; checked: dd.inp.disable_while_typing; onToggled: (v) => dd.setInput("disable_while_typing", v) }
