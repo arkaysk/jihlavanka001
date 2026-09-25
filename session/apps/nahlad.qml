@@ -93,10 +93,21 @@ ShellRoot {
 
     // ── náhľad prichytenia okna ─────────────────────────────────────────────────────
     property var snapRect: null                  // { x, y, w, h } v globálnych súradniciach, null = skryté
+    // lišta rozložení (Windows 11) — rovnaké čísla ako P.BAR a P.GROUPS v latte/prichytenie.lua
+    property bool barOn: false
+    property point barAt: Qt.point(0, 0)
+    property string barZone: ""
+    readonly property var barGroups: [
+        [["lava", 0, 0, 0.5, 1], ["prava", 0.5, 0, 0.5, 1]],
+        [["l23", 0, 0, 2/3, 1], ["p13", 2/3, 0, 1/3, 1]],
+        [["l13", 0, 0, 1/3, 1], ["p23", 1/3, 0, 2/3, 1]],
+        [["lh", 0, 0, 0.5, 0.5], ["ph", 0.5, 0, 0.5, 0.5], ["ld", 0, 0.5, 0.5, 0.5], ["pd", 0.5, 0.5, 0.5, 0.5]]]
     IpcHandler {
         target: "prichytenie"
         function ukaz(x: int, y: int, w: int, h: int): void { nh.snapRect = { x: x, y: y, w: w, h: h }; }
         function skry(): void { nh.snapRect = null; }
+        function lista(x: int, y: int, zone: string): void { nh.barAt = Qt.point(x, y); nh.barZone = zone === "-" ? "" : zone; nh.barOn = true; }
+        function listaSkry(): void { nh.barOn = false; }
     }
     Variants {
         model: Quickshell.screens
@@ -107,7 +118,8 @@ ShellRoot {
             readonly property var r: nh.snapRect
             readonly property bool here: !!r && r.x < modelData.x + modelData.width && r.x + r.w > modelData.x
                                          && r.y < modelData.y + modelData.height && r.y + r.h > modelData.y
-            visible: here || box.opacity > 0.01
+            readonly property bool barHere: nh.barOn && nh.barAt.x >= modelData.x && nh.barAt.x < modelData.x + modelData.width
+            visible: here || box.opacity > 0.01 || barHere
             anchors { top: true; bottom: true; left: true; right: true }
             exclusionMode: ExclusionMode.Ignore
             WlrLayershell.layer: WlrLayer.Overlay
@@ -131,6 +143,32 @@ ShellRoot {
                 Behavior on y { enabled: !nh.cheap && sw.here; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
                 Behavior on width { enabled: !nh.cheap && sw.here; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
                 Behavior on height { enabled: !nh.cheap && sw.here; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+            }
+            // lišta rozložení (Windows 11): skupiny s políčkami, políčko pod kurzorom zvýraznené
+            Rectangle {
+                visible: sw.barHere
+                x: nh.barAt.x - sw.modelData.x; y: nh.barAt.y - sw.modelData.y
+                width: 4 * 104 + 3 * 10 + 24; height: 80; radius: 18
+                color: Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, 0.96)
+                border { color: theme.outline; width: 1 }
+                Repeater {
+                    model: nh.barGroups
+                    Item {
+                        required property var modelData
+                        required property int index
+                        x: 12 + index * (104 + 10); y: (80 - 56) / 2; width: 104; height: 56
+                        Repeater {
+                            model: parent.modelData
+                            Rectangle {
+                                required property var modelData
+                                readonly property bool hot: nh.barZone === modelData[0]
+                                x: modelData[1] * 104 + 2; y: modelData[2] * 56 + 2; width: modelData[3] * 104 - 4; height: modelData[4] * 56 - 4; radius: 6
+                                color: hot ? theme.primary : Qt.rgba(theme.fg.r, theme.fg.g, theme.fg.b, 0.14)
+                                border { color: hot ? theme.primary : Qt.rgba(theme.fg.r, theme.fg.g, theme.fg.b, 0.25); width: 1 }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
