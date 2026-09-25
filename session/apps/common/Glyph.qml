@@ -116,6 +116,7 @@ Text {
         "volume": 0xEB51,
         "wifi": 0xEB52,
         "mail": 0xEAE5,
+        "player-pause": 0xED45,
         "mouse": 0xEAF9,
         "device-gamepad": 0xEB63,
         "shield-lock": 0xED58,

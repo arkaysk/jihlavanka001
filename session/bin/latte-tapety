@@ -4,14 +4,18 @@
 # prehrávač cez mpvpaper s IPC, voľby mpv, katalógy MotionBGS / Wallhaven / Bing / Minimalistic, knižnica s náhľadmi.
 """latte-tapety — živé tapety LatteOS (engine podľa Aury: mpvpaper na vrstve background, IPC socket na obrazovku).
 
-  latte-tapety nastav SÚBOR [--vystup OUT|*] [--mierka fit|fill|stretch]   video alebo obrázok ako tapeta
+  latte-tapety nastav SÚBOR [--vystup OUT|*] [--mierka fit|fill|stretch]   video (mpvpaper, iba s GPU) alebo obrázok
+                                                    (obrázok = natívna tapeta Noctalie, funguje aj bez GPU)
   latte-tapety obnov                     pri štarte relácie: posledné tapety na všetkých obrazovkách
   latte-tapety dalsia | predosla [--vystup OUT]     ďalšia / predošlá z knižnice (ako `aura next/prev`)
   latte-tapety pauza | pozastav | pokracuj          prepnúť / zastaviť / pustiť (0 % CPU a GPU)
   latte-tapety stop [--vystup OUT]                  vypnúť živú tapetu (ostane statická tapeta Noctalie)
   latte-tapety stav                                 JSON: čo hrá na ktorej obrazovke, pauza, nastavenia
   latte-tapety hlasitost 0-100 · ticho on|off · mierka OUT fit|fill|stretch
-  latte-tapety nastavenie KĽÚČ HODNOTA              auto_pauza (off|skryta|max|full), bateria, farby, hwdec, prezentacia
+  latte-tapety nastavenie KĽÚČ HODNOTA              auto_pauza (off|skryta|max|full), bateria, farby, hwdec,
+                                                    rotacia (min), rotacia_poradie (postupne|nahodne), len_oblubene
+  latte-tapety oblubena SÚBOR on|off                obľúbená tapeta (striedanie „iba obľúbené“)
+  latte-tapety sluzba                               na pozadí: striedanie tapiet a pauza na batérii (spúšťa obnov)
   latte-tapety hra on|off                           herný režim: pauza a späť (latte.game)
   latte-tapety vystupy                              JSON: obrazovky (hyprctl monitors)
   latte-tapety kniznica                             JSON: videá a obrázky z priečinkov knižnice (s náhľadmi)
@@ -41,7 +45,10 @@ DEFAULTS = {
     "auto_pauza": "max",        # off | skryta (iba zakrytá) | max (aj maximalizované okno) | full (iba celá obrazovka)
     "bateria": True,            # na batérii pauza
     "farby": False,             # farby témy zo snímky tapety (ako Aura „Magic Auto-Theming“)
-    "prezentacia": 0,           # s > 0: prehrávať knižnicu dookola
+    "rotacia": 0,               # minúty > 0: striedať tapety (ako Aura „Rotation“)
+    "rotacia_poradie": "postupne",   # postupne | nahodne
+    "len_oblubene": False,
+    "oblubene": [],
     "adresare": [HOME + "/Videá/Tapety", HOME + "/Obrázky/Tapety", DATA],
     "poradie": [],
 }
@@ -272,7 +279,8 @@ def motionbgs(q, cat, page, res):
 
 
 def wallhaven(q, cat, page, res, sort):
-    p = {"categories": {"general": "100", "anime": "010", "people": "001"}.get(cat, "111"), "purity": "100", "sorting": sort or "toplist", "page": str(page)}
+    cats = cat if re.fullmatch(r"[01]{3}", cat or "") else {"general": "100", "anime": "010", "people": "001"}.get(cat, "111")
+    p = {"categories": cats, "purity": "100", "sorting": sort or "toplist", "page": str(page)}
     if res == "4k": p["atleast"] = "3840x2160"
     elif res == "2k": p["resolutions"] = "2560x1440"
     elif res == "ultrawide": p["ratios"] = "21x9,32x9"; p["atleast"] = "2560x1080"
@@ -400,6 +408,13 @@ def main(a):
         path = os.path.abspath(os.path.expanduser(a[0]))
         if not os.path.isfile(path):
             print("E súbor neexistuje"); return 1
+        if ext(path) in IMAGE:
+            # obrázok: natívna tapeta Noctalie (bez GPU, farby témy z nej); živé video na obrazovke sa vypne
+            for o in ([out] if out != "*" else list(c["vystupy"]) + running_outputs()):
+                stop(o); c["vystupy"].pop(o, None)
+            save(c)
+            r = subprocess.run(["noctalia", "msg", "wallpaper-set"] + ([out] if out != "*" else []) + [path], capture_output=True, text=True)
+            print("OK" if r.returncode == 0 else "E " + (r.stderr or r.stdout).strip()[:200]); return r.returncode
         if out == "*":
             for o in list(c["vystupy"]):
                 if o != "*":
@@ -424,10 +439,43 @@ def main(a):
                 start(out, v["subor"], v.get("mierka", "fill"), c)
         if c.get("bateria") and on_battery():
             set_pause(True)
+        if (c.get("rotacia") or c.get("bateria")) and c["vystupy"] and gpu_ok():
+            subprocess.Popen([sys.argv[0], "sluzba"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         return 0
+    if cmd == "sluzba":
+        # jediná inštancia (zámok v RUN); striedanie a batéria, kontrola každých 20 s
+        import fcntl
+        os.makedirs(RUN, exist_ok=True)
+        lock = open(os.path.join(RUN, "sluzba.lock"), "w")
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            return 0
+        last, batt = time.time(), None
+        while True:
+            time.sleep(20)
+            c = load()
+            if not c["vystupy"]:
+                return 0
+            b = on_battery() if c.get("bateria") else False
+            if b != batt:
+                set_pause(b); batt = b
+            if c.get("rotacia") and time.time() - last >= int(c["rotacia"]) * 60 and not b:
+                last = time.time()
+                main(["dalsia"])
+    if cmd == "oblubena" and len(a) == 2:
+        p = os.path.abspath(a[0]); fav = [x for x in c.get("oblubene", []) if x != p]
+        if a[1] == "on": fav.append(p)
+        c["oblubene"] = fav; save(c); return 0
     if cmd in ("dalsia", "predosla"):
         out = opt(a, "--vystup", "*" if "*" in c["vystupy"] or not c["vystupy"] else next(iter(c["vystupy"])))
         lib = [x["path"] for x in library(c)]
+        if c.get("len_oblubene") and c.get("oblubene"):
+            lib = [p for p in lib if p in c["oblubene"]] or lib
+        if cmd == "dalsia" and c.get("rotacia_poradie") == "nahodne" and len(lib) > 1:
+            import random
+            cur = (c["vystupy"].get(out) or {}).get("subor")
+            return main(["nastav", random.choice([p for p in lib if p != cur]), "--vystup", out])
         if not lib:
             print("E knižnica je prázdna"); return 1
         cur = (c["vystupy"].get(out) or {}).get("subor")
@@ -458,7 +506,7 @@ def main(a):
         for out, v in c["vystupy"].items():
             r = ipc(out, ["get_property", "pause"])
             st[out] = dict(v, hra=r is not None and r.get("error") == "success", pauza=bool(r and r.get("data") is True))
-        print(json.dumps({"vystupy": st, "nastavenia": {k: c[k] for k in ("zvuk", "ticho", "hwdec", "auto_pauza", "bateria", "farby", "prezentacia", "adresare")},
+        print(json.dumps({"vystupy": st, "nastavenia": {k: c[k] for k in ("zvuk", "ticho", "hwdec", "auto_pauza", "bateria", "farby", "rotacia", "rotacia_poradie", "len_oblubene", "oblubene", "adresare")},
                           "engine": bool(shutil.which("mpvpaper")), "gpu": gpu_ok(), "bateria_teraz": on_battery()}, ensure_ascii=False)); return 0
     if cmd == "hlasitost" and a:
         c["zvuk"] = max(0, min(100, int(a[0]))); c["ticho"] = c["zvuk"] == 0; save(c)
@@ -480,7 +528,7 @@ def main(a):
         k, v = a
         if k not in DEFAULTS:
             print("E neznámy kľúč"); return 2
-        c[k] = {"true": True, "false": False}.get(v, int(v) if v.isdigit() else v)
+        c[k] = json.loads(v) if v[:1] in "[{" else {"true": True, "false": False}.get(v, int(v) if v.isdigit() else v)
         save(c)
         if k in ("auto_pauza", "hwdec"):          # voľby procesu: reštart prehrávača
             main(["obnov"])

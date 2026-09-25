@@ -1026,6 +1026,12 @@ ShellRoot {
         id: pPozadie
         Column {
           spacing: 14
+          // živé tapety a katalógy tapiet (Tapety, podľa Aury)
+          Row {
+            spacing: 10
+            Button { label: "Tapety a živé tapety"; glyph: "photo"; primaryStyle: true; onClicked: app.run(["latte-app", "tapety"], "Tapety") }
+            Button { label: "Objavovať (MotionBGS, Wallhaven, Bing)"; glyph: "world"; onClicked: app.run(["latte-app", "tapety", "objavovat"], "Tapety › Objavovať") }
+          }
           Row {
             spacing: 10
             Rectangle {

@@ -105,6 +105,7 @@ local game_file = (os.getenv("XDG_STATE_HOME") or ((os.getenv("HOME") or "") .. 
 latte = latte or {}
 function latte.game(on)
     apply_tier(on and "minimalny" or tier)
+    hl.exec_cmd("latte-tapety hra " .. (on and "on" or "off"))       -- živá tapeta: v hre pauza (0 % CPU a GPU)
     hl.config({ decoration = { rounding = on and 0 or 14 }, general = { gaps_in = on and 0 or 5, gaps_out = on and 0 or 10 } })
     local f = io.open(game_file, "w"); if f then f:write(on and "1\n" or "0\n"); f:close() end
     hl.exec_cmd("notify-send -a LatteOS 'Herný režim' '" .. (on and "zapnutý — bez efektov" or "vypnutý") .. "'")
@@ -135,6 +136,8 @@ bind(mod .. " + SHIFT + N", hl.dsp.workspace.toggle_special("minimized"))  -- uk
 bind(mod .. " + F",      hl.dsp.window.fullscreen())
 bind(mod .. " + V",      hl.dsp.window.float({ action = "toggle" }))
 bind(mod .. " + W",      function() windows.cycle() end)                            -- páska → dlaždice → plávajúce
+bind(mod .. " + ALT + W", hl.dsp.exec_cmd("latte-tapety dalsia"))                     -- ďalšia tapeta (Aura: aura next)
+bind(mod .. " + ALT + P", hl.dsp.exec_cmd("latte-tapety pauza"))                      -- pauza živej tapety
 bind(mod .. " + SHIFT + M", hl.dsp.exit())
 
 -- „Zobraziť plochu“ (Super+D): prepne na prázdnu plochu a rovnakou skratkou späť
@@ -212,6 +215,8 @@ hl.on("hyprland.start", function()
         local f = io.open(cfgdir .. "/live-wallpaper", "r")
         if f then f:close(); hl.exec_cmd("latte-app zivatapeta") end
     end
+    -- živá video tapeta (Tapety, podľa Aury): posledná voľba; bez GPU ju latte-tapety nespustí
+    hl.exec_cmd("latte-tapety obnov")
     -- znak NET pre cudzie okná (ukáže sa, až keď aplikácia použije sieť)
     hl.exec_cmd("latte-app netznak")
     -- výrez Kapsy: prijme súbor pretiahnutý na lištu

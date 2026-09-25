@@ -87,3 +87,13 @@ LinuxCapable (NVIDIA na Fedore), Veda.sk (Qwen3-14B-sk). V prípade potreby ich 
 - GPL (Caelestia: prvky sa **prepisujú** do Noctalie, nekopírujú; skopírovaný kód by musel ostať GPL, cosmic-files, Mission Center, umu, labwc, end-4, ML4W): odvodený kód musí ostať GPL.
 - Session služba (platená) musí byť **samostatný program** a nesmie linkovať GPL kód.
 - DMS, Noctalia, Hyprland, wlroots, Ollama, MangoHud: MIT/BSD, bez tejto povinnosti.
+
+## Aura → Tapety (25. 9. 2026)
+- Zdroj: `resources/upstream/aura` (https://github.com/antwny/aura), licencia **GPL-3.0**.
+- Prenesené do LatteOS (Python/QML, nie Rust/libcosmic), súbory s hlavičkou `SPDX-License-Identifier: GPL-3.0-or-later`:
+  - `session/bin/latte-tapety`: prehrávač cez mpvpaper s IPC socketom, voľby mpv (`build_mpv_options`),
+    katalógy MotionBGS / Wallhaven / Bing / Minimalistic (`online/*.rs`), knižnica a náhľady (`scanner/*`),
+    striedanie a obľúbené;
+  - `session/apps/tapety.qml`: Knižnica, Objavovať, Obrazovky, Nastavenia (podľa `ui/*.rs`).
+- Rozdiely: obrázky idú cez tapetu Noctalie (funguje bez GPU), farby témy cez Noctaliu namiesto COSMIC témy,
+  video iba s GPU (s llvmpipe zhodí Hyprland).

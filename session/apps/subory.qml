@@ -234,8 +234,8 @@ ShellRoot {
             { glyph: "external-link", label: e.isDir ? "Otvoriť" : "Otvoriť v aplikácii", hint: "Enter", action: () => { if (e.isDir) pane.go(e.path); else app.openPath(e.path); } }
         ];
         if (!e.isDir) items.push({ glyph: "apps", label: "Otvoriť v…", keepOpen: true, action: () => app.openWithMenu(e) });
-        if (!e.isDir && /\.(mp4|webm|mkv|mov|gif|webp)$/i.test(e.name))
-            items.push({ glyph: "photo", label: "Nastaviť ako živú tapetu", action: () => app.run(["sh", "-c", "mkdir -p \"$HOME/.config/latteos\" && printf 'video:%s\\n' \"$1\" > \"$HOME/.config/latteos/live-wallpaper\" && (pgrep -f 'apps/[z]ivatapeta.qml' >/dev/null || setsid latte-app zivatapeta >/dev/null 2>&1 &)", "sh", e.path], "Živá tapeta: " + e.name) });
+        if (!e.isDir && /\.(mp4|webm|mkv|mov|avi|gif|webp|jpe?g|png|avif)$/i.test(e.name))
+            items.push({ glyph: "photo", label: "Nastaviť ako tapetu", action: () => app.run(["latte-tapety", "nastav", e.path], "Tapeta: " + e.name + " (živé video iba s GPU)") });
         if (e.isDir) items.push({ glyph: "columns-2", label: "Otvoriť v druhom paneli", action: () => { app.dual = true; other.go(e.path); } });
         items.push({ separator: true });
         items.push({ colors: app.tagColors, current: app.tags[e.path] || "", label: "Farba", action: (c) => app.setTag(e.path, c) });

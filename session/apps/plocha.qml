@@ -143,7 +143,8 @@ ShellRoot {
             { glyph: "terminal-2", label: "Otvoriť v termináli", action: () => pl.sh('cd "$1" && setsid foot >/dev/null 2>&1 &', [pl.desk]) },
             { separator: true },
             { glyph: "device-desktop", label: "Nastavenia obrazovky", action: () => pl.sh('latte-app zariadenia obrazovky >/dev/null 2>&1 &') },
-            { glyph: "photo", label: "Prispôsobiť (tapeta)", action: () => pl.sh('latte-app nastavenia pozadie >/dev/null 2>&1 &') }
+            { glyph: "photo", label: "Tapety a živé tapety…", action: () => pl.sh('latte-app tapety >/dev/null 2>&1 &') },
+            { glyph: "palette", label: "Prispôsobiť (motív, pozadie)", action: () => pl.sh('latte-app nastavenia pozadie >/dev/null 2>&1 &') }
         ]);
     }
     function sortBy(k) { const p = Object.assign({}, prefs); p.sort = k; p.pos = {}; prefs = p; savePrefs.restart(); }   // ako vo Windows: zoradenie preusporiada
