@@ -9,6 +9,8 @@ Rectangle {
     id: hb
     required property var theme
     property string title: ""
+    property string crumbPath: ""          // cesta ako klikateľná adresa namiesto titulku (Súbory)
+    signal crumbClicked(string path)
     property bool canBack: false
     property bool canForward: false
     property string searchPlaceholder: "Hľadať"
@@ -62,11 +64,51 @@ Rectangle {
     }
 
     Text {
+        visible: hb.crumbPath === ""
         anchors.centerIn: parent
         width: Math.min(implicitWidth, parent.width - left.width - right.width - 40)
         elide: Text.ElideMiddle
         text: hb.title; color: hb.theme.fg
         font { family: hb.theme.fontUi; pixelSize: 14; weight: Font.Bold }
+    }
+    // klikateľná adresa (Súbory): klik na časť cesty prejde do toho priečinka; pri dlhej ceste ostane viditeľný koniec
+    Item {
+        id: crumbBox
+        visible: hb.crumbPath !== ""
+        readonly property real avail: parent.width - left.width - right.width - 40
+        width: Math.min(crumbs.implicitWidth, avail); height: 30
+        anchors.centerIn: parent
+        clip: true
+        readonly property var parts: {
+            const p = hb.crumbPath, out = [{ label: "/", path: "/" }];
+            let acc = "";
+            for (const seg of p.split("/").filter(x => x !== "")) { acc += "/" + seg; out.push({ label: seg, path: acc }); }
+            return out;
+        }
+        Row {
+            id: crumbs
+            x: Math.min(0, crumbBox.width - implicitWidth)
+            height: parent.height
+            Repeater {
+                model: crumbBox.parts
+                Row {
+                    required property var modelData
+                    required property int index
+                    height: crumbs.height
+                    Text { visible: index > 1; anchors.verticalCenter: parent.verticalCenter; text: "/"; color: hb.theme.fgDim
+                           font { family: hb.theme.fontUi; pixelSize: 14; weight: Font.Bold } }
+                    Rectangle {
+                        readonly property bool last: index === crumbBox.parts.length - 1
+                        width: ct.implicitWidth + 10; height: 26; radius: 7; anchors.verticalCenter: parent.verticalCenter
+                        color: cm.containsMouse && !last ? hb.theme.hover : "transparent"
+                        Text { id: ct; anchors.centerIn: parent; text: modelData.label; color: parent.last ? hb.theme.fg : hb.theme.fgDim
+                               font { family: hb.theme.fontUi; pixelSize: 14; weight: parent.last ? Font.Bold : Font.DemiBold } }
+                        MouseArea { id: cm; anchors.fill: parent; hoverEnabled: true; cursorShape: parent.last ? Qt.ArrowCursor : Qt.PointingHandCursor
+                                    onClicked: if (!parent.last) hb.crumbClicked(modelData.path) }
+                    }
+                }
+            }
+        }
     }
 
     Row {

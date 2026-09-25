@@ -2,7 +2,9 @@
 // položky cez celé okno; open(x, y, items) ho ukáže na mieste kurzora (súradnice okna).
 // items: [{ glyph, label, hint?, danger?, enabled?, action: function }, { separator: true },
 //         { colors: [{ key, color, label }], current, action: function(key) }  ← riadok farebných štítkov
-//         { input: "text", label, action: function(text) }                       ← textové pole (premenovanie)]
+//         { input: "text", label, action: function(text) }                       ← textové pole (premenovanie)
+//         { glyph, label, sub: [ … ] }                                            ← vnorená ponuka (› ako vo Windows)
+//         { label, checked: true|false, action }                                  ← voľba s bodkou (Zoradiť podľa)]
 import QtQuick
 
 Item {
@@ -15,20 +17,24 @@ Item {
     z: 1000
 
     function open(x, y, list, heading) {
-        items = list; title = heading || "";
+        items = list; title = heading || ""; subItems = [];
         visible = true;
         box.x = Math.max(6, Math.min(x, width - box.width - 6));
         box.y = Math.max(6, Math.min(y, height - box.implicitHeight - 6));
         box.forceActiveFocus();
     }
     // vymení obsah na tom istom mieste (napr. „Premenovať…“ → textové pole)
-    function replace(list, heading) { items = list; title = heading || ""; visible = true; box.forceActiveFocus(); }
-    function close() { visible = false; }      // položky sa nahradia pri ďalšom open()
+    // (pri textovom poli si fokus vezme pole — kurzor je hneď v ňom a názov je označený)
+    function replace(list, heading) { items = list; title = heading || ""; visible = true; if (!list.some(i => i.input !== undefined)) box.forceActiveFocus(); }
+    function close() { visible = false; activeField = null; subItems = []; }
+    property var subItems: []                  // otvorená vnorená ponuka
+    property real subY: 0      // položky sa nahradia pri ďalšom open()
+    property var activeField: null             // otvorené textové pole: klik mimo menu text uloží (ako vo Windows)
 
-    MouseArea {    // klik mimo menu ho zavrie
+    MouseArea {    // klik mimo menu ho zavrie; rozpísaný názov sa uloží
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton | Qt.RightButton
-        onPressed: menu.close()
+        onPressed: { const f = menu.activeField; if (f) f.commit(); else menu.close(); }
     }
 
     Rectangle {
@@ -70,6 +76,35 @@ Item {
         }
     }
 
+    // vnorená ponuka vedľa hlavnej (vľavo, ak by vpravo pretiekla)
+    Rectangle {
+        id: subBox
+        visible: menu.subItems.length > 0
+        width: 232
+        height: subCol.implicitHeight + 12
+        x: box.x + box.width + width - 4 > menu.width ? box.x - width + 4 : box.x + box.width - 4
+        y: Math.max(6, Math.min(menu.subY, menu.height - height - 6))
+        radius: 12
+        color: menu.theme.surfaceVariant
+        border { color: menu.theme.line; width: 1 }
+        Rectangle { z: -1; x: 3; y: 5; width: parent.width; height: parent.height; radius: parent.radius; color: Qt.rgba(0, 0, 0, 0.28) }
+        MouseArea { anchors.fill: parent }        // klik do ponuky ju nezavrie
+        Column {
+            id: subCol
+            x: 6; y: 6; width: parent.width - 12
+            spacing: 1
+            Repeater {
+                model: menu.subItems
+                Loader {
+                    required property var modelData
+                    width: subCol.width
+                    sourceComponent: modelData.separator ? sep : entry
+                    property var it: Object.assign({ inSub: true }, modelData)
+                }
+            }
+        }
+    }
+
     Component {
         id: sep
         Item { height: 9; Rectangle { y: 4; x: 8; width: parent.width - 16; height: 1; color: menu.theme.line } }
@@ -82,7 +117,10 @@ Item {
             height: 34; radius: 8
             color: em.containsMouse && on ? (it.danger ? Qt.rgba(menu.theme.error.r, menu.theme.error.g, menu.theme.error.b, 0.18) : menu.theme.hover) : "transparent"
             opacity: on ? 1 : 0.45
-            Glyph { x: 10; anchors.verticalCenter: parent.verticalCenter; name: parent.it.glyph || "point"; size: 16; color: parent.it.danger ? menu.theme.error : menu.theme.fg }
+            Glyph { x: 10; anchors.verticalCenter: parent.verticalCenter; visible: parent.it.checked === undefined
+                    name: parent.it.glyph || "point"; size: 16; color: parent.it.danger ? menu.theme.error : menu.theme.fg }
+            Text { x: 14; anchors.verticalCenter: parent.verticalCenter; visible: parent.it.checked === true; text: "●"; color: menu.theme.primary
+                   font { family: menu.theme.fontUi; pixelSize: 9 } }
             Text {
                 x: 36; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 36 - hint.width - 12; elide: Text.ElideRight
                 text: parent.it.label; color: parent.it.danger ? menu.theme.error : menu.theme.fg
@@ -91,13 +129,17 @@ Item {
             Text {
                 id: hint
                 anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
-                text: parent.it.hint || ""; color: menu.theme.fgDim
+                text: parent.it.sub ? "›" : (parent.it.hint || ""); color: menu.theme.fgDim
                 font { family: menu.theme.fontUi; pixelSize: 11 }
             }
             MouseArea {
                 id: em; anchors.fill: parent; hoverEnabled: true
+                // vnorená ponuka sa otvorí pod kurzorom (ako vo Windows); iná položka hlavnej ponuky ju zavrie
+                onEntered: if (parent.it.sub) { const q = mapToItem(menu, 0, 0); menu.subY = q.y - 6; menu.subItems = parent.it.sub; }
+                           else if (!parent.it.inSub) menu.subItems = []
                 onClicked: {
                     if (!parent.on) return;
+                    if (parent.it.sub) { const q = mapToItem(menu, 0, 0); menu.subY = q.y - 6; menu.subItems = parent.it.sub; return; }
                     const a = parent.it.action;
                     if (parent.it.keepOpen) Qt.callLater(a);       // mení obsah menu: až po dokončení kliku
                     else { menu.close(); if (a) a(); }
@@ -149,9 +191,16 @@ Item {
                 verticalAlignment: TextInput.AlignVCenter; clip: true
                 text: parent.it.input; color: menu.theme.fg; selectionColor: menu.theme.primary
                 font { family: menu.theme.fontUi; pixelSize: 13 }
-                Component.onCompleted: { forceActiveFocus(); const dot = text.lastIndexOf("."); select(0, dot > 0 && !parent.it.wholeName ? dot : text.length); }
-                onAccepted: { const a = parent.it.action, t = text; menu.close(); a(t); }
-                Keys.onEscapePressed: menu.close()
+                function commit() { const a = parent.it.action, t = text; menu.close(); if (t.trim() !== "" && t !== parent.it.input) a(t); }
+                Component.onCompleted: {
+                    menu.activeField = ti;
+                    // názov bez prípony označený (ako vo Windows/Linuxe); celý, ak ide o priečinok alebo wholeName
+                    Qt.callLater(() => { ti.forceActiveFocus(); const dot = ti.text.lastIndexOf("."); ti.select(0, dot > 0 && !ti.parent.it.wholeName ? dot : ti.text.length); });
+                }
+                // Enter nesmie prepadnúť do panela pod menu (inak by sa otvoril premenovaný priečinok)
+                Keys.onReturnPressed: (ev) => { ev.accepted = true; commit(); }
+                Keys.onEnterPressed: (ev) => { ev.accepted = true; commit(); }
+                Keys.onEscapePressed: (ev) => { ev.accepted = true; menu.close(); }
             }
         }
     }

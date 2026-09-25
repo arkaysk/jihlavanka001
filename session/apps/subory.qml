@@ -191,9 +191,26 @@ ShellRoot {
         const other = pane === paneA ? paneB : paneA;
         let items;
         if (!e) {
+            // Zobraziť / Zoradiť podľa ako vo Windows a Linuxe (FolderListModel: 1 názov, 2 dátum, 3 veľkosť, 4 typ)
+            const sortPick = (f, label, hint) => ({ label: label, hint: hint, checked: pane.sortField === f, action: () => { pane.sortField = f; } });
+            const viewPick = (v, label, hint) => ({ label: label, hint: hint, checked: app.view === v, action: () => { app.view = v; } });
             items = [
-                { glyph: "folder-plus", label: "Nový priečinok", action: () => app.newFolder(pane) },
-                { glyph: "terminal-2", label: "Terminál tu", action: () => app.run(["foot", "--working-directory=" + pane.path]) },
+                { glyph: "layout-grid", label: "Zobraziť", sub: [viewPick("ikony", "Ikony", "Ctrl+Shift+F1"), viewPick("zoznam", "Zoznam", "Ctrl+F1"), viewPick("detaily", "Podrobnosti", "Ctrl+F2")] },
+                { glyph: "arrows-exchange", label: "Zoradiť podľa", sub: [
+                    sortPick(1, "Názov", "Ctrl+F3"), sortPick(2, "Dátum úpravy", "Ctrl+F5"), sortPick(4, "Typ", "Ctrl+F4"), sortPick(3, "Veľkosť", "Ctrl+F6"),
+                    { separator: true },
+                    { label: "Vzostupne", checked: !pane.sortReversed, action: () => pane.sortReversed = false },
+                    { label: "Zostupne", checked: pane.sortReversed, action: () => pane.sortReversed = true } ] },
+                { glyph: "refresh", label: "Obnoviť", hint: "Ctrl+R", action: () => pane.refresh() },
+                { separator: true },
+                { glyph: "clipboard", label: "Prilepiť", hint: "Ctrl+V", action: () => app.clipPaste() },
+                { glyph: "plus", label: "Nový", sub: [
+                    { glyph: "folder-plus", label: "Priečinok", hint: app.commander ? "F7" : "", action: () => app.newFolder(pane) },
+                    { glyph: "file-text", label: "Textový súbor (.txt)", action: () => app.newFile(pane, "Nový textový súbor", ".txt") },
+                    { glyph: "pencil", label: "Dokument Heidelberg (.md)", action: () => app.newFile(pane, "Nový dokument", ".md") },
+                    { glyph: "file", label: "Prázdny súbor", action: () => app.newFile(pane, "Nový súbor", "") } ] },
+                { separator: true },
+                { glyph: "terminal-2", label: "Otvoriť v termináli", action: () => app.run(["foot", "--working-directory=" + pane.path]) },
                 { glyph: pane.showHidden ? "eye-off" : "eye", label: pane.showHidden ? "Skryť skryté súbory" : "Ukázať skryté súbory", hint: "Ctrl+H", action: () => pane.showHidden = !pane.showHidden },
                 { separator: true },
                 { glyph: "clipboard", label: "Kopírovať cestu priečinka", action: () => app.run(["wl-copy", "--", pane.path], "Cesta skopírovaná") },
@@ -223,7 +240,7 @@ ShellRoot {
         items.push({ separator: true });
         items.push({ colors: app.tagColors, current: app.tags[e.path] || "", label: "Farba", action: (c) => app.setTag(e.path, c) });
         items.push({ separator: true });
-        items.push({ glyph: "pencil", label: "Premenovať…", keepOpen: true, action: () => ctx.replace([{ input: e.name, action: (t) => app.rename(e, t) }], "Nový názov · Enter uloží, Esc zruší") });
+        items.push({ glyph: "pencil", label: "Premenovať…", keepOpen: true, action: () => ctx.replace([{ input: e.name, wholeName: e.isDir, action: (t) => app.rename(e, t) }], "Nový názov · Enter uloží, Esc zruší") });
         items.push({ glyph: "clipboard", label: "Kopírovať cestu", action: () => app.run(["wl-copy", "--", e.path], "Cesta skopírovaná") });
         if (e.isDir || /\.(rpm|flatpakref|flatpak|appimage|exe|msi|apk|deb|run|zip|rar|7z|iso)$/i.test(e.name))
             items.push({ glyph: "help", label: "Bude to fungovať?", hint: "App Manager", action: () => app.run(["latte-app", "aplikacie", "check", e.path]) });
@@ -529,6 +546,8 @@ ShellRoot {
 
     // dialóg F5 / F6
     property var op: null                     // { move, items[], target, mask, mode, verify }
+    // pustenie myšou (FilePane): rovnaký dialóg ako F5/F6, cieľ = priečinok pod kurzorom
+    function dropOp(items, dir, move) { op = { move: move, items: items, target: dir + "/", mask: "*.*", mode: "ask", verify: false }; }
     function openOp(move) {
         const items = app.activePane.selection();
         if (!items.length) { app.status = "Nič nie je vybrané"; return; }
@@ -831,10 +850,10 @@ ShellRoot {
                 else if (k === Qt.Key_F1 && ctrl && shift) app.view = "ikony";
                 else if (k === Qt.Key_F1 && ctrl) app.view = "zoznam";
                 else if (k === Qt.Key_F2 && ctrl) app.view = "detaily";
-                else if (k === Qt.Key_F3 && ctrl) { p.sortReversed = p.sortField === 0 ? !p.sortReversed : false; p.sortField = 0; }
-                else if (k === Qt.Key_F4 && ctrl) { p.sortReversed = p.sortField === 3 ? !p.sortReversed : false; p.sortField = 3; }
-                else if (k === Qt.Key_F5 && ctrl && !shift) { p.sortReversed = p.sortField === 1 ? !p.sortReversed : false; p.sortField = 1; }
-                else if (k === Qt.Key_F6 && ctrl) { p.sortReversed = p.sortField === 2 ? !p.sortReversed : false; p.sortField = 2; }
+                else if (k === Qt.Key_F3 && ctrl) { p.sortReversed = p.sortField === 1 ? !p.sortReversed : false; p.sortField = 1; }
+                else if (k === Qt.Key_F4 && ctrl) { p.sortReversed = p.sortField === 4 ? !p.sortReversed : false; p.sortField = 4; }
+                else if (k === Qt.Key_F5 && ctrl && !shift) { p.sortReversed = p.sortField === 2 ? !p.sortReversed : false; p.sortField = 2; }
+                else if (k === Qt.Key_F6 && ctrl) { p.sortReversed = p.sortField === 3 ? !p.sortReversed : false; p.sortField = 3; }
                 else if ((k === Qt.Key_Q && ctrl) || (k === Qt.Key_P && alt)) app.showDetail = !app.showDetail;
                 else if ((k === Qt.Key_R && ctrl) || (k === Qt.Key_F2 && !shift)) { p.refresh(); app.status = "Obnovené"; }
                 else if (k === Qt.Key_H && ctrl) p.showHidden = !p.showHidden;
@@ -905,6 +924,8 @@ ShellRoot {
                 appId: "latteos-subory"
                 anchors { left: side.right; right: parent.right; top: parent.top }
                 title: app.activePane ? (app.activePane.path === app.trashDir ? "Kôš" : app.activePane.path) : ""
+                crumbPath: app.activePane && app.activePane.path !== app.trashDir && !app.activePane.path.includes("://") ? app.activePane.path : ""
+                onCrumbClicked: (p) => { app.activePane.go(p); root.forceActiveFocus(); }
                 canBack: app.activePane && app.activePane.historyIndex > 0
                 canForward: app.activePane && app.activePane.historyIndex < app.activePane.history.length - 1
                 searchPlaceholder: "Hľadať (Enter = všade)"
@@ -1026,6 +1047,7 @@ ShellRoot {
                         dotdot: app.commander
                         view: app.view; iconSize: app.iconSize
                         onContextRequested: (e, x, y) => app.showMenu(e, x, y, paneA)
+                        onDropRequested: (items, dir, move) => app.dropOp(items, dir, move)
                         width: parent.width; height: parent.height - y
                         active: app.dual && app.activeIndex === 0
                         Component.onCompleted: go(app.home)
@@ -1045,6 +1067,7 @@ ShellRoot {
                         dotdot: app.commander
                         view: app.view; iconSize: app.iconSize
                         onContextRequested: (e, x, y) => app.showMenu(e, x, y, paneB)
+                        onDropRequested: (items, dir, move) => app.dropOp(items, dir, move)
                         width: parent.width; height: parent.height - y
                         active: app.dual && app.activeIndex === 1
                         Component.onCompleted: go("/")

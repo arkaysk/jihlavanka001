@@ -92,6 +92,38 @@ Rectangle {
     signal focusRequested()
     signal openFile(string path)
     signal contextRequested(var entry, real x, real y)   // entry = null → pravý klik na prázdne miesto
+    // ťahanie myšou (ako v TC): označené položky (alebo tá pod kurzorom) do druhého panela alebo na priečinok;
+    // bez klávesy kopírovať, so Shift presunúť; potvrdenie dialógom F5/F6
+    signal dropRequested(var items, string targetDir, bool move)
+    property var dragItems: []
+    function beginDrag(i) {
+        const e = entryAt(i);
+        dragItems = isMarked(e.path) ? selection() : [e];
+    }
+    function acceptDrop(drop, dir) {
+        const g = drop.source;
+        if (!g || !g.fromPane || !g.fromPane.dragItems.length) return;
+        const items = g.fromPane.dragItems;
+        if (items.some(e => e.path === dir || dir.startsWith(e.path + "/"))) return;      // priečinok do seba
+        const parent = items[0].path.substring(0, items[0].path.lastIndexOf("/")) || "/";
+        if (parent === dir) return;                                                    // na to isté miesto
+        drop.accept();
+        g.fromPane.dropRequested(items, dir, g.move);
+    }
+    Rectangle {
+        id: ghost
+        property var fromPane: pane
+        property bool move: false
+        visible: Drag.active
+        z: 1000
+        width: gl.implicitWidth + 22; height: 28; radius: 9
+        color: pane.theme.primary
+        Drag.keys: ["latte-subory"]
+        Drag.hotSpot.x: -14; Drag.hotSpot.y: -14
+        Text { id: gl; anchors.centerIn: parent; color: pane.theme.fgOnPrimary; font { family: pane.theme.fontUi; pixelSize: 12; weight: Font.Bold }
+               text: (ghost.move ? "Presunúť " : "Kopírovať ") + (pane.dragItems.length === 1 ? pane.dragItems[0].name : pane.dragItems.length + " položiek") + (ghost.move ? "" : "  · Shift = presunúť") }
+    }
+    readonly property alias dragGhost: ghost
 
     color: "transparent"
     border { color: active ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.45) : "transparent"; width: 1 }
@@ -194,6 +226,12 @@ Rectangle {
     }
     Rectangle { visible: head.visible; x: 8; y: head.y + head.height; width: parent.width - 16; height: 1; color: pane.theme.line }
 
+    DropArea {
+        anchors.fill: pane.icons ? grid : list; keys: ["latte-subory"]
+        onDropped: (d) => pane.acceptDrop(d, pane.path)
+        Rectangle { anchors.fill: parent; radius: 10; color: "transparent"; visible: parent.containsDrag && parent.drag.source && parent.drag.source.fromPane !== pane
+                    border { color: pane.theme.primary; width: 2 } }
+    }
     // pravý klik na prázdne miesto pod položkami (riadky ho zachytia samy)
     MouseArea {
         anchors.fill: pane.icons ? grid : list; acceptedButtons: Qt.RightButton
@@ -276,9 +314,21 @@ Rectangle {
                     font { family: pane.theme.fontUi; pixelSize: 12 }
                 }
             }
+            DropArea {
+                anchors.fill: parent; keys: ["latte-subory"]; enabled: rowItem.fileIsDir
+                onDropped: (d) => pane.acceptDrop(d, rowItem.filePath)
+                Rectangle { anchors.fill: parent; radius: 8; color: Qt.rgba(pane.theme.primary.r, pane.theme.primary.g, pane.theme.primary.b, 0.25); visible: parent.containsDrag }
+            }
             MouseArea {
                 id: rma; anchors.fill: parent; hoverEnabled: true
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
+                preventStealing: true
+                drag.target: pressedButtons & Qt.LeftButton ? ghost : null
+                drag.threshold: 10
+                onPressed: (m) => { const q = mapToItem(pane, m.x, m.y); ghost.x = q.x + 14; ghost.y = q.y + 14; }
+                onPositionChanged: (m) => { if (drag.active && !ghost.Drag.active) { pane.beginDrag(rowItem.index); ghost.Drag.active = true; }
+                                            ghost.move = (m.modifiers & Qt.ShiftModifier) !== 0; }
+                onReleased: if (ghost.Drag.active) { ghost.Drag.drop(); ghost.Drag.active = false; }
                 onClicked: (m) => {
                     if (m.button === Qt.LeftButton && (m.modifiers & Qt.ControlModifier)) { pane.toggleMark(rowItem.index); pane.anchorIdx = rowItem.index; }
                     else if (m.button === Qt.LeftButton && (m.modifiers & Qt.ShiftModifier)) pane.markRange(pane.anchorIdx >= 0 ? pane.anchorIdx : pane.cur, rowItem.index);
@@ -350,9 +400,21 @@ Rectangle {
                 text: cell.fileName; color: cell.isMarked ? pane.theme.error : pane.theme.fg
                 font { family: pane.theme.fontUi; pixelSize: 12; weight: cell.fileIsDir ? Font.DemiBold : Font.Normal }
             }
+            DropArea {
+                anchors.fill: parent; keys: ["latte-subory"]; enabled: cell.fileIsDir
+                onDropped: (d) => pane.acceptDrop(d, cell.filePath)
+                Rectangle { anchors { fill: parent; margins: 3 } radius: 10; color: Qt.rgba(pane.theme.primary.r, pane.theme.primary.g, pane.theme.primary.b, 0.25); visible: parent.containsDrag }
+            }
             MouseArea {
                 id: cma; anchors.fill: parent; hoverEnabled: true
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
+                preventStealing: true
+                drag.target: pressedButtons & Qt.LeftButton ? ghost : null
+                drag.threshold: 10
+                onPressed: (m) => { const q = mapToItem(pane, m.x, m.y); ghost.x = q.x + 14; ghost.y = q.y + 14; }
+                onPositionChanged: (m) => { if (drag.active && !ghost.Drag.active) { pane.beginDrag(cell.index); ghost.Drag.active = true; }
+                                            ghost.move = (m.modifiers & Qt.ShiftModifier) !== 0; }
+                onReleased: if (ghost.Drag.active) { ghost.Drag.drop(); ghost.Drag.active = false; }
                 onClicked: (m) => {
                     if (m.button === Qt.LeftButton && (m.modifiers & Qt.ControlModifier)) pane.toggleMark(cell.index);
                     else if (m.button === Qt.LeftButton && (m.modifiers & Qt.ShiftModifier)) pane.markRange(pane.cur, cell.index);

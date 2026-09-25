@@ -23,6 +23,7 @@ Item {
     property string motion: "vzdy"
     property real dim: 0.55                 // stlmenie textúry pod textom kmeňa
     property var islands: []                // všetky ostrovy lišty (latte-ostrovy): L nesmie prekryť susedné položky
+    property real gap: 10                   // medzera kmeňa nad lištou, ako maximalizované okno (Hyprland gaps_out)
     property string footGlyph: ""           // ikona ostrova (päta ho prekryje, preto ju nakreslí znova)
     default property alias content: body.data
     property alias trunk: trunkContent.data
@@ -61,7 +62,8 @@ Item {
         }
         return Math.max(0, g);
     }
-    readonly property real trunkY: barTop - trunkH * armP
+    readonly property real trunkBottom: barTop - gap
+    readonly property real trunkY: trunkBottom - trunkH * armP
     readonly property real rad: 16
 
     // spoločný čas textúry (päta a kmeň kreslia ten istý obraz vo fáze)
@@ -81,7 +83,7 @@ Item {
     // kmeň: textúra, zaoblený vonkajší dolný roh
     Item {
         id: trunkClip
-        x: lp.armX; y: lp.trunkY; width: lp.armW; height: lp.barTop - lp.trunkY
+        x: lp.armX; y: lp.trunkY; width: lp.armW; height: lp.trunkBottom - lp.trunkY
         visible: lp.armP > 0.01
         clip: true
         Rectangle { anchors.fill: parent; color: lp.theme.surfaceVariant; radius: 0 }
@@ -89,7 +91,7 @@ Item {
             id: trunkScene
             anchors.fill: parent
             colors: lp.theme; spec: lp.sceneSpec; motion: lp.motion; time: lp.t; mirror: lp.isRight
-            ox: trunkClip.x - lp.left0; oy: lp.trunkY - (lp.barTop - lp.trunkH); canvasW: lp.panelW; canvasH: lp.trunkH + lp.foot.h + (lp.foot.y - lp.barTop)
+            ox: trunkClip.x - lp.left0; oy: lp.trunkY - (lp.trunkBottom - lp.trunkH); canvasW: lp.panelW; canvasH: lp.trunkH + lp.foot.y + lp.foot.h - lp.trunkBottom
         }
         // stlmenie pod textom: textúra ostáva viditeľná pri päte, pokojná pod písmom
         Rectangle {
@@ -106,14 +108,14 @@ Item {
     Item {
         id: footClip
         // od vrchu lišty (ak je susedný ostrov vyšší, päta sa k kmeňu dotiahne stĺpcom nad vlastným ostrovom)
-        x: lp.foot.x; y: lp.barTop; width: lp.foot.w; height: lp.foot.y + lp.foot.h - lp.barTop
+        x: lp.foot.x; y: lp.trunkBottom; width: lp.foot.w; height: lp.foot.y + lp.foot.h - lp.trunkBottom
         visible: lp.p > 0.01
         clip: true
         Rectangle { anchors.fill: parent; color: lp.theme.surfaceVariant; radius: 0 }
         Scena {
             anchors.fill: parent
             colors: lp.theme; spec: lp.sceneSpec; motion: lp.motion; time: lp.t; mirror: lp.isRight
-            ox: lp.foot.x - lp.left0; oy: lp.trunkH; canvasW: lp.panelW; canvasH: lp.trunkH + lp.foot.h + (lp.foot.y - lp.barTop)
+            ox: lp.foot.x - lp.left0; oy: lp.trunkH; canvasW: lp.panelW; canvasH: lp.trunkH + lp.foot.y + lp.foot.h - lp.trunkBottom
         }
         Rectangle {
             visible: lp.footGlyph !== ""
@@ -141,10 +143,11 @@ Item {
     // vyduté zaoblenie medzi kmeňom a pätou (vnútorný roh L)
     Canvas {
         id: notch
-        readonly property real s: Math.min(lp.rad, lp.sideGap)
-        x: lp.isRight ? lp.foot.x - s : lp.foot.x + lp.foot.w; y: lp.barTop
+        // vyduté zaoblenie leží v medzere nad lištou (nezasahuje do susedných ostrovov)
+        readonly property real s: lp.gap > 1 ? Math.min(lp.rad, lp.gap) : Math.min(lp.rad, lp.sideGap)
+        x: lp.isRight ? lp.foot.x - s : lp.foot.x + lp.foot.w; y: lp.trunkBottom
         width: Math.max(1, s); height: Math.max(1, s)
-        visible: lp.armP > 0.5 && s >= 2 && lp.barTop === lp.foot.y
+        visible: lp.armP > 0.5 && s >= 2
         onSChanged: requestPaint()
         onVisibleChanged: requestPaint()
         onPaint: {
