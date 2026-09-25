@@ -11,6 +11,11 @@
 //   turista   (Robot, Mýval)  zvedavo obchádza rohy okien, ovoniava („?“), občas si ich odfotí (blesk)
 //   teleport  (Tieň)  teleportuje sa (fialové čiastočky), občas akoby niečo vzal a potom to vráti na miesto
 // Keď si 3 min nečinný, mačky sa pozerajú, ostatné si zdriemnu pri kurzore. Pri hre / celej obrazovke sa schová.
+// Pomenované animácie z pet.json › anim ({ frames, fps, loop }, listy používateľa z 26. 9.) a zábery zblízka (closeup):
+//   Foxy Maid  vyjde a odíde dverami, zametá lištu, oprašuje a leští okná, dá si kávu, selfie, z okna padá na padáku,
+//              pri kurzore srdiečka, dlho mierený kurzor = zazerá, pravý klik = urazená; pri nečinnosti vykukne z kraja
+//   Robot      vznáša sa, na diaľku boost, okná skenuje a fotí, spí na nabíjačke, zblízka ťa odfotí
+//   Kávový drak vzlietne, letí, pristane, stráži, chrlí oheň, sedí v šálke; kurzor tesne pri ňom = zľakne sa a odletí
 // Klik = pohladkať (♥), pravý klik = domov. Kliky mimo postavy prechádzajú (maska okna = postava).
 // Synchronizácia s widgetom lišty: $XDG_RUNTIME_DIR/latteos/maskot-von (vychadza | von | prichadza | domov | hrat).
 // Domov (ostrov maskota): ~/.config/latteos/mascot-home „x“ (inak odhad vpravo dole). Softvér 6 krokov/s, GPU 24.
@@ -67,6 +72,14 @@ ShellRoot {
     function trim(s) { return (s || "").trim(); }
     function img(f) { return "file://" + packs + kind + "/" + f + ".png"; }
     function has(f) { return (meta.frames || []).indexOf(f) >= 0; }
+    function anim(n) { return n && meta.anim && meta.anim[n] ? meta.anim[n] : null; }
+    // krok „póza s animáciou“: bez secs trvá raz celá (slučka ~ podľa secs)
+    function act(n, secs, extra) {
+        const A = anim(n); if (!A) return null;
+        return Object.assign({ t: "pose", frame: A.frames[0], act: n, secs: secs !== undefined ? secs : A.frames.length / A.fps + 0.4 }, extra || {});
+    }
+    function pushAct(q, n, secs, extra) { const a = act(n, secs, extra); if (a) q.push(a); return !!a; }
+    property real nearSince: 0          // kurzor pri postave od (zazeranie)
     function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
     readonly property string profile: meta.profile || "macka"
     readonly property bool flyer: !!meta.flyer
@@ -144,12 +157,23 @@ ShellRoot {
         waiting = false; out = true; setRun("von");
         frame = (meta.idle || ["sedi"])[0]; alpha = 1; sy = 1; rot = 0;
         if (tripKind === "nečinnosť") planIdle(); else plan();
+        // vyjde dverami (maid) alebo vzlietne (drak) priamo z ostrova
+        const first = act(meta.door ? meta.door.out : "") || act(meta.takeoff || "");
+        if (first) queue = [first].concat(queue);
     }
     function goHome() {
         if (!out) return;
         stopStare();
         sitOn = ""; queue = moveSteps(homeX, barY, profile === "teleport" ? "teleport" : (flyer ? "fly" : "walk"));
+        pushAct(queue, meta.land || "");                              // drak pristane
+        pushAct(queue, meta.door ? meta.door.in : "");                // maid odíde dverami
         queue.push({ t: "home" }); cur = null;
+    }
+    // pravý klik: domov; maid sa najprv urazí
+    function sendHome() {
+        if (!out) return;
+        const o = act(meta.offended || "", 2.5);
+        if (o) { stopStare(); sitOn = ""; cur = null; queue = [o, { t: "tohome" }]; } else goHome();
     }
     function arrive() { out = false; waiting = false; staring = false; queue = []; cur = null; parts = []; duck.visible = false; fx = homeX; fy = barY; setRun("prichadza"); }
 
@@ -165,7 +189,7 @@ ShellRoot {
         // chodiace postavy: z okna najprv zoskočia na lištu, po lište idú, pod cieľom vyšplhajú / natiahnu sa / vyskočia
         if (how === "fly" || how === "teleport" || how === "jump") return [{ t: "move", x: x, y: y, how: how }];
         const s = [];
-        if (fy < barY - 2 && (Math.abs(x - fx) > 4 || y > fy)) s.push({ t: "move", x: fx, y: barY, how: "drop" });
+        if (fy < barY - 2 && (Math.abs(x - fx) > 4 || y > fy)) s.push({ t: "move", x: fx, y: barY, how: anim(meta.parachute || "") ? "parachute" : "drop" });
         if (Math.abs(x - fx) > 2) s.push({ t: "move", x: x, y: barY, how: how });
         if (y < barY - 2) s.push({ t: "move", x: x, y: y, how: how === "crawl" ? "stretch" : "climb" });
         return s;
@@ -189,10 +213,15 @@ ShellRoot {
             break; }
         case "drak": {
             const s = ws && Math.random() < 0.75 ? ws : bs;
+            pushAct(q, meta.takeoff || "");
             q.push(...moveSteps(s.x, s.y, "fly"));
+            pushAct(q, meta.land || "");
             q.push({ t: "sit", spot: s });
-            q.push(pose(has("na-salke") ? "na-salke" : idl[0], 8 + Math.random() * 10, { anim: idl }));
-            if (has("ohen") && Math.random() < 0.5) q.push(pose("ohen", 1.5, { fx: "fire" }));
+            const guard = 8 + Math.random() * 10;
+            if (anim(meta.cup) && Math.random() < 0.35) q.push(act(meta.cup, guard, { startle: true }));
+            else if (anim("strazi")) q.push(act("strazi", guard, { startle: true }));
+            else q.push(pose(has("na-salke") ? "na-salke" : idl[0], guard, { anim: idl }));
+            if (Math.random() < 0.5) { if (!pushAct(q, meta.fire || "", undefined, { fx: "fire" }) && has("ohen")) q.push(pose("ohen", 1.5, { fx: "fire" })); }
             break; }
         case "macka": {
             if (tripKind === "hra" || mode === "chaos") { q.push(...moveSteps(Math.max(40, Math.min(sw - 40, cursor.x)), barY, "walk")); q.push(pose(idl[0], 3, { dodge: true })); break; }
@@ -204,7 +233,18 @@ ShellRoot {
             break; }
         case "maid": {
             const r = Math.random();
-            if (r < 0.4) {                                             // zametá lištu tam a späť
+            if (anim("kava") && r >= 0.4 && r < 0.55) {                // prestávka na kávu na lište
+                q.push(...moveSteps(bs.x, barY, "run"));
+                q.push(act("kava", 10 + Math.random() * 8, { hearts: true }));
+            } else if (anim("selfie") && r >= 0.55 && r < 0.65) {      // selfie (blesk na konci)
+                q.push(...moveSteps(bs.x, barY, "run"));
+                q.push(act("selfie", 4, { fx: "selfie" }));
+            } else if (ws && anim("oprasuje") && r >= 0.65 && r < 0.9) { // oprašuje alebo leští titulok okna
+                q.push(...moveSteps(ws.x, ws.y, "run"));
+                q.push({ t: "sit", spot: ws });
+                pushAct(q, "predklon");
+                q.push(act(Math.random() < 0.5 || !anim("lesti") ? "oprasuje" : "lesti", 6 + Math.random() * 6, { hearts: true }));
+            } else if (r < 0.4) {                                      // zametá lištu tam a späť
                 const a = 80 + Math.random() * (sw / 2), b = a + 200 + Math.random() * 300;
                 q.push(...moveSteps(a, barY, "run"));
                 for (let i = 0; i < 3; i++) { q.push({ t: "move", x: b, y: barY, how: "sweep" }); q.push({ t: "move", x: a, y: barY, how: "sweep" }); }
@@ -227,11 +267,12 @@ ShellRoot {
             break; }
         case "turista": {
             const s = ws ? pick([{ x: ws.w.x + 20, y: ws.w.y + 2, a: ws.a, dx: 20 }, { x: ws.w.x + ws.w.w - 20, y: ws.w.y + 2, a: ws.a, dx: ws.w.w - 20 }, ws]) : bs;
-            q.push(...moveSteps(s.x, s.y, has("boost") && s.y < barY - 2 ? "boost" : "walk"));
+            const far = Math.hypot(s.x - fx, s.y - fy) > 400;
+            q.push(...moveSteps(s.x, s.y, flyer ? (far && anim(meta.fast || "") ? "boost" : "fly") : (has("boost") && s.y < barY - 2 ? "boost" : "walk")));
             q.push({ t: "sit", spot: s });
-            q.push(pose(idl[0], 2, { bubble: "?" }));
+            if (!pushAct(q, meta.scan || "", 3 + Math.random() * 3)) q.push(pose(idl[0], 2, { bubble: "?" }));
             q.push(pose(pick(idl), 3 + Math.random() * 4, { anim: idl }));
-            if (Math.random() < 0.35) q.push(pose(idl[0], 1, { fx: "photo" }));
+            if (Math.random() < 0.35 && !pushAct(q, meta.photo || "", undefined, { fx: "photoAt2" })) q.push(pose(idl[0], 1, { fx: "photo" }));
             break; }
         case "teleport": {
             const s = ws || bs;
@@ -253,11 +294,12 @@ ShellRoot {
         queue = q;
     }
     function planIdle() {                                  // nečinnosť: mačky sa pozerajú, ostatné si zdriemnu pri kurzore
-        if (profile === "macka") { queue = [{ t: "stare" }]; return; }
+        if (profile === "macka" || (meta.closeup && meta.closeup.length && Math.random() < 0.5)) { queue = [{ t: "stare" }]; return; }
         const x = Math.max(40, Math.min(sw - 40, cursor.x + 60)), q = [];
         if (profile === "kapybara") { plan(); return; }
         q.push(...moveSteps(x, Math.min(barY, Math.max(80, cursor.y + 40)), profile === "teleport" ? "teleport" : (flyer ? "fly" : "walk")));
-        q.push(pose(meta.sleep || idleFrames()[0], 600, { zz: true, untilActive: true }));
+        const sleepAct = act(meta.charge || (meta.cup && profile === "drak" ? meta.cup : "") || (profile === "maid" ? "zivne" : ""), 600, { zz: true, untilActive: true, hold: true });
+        q.push(sleepAct || pose(meta.sleep || idleFrames()[0], 600, { zz: true, untilActive: true }));
         queue = q;
     }
     function followWindow() {
@@ -273,10 +315,14 @@ ShellRoot {
         onTriggered: mk.step()
     }
     function speedOf(how) {
-        return ({ walk: 110, run: 170, sweep: 120, sneak: 45, lazy: 38, crawl: 55, climb: 70, stretch: 140, drop: 380, fly: 170, boost: 150, jump: 1, teleport: 1 })[how] || 100;
+        return ({ walk: 110, run: 170, sweep: 120, sneak: 45, lazy: 38, crawl: 55, climb: 70, stretch: 140, drop: 380, parachute: 70, fly: 170, boost: 320, jump: 1, teleport: 1 })[how] || 100;
     }
     function moveFrames(how) {
         const mv = meta.move && meta.move.length ? meta.move : idleFrames();
+        if (how === "sweep" && anim("zameta")) return anim("zameta").frames;
+        if (how === "parachute" && anim(meta.parachute)) { const P = anim(meta.parachute).frames; return P.length > 1 ? P.slice(1) : P; }
+        if (how === "boost" && anim(meta.fast || "boost")) return anim(meta.fast || "boost").frames;
+        if (how === "fly" && anim("let")) return anim("let").frames;
         if (how === "sneak" && has("plazi")) return ["plazi"];
         if (how === "crawl") return has("plazi") ? ["plazi", "sedi"] : mv;
         if (how === "stretch") return [has("natiahnuty") ? "natiahnuty" : mv[0]];
@@ -309,15 +355,35 @@ ShellRoot {
         if (c.t === "duck") { if (!duck.visible && !c.started) { c.started = true; duck.launch(fx, fy - 30); } if (duck.done) { cur = null; } else stepDuck(); return; }
         if (c.t === "pose") {
             const el = (Date.now() - c.t0) / 1000;
-            frame = c.anim && c.anim.length > 1 ? c.anim[Math.floor(el / 1.6) % c.anim.length] : c.frame;
+            const A = anim(c.act);
+            let ai = 0;
+            if (A) { ai = Math.floor(el * A.fps); frame = A.frames[A.loop ? ai % A.frames.length : Math.min(ai, A.frames.length - 1)]; ai = A.loop ? ai % A.frames.length : Math.min(ai, A.frames.length - 1); }
+            else frame = c.anim && c.anim.length > 1 ? c.anim[Math.floor(el / 1.6) % c.anim.length] : c.frame;
+            if (c.fx === "photoAt2" && ai === 2 && !c.flashed) { c.flashed = true; flash.restart(); }
+            if (c.fx === "selfie" && ai === 3 && !c.flashed) { c.flashed = true; flash.restart(); }
             rot = c.swing ? Math.sin(el * 3) * 4 : 0;
             if (c.zz && tick % fps === 0) addPart(fx + 20, fy - 60, 0, -18, 2.5, "z");
             if (c.fx === "drip" && tick % (fps * 2) === 0) addPart(fx + (Math.random() * 30 - 15), fy, 0, 60, 3, "drip");
-            if (c.fx === "fire" && tick % 2 === 0) addPart(fx + (mirrored ? -30 : 30), fy - 25, mirrored ? -120 : 120, -10, 0.8, "fire");
+            if (c.fx === "fire" && tick % 2 === 0 && (!A || ai >= 2)) addPart(fx + (mirrored ? -30 : 30), fy - 25, mirrored ? -120 : 120, -10, 0.8, "fire");
             if (c.fx === "photo" && tick % fps === 0) flash.restart();
             if (c.bubble && tick % (fps * 2) === 0) addPart(fx + 18, fy - 70, 0, -8, 1.8, "q");
             const near = Math.hypot(cursor.x - fx, cursor.y - (fy - 30));
-            if (c.hearts && near < 140 && tick % fps === 0) { addPart(fx + (Math.random() * 30 - 15), fy - 60, 0, -30, 2, "heart"); if (has("srdce")) frame = "srdce"; }
+            if (c.hearts && near < 140 && tick % fps === 0) addPart(fx + (Math.random() * 30 - 15), fy - 60, 0, -30, 2, "heart");
+            if (c.hearts && near < 140) {                   // srdiečka (animácia, ak ju postava má)
+                const H = anim(meta.hearts || "");
+                frame = H ? H.frames[Math.floor(el * H.fps) % H.frames.length] : (has("srdce") ? "srdce" : frame);
+            }
+            // dlho mierený kurzor: zazerá (maid)
+            if (near < 110) { if (!nearSince) nearSince = Date.now(); } else nearSince = 0;
+            const G = anim(meta.glare || "");
+            if (G && nearSince && Date.now() - nearSince > 3000) frame = G.frames[Math.floor(el * G.fps) % G.frames.length];
+            // kurzor tesne pri drakovi: zľakne sa a odletí inam
+            if (c.startle && near < 70 && anim(meta.startle || "")) {
+                const s2 = windowSpot() || barSpot();
+                cur = null; sitOn = ""; nearSince = 0;
+                queue = [act(meta.startle), ...moveSteps(s2.x, s2.y, "fly")].concat(pushAct([], meta.land || "") ? [act(meta.land)] : [], [{ t: "sit", spot: s2 }], queue);
+                return;
+            }
             if (c.dodge && near < 90) {                    // mačka uhne kurzoru skokom
                 const nx = Math.max(40, Math.min(sw - 40, fx + (cursor.x > fx ? -160 : 160)));
                 cur = null; sitOn = ""; rot = 0;
@@ -454,7 +520,7 @@ ShellRoot {
             ]
             MouseArea {
                 anchors.fill: parent; acceptedButtons: Qt.LeftButton | Qt.RightButton; cursorShape: Qt.PointingHandCursor
-                onClicked: (m) => { if (m.button === Qt.RightButton) mk.goHome(); else mk.pet(); }
+                onClicked: (m) => { if (m.button === Qt.RightButton) mk.sendHome(); else mk.pet(); }
             }
         }
         Rectangle { anchors.fill: sprite; color: "white"; opacity: flash.running ? 0.8 : 0; radius: 6 }
@@ -486,10 +552,12 @@ ShellRoot {
         Image { anchors.fill: parent; source: "file://" + mk.packs + "kapybara/kacka.png"; fillMode: Image.PreserveAspectFit; smooth: false }
     }
     // mačka sa priblíži „z monitora“ a pozerá na teba
+    readonly property var closeup: meta.closeup && meta.closeup.length ? meta.closeup : null
+    readonly property bool peekRight: !!closeup && meta.closeupAt === "right"
     PanelWindow {
         visible: mk.active && mk.staring && !mk.fullscreen
-        anchors { bottom: true }
-        margins { bottom: 58 }
+        anchors { bottom: true; right: mk.peekRight }
+        margins { bottom: mk.peekRight ? Math.round(mk.sh * 0.3) : 58; right: 0 }
         implicitWidth: 420; implicitHeight: 360
         exclusionMode: ExclusionMode.Ignore
         WlrLayershell.layer: WlrLayer.Top
@@ -499,11 +567,15 @@ ShellRoot {
         mask: Region { item: big }
         Image {
             id: big
-            anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom }
-            source: mk.img(mk.has("zmurk") && Math.floor(mk.tick / (mk.fps * 3)) % 4 === 3 ? "zmurk" : (mk.has("hero") ? "hero" : "sedi"))
-            width: Math.min(parent.width, sourceSize.width * 1.6 * mk.stareScale * (sourceSize.width < 120 ? 3 : 1))
+            // záber zblízka (closeup) sa strieda po 2 s; maid vykukne spoza pravého okraja (vysunie sa zboku)
+            anchors { horizontalCenter: mk.peekRight ? undefined : parent.horizontalCenter; right: mk.peekRight ? parent.right : undefined; bottom: parent.bottom }
+            anchors.rightMargin: mk.peekRight ? -width * (1 - Math.min(1, mk.stareScale * 1.4)) : 0
+            source: mk.closeup ? mk.img(mk.closeup[Math.floor(mk.tick / (mk.fps * 2)) % mk.closeup.length])
+                               : mk.img(mk.has("zmurk") && Math.floor(mk.tick / (mk.fps * 3)) % 4 === 3 ? "zmurk" : (mk.has("hero") ? "hero" : "sedi"))
+            width: mk.closeup ? Math.min(parent.width, sourceSize.width * (mk.peekRight ? 1 : mk.stareScale))
+                              : Math.min(parent.width, sourceSize.width * 1.6 * mk.stareScale * (sourceSize.width < 120 ? 3 : 1))
             height: width * sourceSize.height / Math.max(1, sourceSize.width)
-            fillMode: Image.PreserveAspectFit; smooth: false
+            fillMode: Image.PreserveAspectFit; smooth: !!mk.closeup          // zábery zblízka sú maľované, nie pixel-art
             MouseArea { anchors.fill: parent; onClicked: { mk.stopStare(); mk.pet(); mk.goHome(); } }
         }
     }

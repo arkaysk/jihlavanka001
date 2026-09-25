@@ -16,15 +16,15 @@ M.dir = "/usr/share/latteos/noctalia/plugins/cat/mascots/"
 M.packs = "/usr/share/latteos/maskoti/"          -- plné snímky pre výbehy (maskot.qml)
 -- hlavní maskoti (zadanie 25. 9.) a ďalší
 M.order = { "homebrew", "drak", "ktulu", "robot", "maid", "kapybara", "latte", "mokka", "tien", "liska", "myval", "svetluska", "cdrak" }
-M.names = { homebrew = "Homebrew", drak = "Kávový drak", ktulu = "Ktulu", robot = "Robot turista", maid = "Maid", kapybara = "Kapybara",
+M.names = { homebrew = "Homebrew", drak = "Kávový drak", ktulu = "Ktulu", robot = "Robot turista", maid = "Foxy Maid", kapybara = "Kapybara",
             latte = "Latte mačka", mokka = "Mokka", tien = "Tieň", liska = "Líška", myval = "Mýval", svetluska = "Svetluška", cdrak = "Dráčik" }
 M.about = { homebrew = "kávový sliz: naťahuje sa, prilepí a pritiahne", drak = "vzlietne, sadne si na okno a stráži svoju šálku",
-            ktulu = "Ph'nglui… mňau — chápadielka a krídelká", robot = "zvedavý turista, všetko musí ovoňať",
-            maid = "zametá lištu, sedí na nej a hojdá nohami ♥", kapybara = "najpokojnejšia: bazénik a gumová kačička",
+            ktulu = "Ph'nglui… mňau — chápadielka a krídelká", robot = "lieta s vrtuľkou, všetko naskenuje a odfotí",
+            maid = "líščia slúžka: zametá, leští okná, kávička, selfie ♥", kapybara = "najpokojnejšia: bazénik a gumová kačička",
             latte = "skáče, plíži sa, uhýba kurzoru", mokka = "čierna mačka, v noci ju nevidno", tien = "teleportuje sa, občas niečo vezme a vráti",
             liska = "behá po ploche a hrá sa s kurzorom", myval = "zbiera drobnosti a ukrýva sa", svetluska = "v noci svieti", cdrak = "skáče, lieta, chrlí oheň" }
 M.legacy = { macka = "latte", zrnko = "latte", void = "cdrak" }
-M.flyers = { drak = true, svetluska = true, cdrak = true }
+M.flyers = { drak = true, svetluska = true, cdrak = true, robot = true }
 M.modes = { "off", "slot", "world", "chaos" }
 M.modeNames = { off = "Vypnutý", slot = "Ostrov", world = "Výbehy", chaos = "Chaos" }
 
