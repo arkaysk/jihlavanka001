@@ -204,14 +204,16 @@ flowchart TD
   Super+Shift+šípky okno na iný monitor, Super+1–9 plochy. Gesto 3 prsty = plochy.
 - [x] Vzhľad Latte: karamelový gradient okraja, rohy 14 px, mierka 1 (auto vo VM dávalo 2).
 - [x] Vlastné úpravy používateľa: `~/.config/latteos/hyprland.lua` (pcall, chyba sa ukáže ako notifikácia).
-- [ ] Prehľad pásky ako vlastný panel (návrh: celá páska v jednom rade, filtrovanie písaním).
+- [x] Prehľad pásky ako vlastný panel (plugin latteos/overview, Super+Tab, filtrovanie písaním).
 - [x] **Rozloženie okna** (Super+Z, ako Win+Z): mini obrazovky pre polovice, štvrtiny, tretiny, stred, celú plochu
   (`latte/snap.lua`, rešpektuje lištu). Overené na živej relácii.
 - [x] **Jednotné okenné tlačidlá** (hyprbars, `latte/bars.lua`): – □ ✕ v titulku okien bez vlastnej hlavičky, farby z palety;
   CSD aplikácie bez druhého pruhu; minimalizovať = `special:minimized` (Super+N / Super+Shift+N); aplikácie LatteOS rovnaké tlačidlá, NET iba pri spojení.
 - [x] NET pre cudzie okná (`latte-app netznak`, `latte-net used PID`): znak v titulku / jazýček nad CSD oknom, iba po spojení von.
 - [x] GTK/Firefox – □ ✕ (`button-layout`), `latte-session.target` → graphical-session.target → portály bežia.
-- [ ] Ťahanie okna k okraju s ponukou rozložení (Lua API zatiaľ nemá udalosť konca ťahania).
+- [x] Ťahanie okna k okraju s ponukou rozložení ako Windows 11 (26. 9.): plugin `latte-okna` posiela udalosti ťahania,
+  `latte/prichytenie.lua` prichytí okno (hore, boky, rohy, lišta rozložení), náhľad cieľa v `nahlad.qml`.
+- [x] Profily ovládania Windows / Linux / macOS (`latte/skratky.lua`, alfatest 1), ponuky Ctrl+Alt+Del, Win+X, Win+P a ponuka okna.
 - [x] Gesto 4 prsty hore = prehľad pásky, dole = prázdna plocha; tapeta podľa plochy (voliteľné, Nastavenia › Pozadie);
   herný režim (`latte.game`).
 
@@ -258,7 +260,7 @@ flowchart TD
 - [x] **Kapsa** (schránka, plugin latteos/kapsa): na lište posledná odložená vec, v paneli „Navrchu“ + sloty histórie
   (text aj obrázky, cliphist), klik vytiahne navrch, × vyhodí, Vysypať. Drag and drop do kapsy ostáva (vyžaduje zdroj ťahania v shelli).
 - [x] **Prehľad pásky** (Super+Tab, plugin latteos/overview): okná po plochách v poradí pásky, filtrovanie písaním, Enter/klik zameria.
-- [ ] Fork Noctalie v5 (`latte-shell`), vlastný repozitár — **založený 25. 9.** (`~/latte-shell`, vetva `latteos`, plán v LATTEOS.md); zostavenie čaká na `-devel` knižnice (sudo).
+- [x] Fork Noctalie v5 (`latte-shell`, `~/latte-shell`, vetva `latteos`): panely v tvare L z ostrova, nainštalovaný ako `/usr/local/bin/noctalia` (25. 9.).
 - [ ] Téma **Latte** a **Úsporná**, farby z tapety (Noctalia má vlastný generátor, matugen ako záloha).
 - [ ] Prvky pre stupeň Plný podľa Caelestie: dashboard s výkonom, vizualizér, animované widgety.
 - [ ] Každý prvok shellu musí mať variant bez shaderov.
