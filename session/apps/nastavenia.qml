@@ -71,6 +71,7 @@ ShellRoot {
     property string barScene: "para"
     property string barSceneRight: ""      // vlastná textúra pravého L (prázdne = ako vľavo)
     property real barDim: 0.55
+    property string barZoom: ""            // "" = priblížiť GIF na pohyb, "off" = celý obrázok (bar-priblizenie)
     property bool wsWallpaper: false
     property string liveWp: ""
 
@@ -230,6 +231,8 @@ ShellRoot {
                onLoaded: app.cupQuick = text().trim(); onLoadFailed: app.cupQuick = "" }
     FileView { path: app.cfgHome + "/latteos/bar-scene"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.barScene = text().trim() || "para"; onLoadFailed: app.barScene = "para" }
+    FileView { path: app.cfgHome + "/latteos/bar-priblizenie"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.barZoom = text().trim(); onLoadFailed: app.barZoom = "" }
     FileView { path: app.cfgHome + "/latteos/bar-scene-vpravo"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.barSceneRight = text().trim(); onLoadFailed: app.barSceneRight = "" }
     FileView { path: app.cfgHome + "/latteos/bar-stlmenie"; printErrors: false; watchChanges: true; onFileChanged: reload()
@@ -1546,31 +1549,42 @@ ShellRoot {
             Heading { text: "OKNÁ Z LIŠTY V TVARE L · ANIMOVANÁ TEXTÚRA" }
             Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
                    text: "App Manager (vľavo) a Zariadenia (vpravo) vyrastajú z ostrova na lište: ostrov je päta písmena L, nad ním pás s textúrou a okno. Textúra sa kreslí na dlaždici aj v páse naraz, bez švu." }
-            // náhľad: pás L s pätou, rovnaký komponent ako v oknách
+            // náhľad: presne ako na lište — skutočné rozmery okna L (kmeň 660 × 50, medzera 10, ostrov 100 × 43),
+            // rovnaký zdroj GIF (snímky, ohnisko, priblíženie) ako dlaždica a okno, iba zmenšené
             Item {
                 id: lPrev
-                width: Math.min(parent.width, 560); height: 92
+                width: Math.min(parent.width, 560); height: 103 * k + 24
+                readonly property real k: (width - 24) / 660
                 property real t: 0
                 Timer { interval: 125; repeat: true; running: lPrev.visible && app.barAnim !== "vypnuty"; onTriggered: lPrev.t += 0.125 }
+                GifZdroj { id: prevGif; spec: app.barScene; playing: lPrev.visible && app.barAnim !== "vypnuty" }
                 Rectangle { anchors.fill: parent; radius: 12; color: theme.field }
                 Item {
-                    x: 12; y: 12; width: parent.width - 24; height: 38; clip: true
-                    Scena { anchors.fill: parent; colors: app.latteTheme; spec: app.barScene; time: lPrev.t; motion: app.barAnim === "vypnuty" ? "vypnute" : "vzdy"
-                            canvasW: parent.width; canvasH: 76 }
-                    Rectangle { anchors.fill: parent; gradient: Gradient { orientation: Gradient.Horizontal
-                        GradientStop { position: 0; color: Qt.rgba(app.latteTheme.surface.r, app.latteTheme.surface.g, app.latteTheme.surface.b, 0.05) }
-                        GradientStop { position: 1; color: Qt.rgba(app.latteTheme.surface.r, app.latteTheme.surface.g, app.latteTheme.surface.b, app.barDim) } } }
-                    Text { anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter } text: "22 aplikácií   App Manager ›"
-                           color: theme.fg; font { family: theme.fontUi; pixelSize: 12 } }
+                    x: 12; y: 12; width: 660; height: 103
+                    transform: Scale { xScale: lPrev.k; yScale: lPrev.k }
+                    Item {
+                        width: 660; height: 50
+                        Scena { anchors.fill: parent; colors: app.latteTheme; spec: app.barScene; time: lPrev.t; motion: app.barAnim === "vypnuty" ? "vypnute" : "vzdy"
+                                canvasW: 660; canvasH: 103; radii: [16, 16, 16, 0]
+                                image: prevGif.image; frameDir: prevGif.frameDir; frameCount: prevGif.frameCount; ohnisko: prevGif.ohnisko; anchorX: 50; anchorY: 103 - 21.5 }
+                        Rectangle { anchors.fill: parent; radius: 16; gradient: Gradient { orientation: Gradient.Horizontal
+                            GradientStop { position: 0; color: Qt.rgba(app.latteTheme.surface.r, app.latteTheme.surface.g, app.latteTheme.surface.b, 0.05) }
+                            GradientStop { position: 1; color: Qt.rgba(app.latteTheme.surface.r, app.latteTheme.surface.g, app.latteTheme.surface.b, app.barDim) } } }
+                        Text { anchors { right: parent.right; rightMargin: 16; verticalCenter: parent.verticalCenter } text: "22 aplikácií   App Manager ›"
+                               color: theme.fg; font { family: theme.fontUi; pixelSize: 14 } }
+                    }
+                    Item {
+                        y: 50; width: 100; height: 53
+                        Scena { anchors.fill: parent; colors: app.latteTheme; spec: app.barScene; time: lPrev.t; motion: app.barAnim === "vypnuty" ? "vypnute" : "vzdy"
+                                oy: 50; canvasW: 660; canvasH: 103; radii: [0, 0, 16, 16]
+                                image: prevGif.image; frameDir: prevGif.frameDir; frameCount: prevGif.frameCount; ohnisko: prevGif.ohnisko; anchorX: 50; anchorY: 103 - 21.5 }
+                        Rectangle { x: 35; y: 10 + 6.5; width: 30; height: 30; radius: 10
+                                    color: Qt.rgba(app.latteTheme.surfaceVariant.r, app.latteTheme.surfaceVariant.g, app.latteTheme.surfaceVariant.b, 0.85)
+                                    Glyph { anchors.centerIn: parent; name: "apps"; size: 18; color: app.latteTheme.primary } }
+                    }
+                    Rectangle { x: 106; y: 60; width: 225; height: 43; radius: 16; color: theme.hover
+                                Text { anchors.centerIn: parent; text: "05:35  ·  pi 25. 9."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 14 } } }
                 }
-                Item {
-                    x: 12; y: 50; width: 100; height: 30; clip: true
-                    Scena { anchors.fill: parent; colors: app.latteTheme; spec: app.barScene; time: lPrev.t; motion: app.barAnim === "vypnuty" ? "vypnute" : "vzdy"
-                            oy: 38; canvasW: lPrev.width - 24; canvasH: 76 }
-                    Glyph { anchors.centerIn: parent; name: "apps"; size: 16; color: app.latteTheme.primary }
-                }
-                Rectangle { x: 120; y: 54; width: 90; height: 26; radius: 9; color: theme.hover
-                            Text { anchors.centerIn: parent; text: "05:35"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } } }
             }
             Segments {
                 options: [["para", "Para"], ["matrix", "Matrix"], ["gears", "Ozubené kolesá"], ["glow", "Pomalé svetlo"], ["solid", "Jedna farba"], ["file", "Obrázok / GIF"]]
@@ -1581,6 +1595,12 @@ ShellRoot {
                     app.barScene = s;
                     if (v !== "file" || s !== "file:") app.writePref("bar-scene", s, "Textúra L: " + v);
                 }
+            }
+            Segments {
+                visible: /^file:.*\.(gif|webp)$/i.test(app.barScene)
+                options: [["", "Priblížiť na pohyb (ostrov ukáže, kde sa GIF hýbe)"], ["off", "Celý obrázok bez priblíženia"]]
+                value: app.barZoom
+                onPicked: (v) => { app.barZoom = v; app.writePref("bar-priblizenie", v, v === "off" ? "GIF: celý obrázok" : "GIF: priblížiť na pohyb"); }
             }
             Row {
                 visible: app.barScene.startsWith("solid:")

@@ -24,23 +24,12 @@ Scope {
     property real ox: 0
     property real oy: 50
     readonly property bool isFile: spec.startsWith("file:")
-    readonly property alias image: gif
-    // snímky GIF ako PNG (Canvas by inak kreslil stále prvý snímok)
-    property string frameDir: ""
-    property int frameCount: 0
-    property var ohnisko: null
-    readonly property bool animated: isFile && /\.(gif|webp)$/i.test(spec)
-    // priamo zo spec (v onSpecChanged ešte nemusí byť prepočítané „animated“)
-    function loadFrames() {
-        frameDir = ""; frameCount = 0; ohnisko = null;
-        if (/^file:.*\.(gif|webp)$/i.test(spec)) { frames.running = false; frames.command = ["latte-tapety", "snimky", spec.slice(5)]; frames.running = true; }
-    }
-    onSpecChanged: loadFrames()
-    Component.onCompleted: loadFrames()
-    Process {
-        id: frames
-        stdout: StdioCollector { onStreamFinished: { try { const j = JSON.parse(this.text); to.frameCount = j.count; to.ohnisko = j.focus || null; to.frameDir = j.dir; } catch (e) {} } }
-    }
+    // spoločný zdroj GIF (snímky, ohnisko pohybu, voľba priblíženia) — ten istý aj v náhľade Nastavení
+    GifZdroj { id: zdroj; spec: to.spec; playing: !to.game && (to.motion === "vzdy" || to.popupOpen) }
+    readonly property alias image: zdroj.image
+    readonly property alias frameDir: zdroj.frameDir
+    readonly property alias frameCount: zdroj.frameCount
+    readonly property alias ohnisko: zdroj.ohnisko
     property bool game: false
     FileView { path: (Quickshell.env("XDG_STATE_HOME") || ((Quickshell.env("HOME") || "") + "/.local/state")) + "/latteos/game-mode"
                printErrors: false; watchChanges: true; onFileChanged: reload()
@@ -57,17 +46,9 @@ Scope {
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
         mask: Region {}                      // kliknutie prejde na dlaždicu Noctalie
         color: "transparent"
-        AnimatedImage {
-            id: gif
-            visible: false
-            source: to.isFile ? "file://" + to.spec.slice(5) : ""
-            // až po načítaní (zdroj sa mení za behu, keď sa načíta bar-scene; inak by AnimatedImage ostal stáť)
-            playing: status === AnimatedImage.Ready && to.isFile && !to.game && (to.motion === "vzdy" || to.popupOpen)
-            cache: false; asynchronous: true
-        }
         Scena {
             anchors.fill: parent
-            colors: to.theme; spec: to.spec; image: gif; mirror: to.mirror; frameDir: to.frameDir; frameCount: to.frameCount
+            colors: to.theme; spec: to.spec; image: zdroj.image; mirror: to.mirror; frameDir: to.frameDir; frameCount: to.frameCount
             radii: [to.footRadius, to.footRadius, to.footRadius, to.footRadius]
             ox: to.ox; oy: to.oy; canvasW: to.canvasW; canvasH: to.canvasH
             ohnisko: to.ohnisko; anchorX: to.ox + to.foot.w / 2; anchorY: to.canvasH - to.foot.h / 2
