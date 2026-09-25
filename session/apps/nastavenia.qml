@@ -67,6 +67,7 @@ ShellRoot {
     property string barAnim: ""        // prázdne = podľa stupňa (VM: pod kurzorom)
     property string ctrlProfile: "windows"   // profil ovládania (latte/skratky.lua): windows | linux | mac
     property string numlockPref: ""          // "" = podľa typu počítača, on, off
+    property string suboryTahanie: ""        // ľavé ťahanie v Súboroch: "" (ako Windows) | copy | ask
     property string mascotEscape: ""   // "off" = maskot neuteká
     property string cupQuick: ""       // prázdne = šálka ukazuje stupeň a režim okien, "off" = skryté
     property string deskIcons: ""      // prázdne = ikony na ploche s košom, "off" = bez ikon
@@ -225,6 +226,8 @@ ShellRoot {
                onLoaded: app.mascot = text().trim() || "homebrew"; onLoadFailed: app.mascot = "homebrew" }
     FileView { path: app.cfgHome + "/latteos/profil-ovladania"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.ctrlProfile = (["linux", "mac"].indexOf(text().trim()) >= 0) ? text().trim() : "windows"; onLoadFailed: app.ctrlProfile = "windows" }
+    FileView { path: app.cfgHome + "/latteos/subory-tahanie"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.suboryTahanie = text().trim(); onLoadFailed: app.suboryTahanie = "" }
     FileView { path: app.cfgHome + "/latteos/numlock"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.numlockPref = text().trim(); onLoadFailed: app.numlockPref = "" }
     // zápis voľby a hneď hyprctl reload (skratky, fokus a Num Lock platia bez odhlásenia)
@@ -619,7 +622,7 @@ ShellRoot {
             start: "/etc/latteos/boot.toml\n/var/lib/latteos/", ai: "~/.config/latteos/ai.toml\n~/.config/latteos/ai-keys (0600)",
             lista: "~/.local/state/noctalia/settings.toml [bar.main]\n~/.config/latteos/bar-anim, bar-scene, bar-scene-vpravo, bar-stlmenie, mascot", cas: "~/.local/state/noctalia/settings.toml [location]\n~/.config/latteos/clock.conf",
             prihlasovanie: "/var/lib/latteos/greeter/greeter.conf", diagnostika: "/var/lib/latteos/greeter/last-crash.log\n/var/lib/latteos/crash-count",
-            subory: "~/.config/latteos/subory.json\n~/.config/latteos/tags.json",
+            subory: "~/.config/latteos/subory.json\n~/.config/latteos/tags.json\n~/.config/latteos/subory-tahanie",
             oznamenia: "~/.local/state/noctalia/settings.toml [notification]",
             uzamknutie: "~/.local/state/noctalia/settings.toml [idle.behavior.*]",
             mojucet: "/var/lib/latteos/greeter/avatars/<meno>.png\n~/.face",
@@ -899,6 +902,16 @@ ShellRoot {
             Text {
                 width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 }
                 text: "Farebné štítky: pravý klik na priečinok (v zozname aj v Obľúbených) › Farba. Štítok je viditeľný všade v Súboroch a nemení samotný priečinok."
+            }
+            Heading { text: "ŤAHANIE MYŠOU (REŽIM FORKLIFT)"; topPadding: 6 }
+            Segments {
+                options: [["", "Ako Windows"], ["copy", "Vždy kopírovať"], ["ask", "Vždy sa opýtať"]]
+                value: app.suboryTahanie
+                onPicked: (v) => { app.suboryTahanie = v; app.writePref("subory-tahanie", v, "Ťahanie súborov: " + (v || "ako Windows")); }
+            }
+            Text {
+                width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                text: "Ako Windows: na tom istom disku sa súbor presunie, na iný disk skopíruje. Ctrl = kopírovať, Shift = presunúť, Alt = odkaz. Ťahanie pravým (alebo stredným) tlačidlom vždy ukáže ponuku Kopírovať sem · Presunúť sem · Vytvoriť odkaz. Režim Total Commander kopíruje s dialógom F5."
             }
         }
     }

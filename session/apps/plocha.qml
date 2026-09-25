@@ -289,7 +289,7 @@ ShellRoot {
             }
             DropArea {
                 anchors.fill: parent; keys: ["text/uri-list"]
-                onDropped: (d) => { if (d.hasUrls) { pl.sh('d="$1"; shift; for u in "$@"; do cp -rn -- "$u" "$d/"; done', [pl.desk].concat(d.urls.map(u => decodeURIComponent(String(u).replace(/^file:\/\//, ""))))); d.accept(Qt.CopyAction); } }
+                onDropped: (d) => pl.externalDrop(d, pl.desk)
             }
 
             component Icon: Item {
@@ -361,19 +361,29 @@ ShellRoot {
                     }
                 }
                 MouseArea {
-                    id: ima; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    id: ima; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                     property point start
                     onPressed: (m) => {
                         root.forceActiveFocus(); start = mapToItem(root, m.x, m.y);    // v súradniciach plochy — ikona sa počas ťahania hýbe
+                        pl.dragBtn = m.button; pl.justDragged = false;
+                        if (ic.path !== pl.trashDir) winsProc.running = true;          // kde sú okná (ťahanie von do aplikácie)
                         if (m.button === Qt.LeftButton) {
                             if (m.modifiers & Qt.ControlModifier) { const s = Object.assign({}, pl.sel); if (s[ic.path]) delete s[ic.path]; else s[ic.path] = true; pl.sel = s; }
                             else if (!ic.selected) { const s = {}; s[ic.path] = true; pl.sel = s; }
                         }
                     }
                     onPositionChanged: (m) => {
-                        if (!(m.buttons & Qt.LeftButton)) return;
+                        if (!(m.buttons & (Qt.LeftButton | Qt.RightButton | Qt.MiddleButton))) return;
                         const q = mapToItem(root, m.x, m.y), ddx = q.x - start.x, ddy = q.y - start.y;
                         if (!ic.dragging && Math.abs(ddx) + Math.abs(ddy) < 8) return;
+                        if (ic.path !== pl.trashDir && pl.overWindow(q.x, q.y)) {             // nad oknom: systémové ťahanie do aplikácie
+                            const paths = pl.sel[ic.path] ? Object.keys(pl.sel).filter(p => p !== pl.trashDir) : [ic.path];
+                            ic.dragging = false; ic.dx = 0; ic.dy = 0; pl.dragPath = ""; pl.dragDx = 0; pl.dragDy = 0; pl.dropTarget = "";
+                            pl.winRects = []; pl.justDragged = true;
+                            sysDrag.Drag.mimeData = { "text/uri-list": paths.map(p => "file://" + encodeURI(p)).join("\r\n") + "\r\n" };
+                            sysDrag.Drag.startDrag();
+                            return;
+                        }
                         ic.dragging = true; ic.dx = ddx; ic.dy = ddy;
                         pl.dragPath = ic.path; pl.dragDx = ddx; pl.dragDy = ddy;
                         const t = pl.iconAt(q.x, q.y);
@@ -381,16 +391,20 @@ ShellRoot {
                     }
                     onReleased: (m) => {
                         if (!ic.dragging) return;
+                        pl.justDragged = true;
                         const paths = pl.sel[ic.path] ? Object.keys(pl.sel) : [ic.path];
                         const target = pl.dropTarget;
                         const dc = Math.round(ic.dx / pl.cellW), dr = Math.round(ic.dy / pl.cellH);
                         ic.dragging = false; ic.dx = 0; ic.dy = 0; pl.dragPath = ""; pl.dragDx = 0; pl.dragDy = 0; pl.dropTarget = "";
                         const movable = paths.filter(p => p !== pl.trashDir);
-                        if (target === pl.trashDir) { pl.sh('latte-kos vyhod "$@"', movable); pl.sel = {}; trashProc.running = true; }
-                        else if (target !== "") { pl.sh('d="$1"; shift; mv -n -- "$@" "$d/"', [target].concat(movable)); pl.sel = {}; }
+                        const q = mapToItem(root, m.x, m.y), ctrl = m.modifiers & Qt.ControlModifier, shift = m.modifiers & Qt.ShiftModifier, alt = m.modifiers & Qt.AltModifier;
+                        if (target !== "" && pl.dragBtn !== Qt.LeftButton) pl.dropMenu(movable, target, q.x, q.y);     // pravé / stredné: ponuka
+                        else if (target === pl.trashDir) { pl.sh('latte-kos vyhod "$@"', movable); pl.sel = {}; trashProc.running = true; }
+                        else if (target !== "") pl.fileOp((ctrl && shift) || alt ? "link" : (ctrl ? "copy" : "move"), movable, target);
                         else if (dc !== 0 || dr !== 0) pl.moveIcons(paths, dc, dr);
                     }
-                    onClicked: (m) => { if (m.button === Qt.RightButton) { const q = mapToItem(root, m.x, m.y); pl.itemMenu(ic.path, ic.isDir, q.x, q.y); } }
+                    onClicked: (m) => { if (pl.justDragged) { pl.justDragged = false; return; }
+                                        if (m.button === Qt.RightButton) { const q = mapToItem(root, m.x, m.y); pl.itemMenu(ic.path, ic.isDir, q.x, q.y); } }
                     onDoubleClicked: pl.open(ic.path)
                 }
                 // Kôš a priečinky prijmú súbor pretiahnutý z inej aplikácie
@@ -400,7 +414,7 @@ ShellRoot {
                         if (!d.hasUrls) return;
                         const l = d.urls.map(u => decodeURIComponent(String(u).replace(/^file:\/\//, "")));
                         if (ic.path === pl.trashDir) { pl.sh('latte-kos vyhod "$@"', l); trashProc.running = true; d.accept(Qt.MoveAction); }
-                        else { pl.sh('d="$1"; shift; cp -rn -- "$@" "$d/"', [ic.path].concat(l)); d.accept(Qt.CopyAction); }
+                        else pl.externalDrop(d, ic.path);
                     }
                 }
             }
@@ -448,5 +462,64 @@ ShellRoot {
     property real dragDx: 0
     property real dragDy: 0
     property string dropTarget: ""
+    // ── ťahanie ako vo Windows (alfatest 1) ─────────────────────────────────────────
+    //   ľavé: na priečinok presunúť (ten istý disk), Ctrl = kópia, Alt alebo Ctrl+Shift = odkaz; do Koša = zahodiť
+    //   pravé / stredné: po pustení ponuka Kopírovať sem · Presunúť sem · Vytvoriť odkaz sem · Zrušiť
+    //   ikona nad okno aplikácie: systémové ťahanie (súbor do prehliadača, Discordu, Súborov…)
+    //   súbory z iných aplikácií: ten istý disk = presunúť, iný disk alebo aplikácia bez presunu = kopírovať
+    property int dragBtn: Qt.LeftButton
+    property bool justDragged: false          // pravý klik po pravom ťahaní neotvorí ponuku položky
+    property var winRects: []                 // okná na aktívnej ploche (hyprctl clients) pri začiatku ťahania
+    Process {
+        id: winsProc
+        command: ["sh", "-c", "hyprctl clients -j; echo; hyprctl activeworkspace -j"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const t = this.text, i = t.lastIndexOf("\n{");
+                    const cl = JSON.parse(t.substring(0, i)), ws = JSON.parse(t.substring(i + 1));
+                    pl.winRects = cl.filter(c => c.mapped && !c.hidden && c.workspace.id === ws.id).map(c => ({ x: c.at[0], y: c.at[1], w: c.size[0], h: c.size[1] }));
+                } catch (e) { pl.winRects = []; }
+            }
+        }
+    }
+    function overWindow(x, y) { return winRects.some(r => x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h); }
+    Item {
+        id: sysDrag
+        Drag.dragType: Drag.Automatic
+        Drag.supportedActions: Qt.CopyAction | Qt.MoveAction | Qt.LinkAction
+        Drag.keys: ["text/uri-list"]
+    }
+    // presunúť / kopírovať / odkaz; mv a cp nič neprepíšu (-n), rovnako ako doteraz
+    function fileOp(action, paths, dir) {
+        if (action === "move") sh('d="$1"; shift; mv -n -- "$@" "$d/"', [dir].concat(paths));
+        else if (action === "copy") sh('d="$1"; shift; cp -rn -- "$@" "$d/"', [dir].concat(paths));
+        else if (action === "link") sh('d="$1"; shift; for f in "$@"; do ln -s -- "$f" "$d/" 2>/dev/null || ln -s -- "$f" "$d/Odkaz na $(basename "$f")"; done', [dir].concat(paths));
+        else if (action === "auto") sh('d="$1"; shift; dd=$(stat -c %d "$d"); for u in "$@"; do if [ "$(stat -c %d "$u" 2>/dev/null)" = "$dd" ]; then mv -n -- "$u" "$d/"; else cp -rn -- "$u" "$d/"; fi; done', [dir].concat(paths));
+        else if (action === "autocopy") sh('d="$1"; shift; for u in "$@"; do cp -rn -- "$u" "$d/"; done', [dir].concat(paths));
+        sel = {};
+    }
+    function dropMenu(paths, dir, x, y) {
+        const toTrash = dir === trashDir;
+        const list = toTrash ? [{ glyph: "trash", label: "Presunúť do Koša", bold: true, action: () => { sh('latte-kos vyhod "$@"', paths); trashProc.running = true; pl.sel = {}; } }]
+            : [{ glyph: "copy", label: "Kopírovať sem", action: () => pl.fileOp("copy", paths, dir) },
+               { glyph: "arrows-move", label: "Presunúť sem", bold: true, action: () => pl.fileOp("move", paths, dir) },
+               { glyph: "link", label: paths.length > 1 ? "Vytvoriť odkazy sem" : "Vytvoriť odkaz sem", action: () => pl.fileOp("link", paths, dir) }];
+        list.push({ separator: true }, { glyph: "x", label: "Zrušiť", action: () => {} });
+        ctx.open(x, y, list, (paths.length === 1 ? paths[0].substring(paths[0].lastIndexOf("/") + 1) : paths.length + " položiek") + " → " + (toTrash ? "Kôš" : dir.substring(dir.lastIndexOf("/") + 1)));
+    }
+    // súbory pretiahnuté z inej aplikácie; akcia podľa modifikátorov a toho, či zdroj dovolí presun
+    function externalDrop(d, dir) {
+        if (!d.hasUrls) return;
+        const l = d.urls.map(u => decodeURIComponent(String(u).replace(/^file:\/\//, ""))).filter(p => p.startsWith("/"));
+        if (!l.length) return;
+        const mods = d.modifiers || 0, canMove = (d.supportedActions & Qt.MoveAction) !== 0;
+        let a = !canMove ? "autocopy" : "auto";
+        if (mods & Qt.ControlModifier) a = (mods & Qt.ShiftModifier) ? "link" : "copy";
+        else if (mods & Qt.AltModifier) a = "link";
+        else if ((mods & Qt.ShiftModifier) && canMove) a = "move";
+        fileOp(a, l, dir);
+        d.accept(a === "move" || a === "auto" ? Qt.MoveAction : (a === "link" ? Qt.LinkAction : Qt.CopyAction));
+    }
     function isDirPath(p) { for (let i = 0; i < files.count; i++) if (files.get(i, "filePath") === p) return files.get(i, "fileIsDir"); return false; }
 }

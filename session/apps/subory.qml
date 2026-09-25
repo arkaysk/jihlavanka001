@@ -23,6 +23,11 @@ ShellRoot {
     property string view: "detaily"      // detaily | zoznam | ikony (spoločné pre oba panely)
     property int iconSize: 72
     readonly property bool commander: mode === "commander"
+    // ľavé ťahanie v režime Forklift: windows (ten istý disk = presun) | copy (vždy kopírovať) | ask (vždy ponuka, ako KDE)
+    property string dragRule: "windows"
+    FileView { path: (Quickshell.env("XDG_CONFIG_HOME") || (app.home + "/.config")) + "/latteos/subory-tahanie"; printErrors: false; watchChanges: true
+               onFileChanged: reload(); onLoaded: app.dragRule = (["copy", "ask"].indexOf(text().trim()) >= 0) ? text().trim() : "windows"
+               onLoadFailed: app.dragRule = "windows" }
     function setMode(m) {
         mode = m;
         if (m === "commander") { dual = true; showDetail = false; view = "detaily"; }
@@ -308,6 +313,11 @@ ShellRoot {
         running: Quickshell.env("LATTE_APP_TEST") === "menu"; interval: 2500
         onTriggered: { if (paneA.count > 0) { paneA.moveSelection(1); app.showMenu(paneA.current, 420, 180, paneA); } }
     }
+    // LATTE_APP_TEST=drop: ponuka po pustení pravým tlačidlom (súbor zo Stiahnutých do Dokumentov)
+    Timer {
+        running: Quickshell.env("LATTE_APP_TEST") === "drop"; interval: 2500
+        onTriggered: app.dropOp([{ path: app.home + "/Stiahnuté/archiv.zip", name: "archiv.zip", isDir: false }], app.home + "/Dokumenty", "ask", 520, 260)
+    }
 
     // ── pamäť stavu: dva panely a ich cesty (~/.config/latteos/subory.json) ─────────
     readonly property string stateFile: (Quickshell.env("XDG_CONFIG_HOME") || (app.home + "/.config")) + "/latteos/subory.json"
@@ -546,8 +556,35 @@ ShellRoot {
 
     // dialóg F5 / F6
     property var op: null                     // { move, items[], target, mask, mode, verify }
-    // pustenie myšou (FilePane): rovnaký dialóg ako F5/F6, cieľ = priečinok pod kurzorom
-    function dropOp(items, dir, move) { op = { move: move, items: items, target: dir + "/", mask: "*.*", mode: "ask", verify: false }; }
+    // pustenie myšou (FilePane) ako vo Windows: action copy | move | link | ask (pravé/stredné tlačidlo = ponuka).
+    // Režim TC: kópia/presun cez dialóg F5/F6 (ako Total Commander); režim Forklift: hneď, konflikty sa opýtajú.
+    function dropOp(items, dir, action, wx, wy) {
+        if (action === "ask") {
+            const def = app.commander ? "copy" : app.activePane.dropAction(0, items.map(e => e.path), dir, Qt.LeftButton, true);
+            const one = items.length === 1 ? items[0] : null;
+            const list = [
+                { glyph: "copy", label: "Kopírovať sem", bold: def === "copy", action: () => app.dropDo(items, dir, "copy") },
+                { glyph: "arrows-move", label: "Presunúť sem", bold: def === "move", action: () => app.dropDo(items, dir, "move") },
+                { glyph: "link", label: items.length > 1 ? "Vytvoriť odkazy sem" : "Vytvoriť odkaz sem", action: () => app.dropDo(items, dir, "link") }];
+            if (one && !one.isDir && app.archiveRe.test(one.name))
+                list.push({ glyph: "file-zip", label: "Rozbaliť sem", action: () => { app.run(["latte-tc", "archiv", "rozbal", one.path, dir + "/" + one.name.replace(app.archiveRe, "")], "Rozbaľujem do " + dir.replace(app.home, "~")); refreshBoth.restart(); } });
+            if (one && !one.isDir && /\.(jpe?g|png|webp|gif|bmp|avif|jxl)$/i.test(one.name) && /\/(Plocha|Desktop)$/.test(dir))
+                list.push({ glyph: "photo", label: "Nastaviť ako tapetu", action: () => app.run(["latte-tapety", "pouzi", one.path], "Tapeta: " + one.name) });
+            list.push({ separator: true }, { glyph: "x", label: "Zrušiť", action: () => {} });
+            ctx.open(wx, wy, list, (items.length === 1 ? items[0].name : items.length + " položiek") + " → " + dir.replace(app.home, "~"));
+            return;
+        }
+        dropDo(items, dir, action);
+    }
+    function dropDo(items, dir, action) {
+        if (action === "link") {
+            app.run(["sh", "-c", 'd="$1"; shift; for f in "$@"; do ln -s -- "$f" "$d/" 2>/dev/null || ln -s -- "$f" "$d/Odkaz na $(basename "$f")"; done', "sh", dir].concat(items.map(e => e.path)),
+                    (items.length === 1 ? "Odkaz na " + items[0].name : items.length + " odkazov") + " v " + dir.replace(app.home, "~"));
+            refreshBoth.restart(); return;
+        }
+        op = { move: action === "move", items: items, target: dir + "/", mask: "*.*", mode: "ask", verify: false };
+        if (!app.commander) startOp(false);          // Forklift: hneď ako Windows (pri konflikte sa opýta)
+    }
     function openOp(move) {
         const items = app.activePane.selection();
         if (!items.length) { app.status = "Nič nie je vybrané"; return; }
@@ -1047,7 +1084,8 @@ ShellRoot {
                         dotdot: app.commander
                         view: app.view; iconSize: app.iconSize
                         onContextRequested: (e, x, y) => app.showMenu(e, x, y, paneA)
-                        onDropRequested: (items, dir, move) => app.dropOp(items, dir, move)
+                        onDropRequested: (items, dir, action, wx, wy) => app.dropOp(items, dir, action, wx, wy)
+                        dragRule: app.commander ? "copy" : app.dragRule
                         width: parent.width; height: parent.height - y
                         active: app.dual && app.activeIndex === 0
                         Component.onCompleted: go(app.home)
@@ -1067,7 +1105,8 @@ ShellRoot {
                         dotdot: app.commander
                         view: app.view; iconSize: app.iconSize
                         onContextRequested: (e, x, y) => app.showMenu(e, x, y, paneB)
-                        onDropRequested: (items, dir, move) => app.dropOp(items, dir, move)
+                        onDropRequested: (items, dir, action, wx, wy) => app.dropOp(items, dir, action, wx, wy)
+                        dragRule: app.commander ? "copy" : app.dragRule
                         width: parent.width; height: parent.height - y
                         active: app.dual && app.activeIndex === 1
                         Component.onCompleted: go("/")

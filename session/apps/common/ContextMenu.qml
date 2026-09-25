@@ -1,6 +1,6 @@
 // ContextMenu — kontextové menu (pravý klik) pre aplikácie LatteOS. Vkladá sa ako posledné dieťa
 // položky cez celé okno; open(x, y, items) ho ukáže na mieste kurzora (súradnice okna).
-// items: [{ glyph, label, hint?, danger?, enabled?, action: function }, { separator: true },
+// items: [{ glyph, label, hint?, danger?, enabled?, bold?, action: function }, { separator: true },   ← bold = predvolená voľba (ako Windows)
 //         { colors: [{ key, color, label }], current, action: function(key) }  ← riadok farebných štítkov
 //         { input: "text", label, action: function(text) }                       ← textové pole (premenovanie)
 //         { glyph, label, sub: [ … ] }                                            ← vnorená ponuka (› ako vo Windows)
@@ -129,7 +129,7 @@ Item {
             Text {
                 x: 36; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 36 - hint.width - 12; elide: Text.ElideRight
                 text: parent.it.label; color: parent.it.danger ? menu.theme.error : menu.theme.fg
-                font { family: menu.theme.fontUi; pixelSize: 13; weight: Font.Medium }
+                font { family: menu.theme.fontUi; pixelSize: 13; weight: parent.it.bold ? Font.Bold : Font.Medium }
             }
             Text {
                 id: hint
