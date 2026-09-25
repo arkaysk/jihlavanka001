@@ -41,6 +41,8 @@ for f in latteos.desktop latteos-safe.desktop; do
     sudo install -Dm644 "$S/wayland-sessions/$f" "/usr/share/latteos/sessions/$f"
 done
 
+echo "== latte-shell (fork Noctalie: panely v tvare L z ostrova), ak je zdroj v ~/latte-shell"
+if [ -d "$HOME/latte-shell/src" ]; then "$repo/setup/f1/build-latte-shell.sh" | tail -2 | sed 's/^/   /'; else echo "   preskočené (bez ~/latte-shell ostáva pôvodná Noctalia)"; fi
 echo "== okenné tlačidlá: plugin hyprbars (postavený proti hyprland-devel)"
 if rpm -q hyprland-devel >/dev/null 2>&1 && "$repo/setup/f1/build-hyprbars.sh" | sed 's/^/   /'; then
     sudo install -Dm755 "$repo/resources/upstream/hyprland-plugins/hyprbars/hyprbars.so" /usr/lib64/latteos/hyprbars.so
