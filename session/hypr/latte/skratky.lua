@@ -224,7 +224,7 @@ local function windows()
     bind("SUPER + CTRL + right", function() latte.keys.desk_step(1) end)
     bind("SUPER + CTRL + F4", function() latte.keys.desk_close() end)
     for i = 1, 9 do bind("SUPER + " .. i, function() latte.keys.nth_window(i) end) end
-    bind("SUPER + P", run("latte-app zariadenia obrazovky"))                      -- premietanie / monitory
+    bind("SUPER + P", run("latte-ponuka projekcia"))                              -- premietanie (Iba PC / Duplikovať / Rozšíriť / Iba druhá)
     bind("SUPER + equal", function() latte.keys.zoom(1) end)                      -- lupa
     bind("SUPER + KP_Add", function() latte.keys.zoom(1) end)
     bind("SUPER + minus", function() latte.keys.zoom(-1) end)

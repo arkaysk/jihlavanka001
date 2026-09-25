@@ -1,10 +1,10 @@
 #!/bin/sh
-# latte-ponuka zabezpecenie | vypnut | win-x [X Y] | okno [X Y [ADRESA]] | okno-rel X Y — systémové ponuky ako vo Windows (apps/ponuka.qml).
+# latte-ponuka zabezpecenie | vypnut | projekcia | win-x [X Y] | okno [X Y [ADRESA]] | okno-rel X Y — systémové ponuky ako vo Windows (apps/ponuka.qml).
 # ponuka.qml beží na pozadí (rýchle otvorenie cez IPC Quickshellu); ak nebeží, spustí sa a ponuka sa otvorí po štarte.
 qml=/usr/share/latteos/apps/ponuka.qml
 kind="${1:-win-x}"; shift
 case "$kind" in
-    zabezpecenie|vypnut) call="$kind" ;;
+    zabezpecenie|vypnut|projekcia) call="$kind" ;;
     win-x)  call="winx ${1:-12} ${2:-9999}" ;;                     # predvolene vľavo dole pri dlaždici aplikácií
     okno)   call="okno ${1:-0} ${2:-0} ${3:-}" ;;
     okno-rel) call="oknoRel ${1:-0} ${2:-0}" ;;                    # súradnice v aktívnom okne (vlastná hlavička aplikácií LatteOS)

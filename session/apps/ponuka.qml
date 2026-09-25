@@ -2,6 +2,7 @@
 //   zabezpecenie   Ctrl+Alt+Del: Zamknúť, Odhlásiť sa, Zmeniť heslo, Správca úloh; vpravo dole napájanie; Zrušiť
 //   vypnut         Alt+F4 na prázdnej ploche: „Čo má počítač urobiť?“ s výberom a OK / Zrušiť
 //   win-x          Win+X a pravý klik na dlaždicu aplikácií (ako pravý klik na Štart)
+//   projekcia      Win+P: Iba obrazovka PC · Duplikovať · Rozšíriť · Iba druhá obrazovka (vpravo dole ako Windows)
 //   okno X Y ADR   pravý klik na titulok okna (hyprbars) a Alt+Medzerník: Obnoviť, Minimalizovať, Maximalizovať,
 //                  rozloženia, navrchu, na plochu, Zavrieť
 // Klik mimo alebo Esc ponuku zavrie. Nič sa nevypne bez potvrdenia (vypnutie / reštart cez dialóg alebo druhé kliknutie).
@@ -34,6 +35,7 @@ ShellRoot {
         function okno(x: int, y: int, address: string): void { pn.show("okno", x, y, address); }
         function oknoRel(x: int, y: int): void { pn.rel = true; pn.show("okno", x, y, ""); }
         function zavri(): void { pn.kind = ""; }
+        function projekcia(): void { monProc.running = true; }
     }
     function show(k, x, y, a) {
         confirm = ""; choice = "shutdown"; atX = x; atY = y; addr = a; win = null;
@@ -58,6 +60,38 @@ ShellRoot {
                 } catch (e) {}
             }
         }
+    }
+    // ── Win+P: monitory (hyprctl monitors all), prvý = obrazovka PC (interný eDP alebo prvý v zozname) ─────────
+    property var mons: []
+    property string projMode: ""
+    Process {
+        id: monProc
+        command: ["hyprctl", "monitors", "all", "-j"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const l = JSON.parse(this.text);
+                    l.sort((a, b) => (/^eDP/.test(b.name) ? 1 : 0) - (/^eDP/.test(a.name) ? 1 : 0) || a.id - b.id);
+                    pn.mons = l;
+                    const on = l.filter(m => !m.disabled);
+                    pn.projMode = l.length < 2 ? "pc" : (on.length === 1 ? (on[0].name === l[0].name ? "pc" : "druha")
+                                 : (on.some(m => m.mirrorOf && m.mirrorOf !== "none") ? "duplikovat" : "rozsirit"));
+                } catch (e) { pn.mons = []; }
+                pn.kind = "projekcia";
+            }
+        }
+    }
+    function project(mode) {
+        const l = mons; if (l.length < 2) { kind = ""; return; }
+        const pc = l[0].name, others = l.slice(1).map(m => m.name);
+        const mon = (o, extra) => "hl.monitor({ output = \"" + o + "\", mode = \"preferred\", position = \"auto-right\", scale = 1" + (extra || "") + " }) ";
+        let lua = "";
+        if (mode === "pc") lua = mon(pc) + others.map(o => "hl.monitor({ output = \"" + o + "\", disabled = true }) ").join("");
+        else if (mode === "druha") lua = others.map(o => mon(o)).join("") + "hl.monitor({ output = \"" + pc + "\", disabled = true }) ";
+        else if (mode === "duplikovat") lua = mon(pc) + others.map(o => mon(o, ", mirror = \"" + pc + "\"")).join("");
+        else lua = mon(pc) + others.map(o => mon(o)).join("");
+        projMode = mode; kind = "";
+        hyprEval(lua);
     }
     function sh(cmd) { runner.command = ["sh", "-c", cmd]; runner.startDetached(); }
     Process { id: runner }
@@ -236,6 +270,40 @@ ShellRoot {
                             }
                         }
                     }
+                }
+            }
+
+            // ── Win+P ─────────────────────────────────────────────────────────────
+            Rectangle {
+                visible: pn.kind === "projekcia"
+                anchors { right: parent.right; bottom: parent.bottom; rightMargin: 12; bottomMargin: 76 }
+                width: 300; height: pcol.implicitHeight + 28; radius: 16
+                color: theme.surface; border { color: theme.outline; width: 1 }
+                MouseArea { anchors.fill: parent }
+                Column {
+                    id: pcol
+                    x: 14; y: 14; width: parent.width - 28; spacing: 6
+                    Text { text: "Premietanie"; color: theme.fg; font { family: theme.fontDisplay; pixelSize: 18; weight: Font.DemiBold } bottomPadding: 4 }
+                    Repeater {
+                        model: [["pc", "Iba obrazovka PC", "device-laptop"], ["duplikovat", "Duplikovať", "copy"], ["rozsirit", "Rozšíriť", "columns-2"], ["druha", "Iba druhá obrazovka", "device-desktop"]]
+                        Rectangle {
+                            required property var modelData
+                            readonly property bool on: pn.projMode === modelData[0]
+                            readonly property bool usable: pn.mons.length > 1 || modelData[0] === "pc"
+                            width: parent.width; height: 44; radius: 10; opacity: usable ? 1 : 0.4
+                            color: on ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.20) : (prm.containsMouse && usable ? theme.hover : "transparent")
+                            border { color: on ? theme.primary : "transparent"; width: 1.5 }
+                            Row { anchors { left: parent.left; leftMargin: 12; verticalCenter: parent.verticalCenter } spacing: 12
+                                  Glyph { name: parent.parent.modelData[2]; size: 20; color: theme.primary; anchors.verticalCenter: parent.verticalCenter }
+                                  Text { text: parent.parent.modelData[1]; color: theme.fg; font { family: theme.fontUi; pixelSize: 14; weight: Font.DemiBold } anchors.verticalCenter: parent.verticalCenter } }
+                            MouseArea { id: prm; anchors.fill: parent; hoverEnabled: true; onClicked: if (parent.usable) pn.project(parent.modelData[0]) }
+                        }
+                    }
+                    Text { visible: pn.mons.length < 2; width: parent.width; wrapMode: Text.WordWrap; topPadding: 4
+                           text: "Pripojená je iba jedna obrazovka."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+                    Text { width: parent.width; wrapMode: Text.WordWrap; topPadding: 2; text: "Rozloženie a rozlíšenie: Správca zariadení › Obrazovky"
+                           color: theme.primary; font { family: theme.fontUi; pixelSize: 12; underline: plm.containsMouse }
+                           MouseArea { id: plm; anchors.fill: parent; hoverEnabled: true; onClicked: { pn.kind = ""; pn.sh("latte-app zariadenia obrazovky"); } } }
                 }
             }
 
