@@ -240,7 +240,7 @@ ShellRoot {
                   ["Win  alebo  Ctrl + Esc", "Štart (App Manager)"], ["Win + E", "Súbory"], ["Win + I", "Nastavenia"], ["Win + S / Win + R", "Hľadať a spustiť (Text Bar)"],
                   ["Win + X", "Ponuka pre pokročilých (aj pravý klik na dlaždicu aplikácií)"], ["Win + A", "Rýchle nastavenia (Zariadenia)"], ["Win + N", "Oznámenia a kalendár"],
                   ["Win + V", "História schránky (Kapsa)"], ["Win + .", "Emoji"], ["Win + Shift + S  /  PrtSc", "Výstrižok oblasti"], ["Win + PrtSc", "Snímka celej obrazovky do Obrázkov"],
-                  ["Shift + PrtSc", "Snímka s kreslením"], ["Win + D", "Plocha (a späť)"], ["Win + M / Win + Shift + M", "Minimalizovať všetko / vrátiť"], ["Win + Home", "Minimalizovať ostatné"],
+                  ["Shift + PrtSc", "Snímka s kreslením"], ["Win + Alt + R / Win + Shift + R", "Nahrávanie obrazovky / oblasti (znova = stop)"], ["Win + D", "Plocha (a späť)"], ["Win + M / Win + Shift + M", "Minimalizovať všetko / vrátiť"], ["Win + Home", "Minimalizovať ostatné"],
                   ["Win + ↑ / ↓", "Maximalizovať / obnoviť, minimalizovať"], ["Win + ← / →", "Prichytiť k polovici (plávajúce okná)"], ["Win + Z", "Rozloženia okna"],
                   ["Win + Tab", "Prehľad okien"], ["Win + Ctrl + D / ← → / F4", "Nová plocha / prepnúť / zavrieť"], ["Win + 1…9", "N-té okno na lište"],
                   ["Win + Shift + ← / →", "Okno na iný monitor"], ["Win + L", "Zamknúť"], ["Win + P", "Monitory"], ["Win + Plus / Mínus / Esc", "Lupa"],
