@@ -44,7 +44,12 @@ local function render()
       border = active and "primary" or "surface_variant/0", borderWidth = 1,
       opacity = min and 0.45 or 1.0,
       tooltip = C.name(w) .. (min and " · minimalizované" or ""),
-      onClick = function() C.eval('latte.win.activate("' .. addr .. '")'); noctalia.setUpdateInterval(300) end,
+      -- ako panel úloh Windows: klik na aktívne okno ho minimalizuje, inak ho prenesie dopredu
+      onClick = function()
+        if active and not min then C.eval('latte.win.minimize_addr("' .. addr .. '")')
+        else C.eval('latte.win.activate("' .. addr .. '")') end
+        noctalia.setUpdateInterval(300)
+      end,
       onHover = function(state) if state == "true" then setHover(addr) elseif hovered == addr then setHover(nil) end end,
     }, { inner }))
   end
@@ -79,6 +84,14 @@ function update()
     activeAddr = (ok2 and type(act) == "table" and act.address) or ""
     render()
   end)
+end
+
+-- stredný klik: nové okno tej istej aplikácie (ako Windows)
+function onMiddleClick()
+  if not hovered then return end
+  for _, w in ipairs(wins) do
+    if w.address == hovered then noctalia.runAsync({ "latte-nove-okno", w.class or "" }); return end
+  end
 end
 
 -- pravý klik: ponuka pre okno pod myšou (alebo aktívne)
