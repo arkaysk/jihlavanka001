@@ -28,7 +28,6 @@ ShellRoot {
     FileView { path: rq.runDir + "/ostrovy.json"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: { try { const l = JSON.parse(text()); if (l.length) { rq.foot = l[l.length - 1]; rq.islands = l; } } catch (e) {} } }
     property var islands: []
-    Process { id: ostrovyProc; command: ["latte-ostrovy"] }
     // textúra: vlastná pre pravé L (bar-scene-vpravo), inak spoločná bar-scene
     property string sceneAll: "para"
     property string sceneRight: ""
@@ -37,7 +36,8 @@ ShellRoot {
     FileView { path: rq.cfg + "/bar-scene"; printErrors: false; watchChanges: true; onFileChanged: reload(); onLoaded: rq.sceneAll = text().trim() || "para"; onLoadFailed: rq.sceneAll = "para" }
     FileView { path: rq.cfg + "/bar-scene-vpravo"; printErrors: false; watchChanges: true; onFileChanged: reload(); onLoaded: rq.sceneRight = text().trim(); onLoadFailed: rq.sceneRight = "" }
     FileView { path: rq.cfg + "/bar-anim"; printErrors: false; watchChanges: true; onFileChanged: reload()
-               onLoadFailed: rq.barMotion = "vzdy"; onLoaded: rq.barMotion = ({ vypnuty: "vypnute", vypnute: "vypnute" })[text().trim()] || "vzdy" }
+               onLoadFailed: rq.barMotion = "vzdy"; onLoaded: { rq.barAnimRaw = text().trim(); rq.barMotion = ({ vypnuty: "vypnute", vypnute: "vypnute" })[rq.barAnimRaw] || "vzdy"; } }
+    property string barAnimRaw: ""
     FileView { path: rq.cfg + "/bar-stlmenie"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: { const v = parseFloat(text()); rq.dim = isNaN(v) ? 0.55 : Math.max(0, Math.min(0.9, v)); } }
 
@@ -88,7 +88,7 @@ ShellRoot {
     Q { id: qDev; command: ["latte-devices", "list"]
         done: (o) => { try { const d = JSON.parse(o); rq.devSummary = d.summary || ""; rq.devTotal = d.total || 0; rq.devFaults = (d.faults || []).length; } catch (e) {} } }
     function refresh() { for (const p of [qWifi, qBt, qDnd, qNight, qVol, qBri, qProf, qTier]) if (!p.running) p.running = true; }
-    onOpenChanged: if (open) { refresh(); if (!qDev.running) qDev.running = true; if (!ostrovyProc.running) ostrovyProc.running = true; }
+    onOpenChanged: if (open) { refresh(); if (!qDev.running) qDev.running = true; }
     Timer { interval: 3000; repeat: true; running: rq.open; onTriggered: rq.refresh() }
     Process { id: act; onExited: rq.refresh() }
     function run(argv) { act.running = false; act.command = argv; act.running = true; }
@@ -98,6 +98,14 @@ ShellRoot {
     readonly property var tierNames: ({ plny: "Plný", standard: "Štandard", usporny: "Úsporný", minimalny: "Minimálny", softver: "Softvér", safe: "SAFE" })
     readonly property var profileNames: ({ "power-saver": "Úsporný", balanced: "Vyvážený", performance: "Výkon" })
 
+    // GIF / obrázok priamo v ostrove na lište, súvislý s pätou okna L (Noctalia sama GIF nekreslí)
+    TileOverlay {
+        id: tile
+        theme: theme
+        foot: rq.foot; spec: rq.sceneRight || rq.sceneAll; glyph: "adjustments"; mirror: true
+        motion: rq.barAnimRaw === "vzdy" ? "vzdy" : "vypnute"; popupOpen: rq.open
+        canvasW: lpop.panelW; canvasH: lpop.sceneH; ox: lpop.footOx; oy: lpop.trunkH
+    }
     PanelWindow {
         visible: rq.open || lpop.p > 0
         anchors { top: true; bottom: true; left: true; right: true }
@@ -115,7 +123,7 @@ ShellRoot {
             side: "right"
             open: rq.open
             panelW: 420; panelH: 540; trunkH: 50
-            sceneSpec: rq.sceneRight || rq.sceneAll; motion: rq.barMotion; dim: rq.dim; footGlyph: "adjustments"
+            sceneSpec: rq.sceneRight || rq.sceneAll; motion: rq.barMotion; dim: rq.dim; footGlyph: "adjustments"; image: tile.image
             trunk: [
                 Row {
                     anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }

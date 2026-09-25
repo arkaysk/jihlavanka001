@@ -32,22 +32,22 @@ ShellRoot {
     }
     // animované otvorenie (vysunie sa z dlaždice) iba s GPU; pri softvérovom kreslení (VM) sa panel ukáže hneď
     readonly property bool anim: ["softver", "minimalny", "safe"].indexOf(Quickshell.env("LATTE_TIER") || "softver") < 0
-    // tvar L z ostrova na lište (common/LPopup.qml): päta = prvý ostrov (dlaždica aplikácií), poloha z latte-ostrovy
+    // tvar L z ostrova na lište (common/LPopup.qml): päta = prvý ostrov (dlaždica aplikácií), poloha z lišty (fork Noctalie zapisuje ostrovy.json)
     property var foot: ({ x: 12, y: (Quickshell.screens.length ? Quickshell.screens[0].height : 1080) - 56, w: 100, h: 42 })
     readonly property string runDir: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/latteos"
     FileView { id: ostrovy; path: sp.runDir + "/ostrovy.json"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: { try { const l = JSON.parse(text()); if (l.length) { sp.foot = l[0]; sp.islands = l; } } catch (e) {} } }
     property var islands: []
-    Process { id: ostrovyProc; command: ["latte-ostrovy"] }
     property string barScene: "para"
     property string barMotion: "vzdy"
     FileView { path: (Quickshell.env("XDG_CONFIG_HOME") || ((Quickshell.env("HOME") || "") + "/.config")) + "/latteos/bar-scene"; printErrors: false; watchChanges: true
                onFileChanged: reload(); onLoaded: sp.barScene = text().trim() || "para"; onLoadFailed: sp.barScene = "para" }
     FileView { path: (Quickshell.env("XDG_CONFIG_HOME") || ((Quickshell.env("HOME") || "") + "/.config")) + "/latteos/bar-anim"; printErrors: false; watchChanges: true
-               onFileChanged: reload(); onLoadFailed: sp.barMotion = "vzdy"; onLoaded: sp.barMotion = ({ vypnuty: "vypnute", vypnute: "vypnute" })[text().trim()] || "vzdy" }
+               onFileChanged: reload(); onLoadFailed: { sp.barMotion = "vzdy"; sp.barAnimRaw = ""; } onLoaded: { sp.barAnimRaw = text().trim(); sp.barMotion = ({ vypnuty: "vypnute", vypnute: "vypnute" })[sp.barAnimRaw] || "vzdy"; } }
+    property string barAnimRaw: ""           // pohyb dlaždice na lište: iba „vzdy“ hrá GIF stále (inak pri otvorenom okne)
     property real appear: 1
     Behavior on appear { enabled: sp.anim; NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
-    onOpenChanged: { if (open) { query = ""; tab = "apps"; flatpakPs.running = true; if (!ostrovyProc.running) ostrovyProc.running = true; } else closeMenu(); }
+    onOpenChanged: { if (open) { query = ""; tab = "apps"; flatpakPs.running = true; } else closeMenu(); }
 
     FileView {
         id: usageFile
@@ -173,6 +173,14 @@ ShellRoot {
 
     // jedna vrstva cez celú obrazovku (priehľadná) s panelom vľavo dole: s výhradným fokusom klávesnice Hyprland
     // posiela vstup iba tejto vrstve, preto klik mimo panelu dopadne sem a panel zavrie (aj klik na lištu)
+    // GIF / obrázok priamo v ostrove na lište, súvislý s pätou okna L (Noctalia sama GIF nekreslí)
+    TileOverlay {
+        id: tile
+        theme: theme
+        foot: sp.foot; spec: sp.barScene; glyph: "apps"; mirror: false
+        motion: sp.barAnimRaw === "vzdy" ? "vzdy" : "vypnute"; popupOpen: sp.open
+        canvasW: lpop.panelW; canvasH: lpop.sceneH; ox: lpop.footOx; oy: lpop.trunkH
+    }
     PanelWindow {
         id: pop
         visible: sp.open || lpop.p > 0
@@ -191,7 +199,7 @@ ShellRoot {
             side: "left"
             open: sp.open
             panelW: 660; panelH: 590; trunkH: 50
-            sceneSpec: sp.barScene; motion: sp.barMotion
+            sceneSpec: sp.barScene; motion: sp.barMotion; footGlyph: "apps"; image: tile.image
             trunk: [
                 Row {
                     anchors { right: parent.right; rightMargin: 14; verticalCenter: parent.verticalCenter }

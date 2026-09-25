@@ -3,6 +3,9 @@
 // Obraz je čistá funkcia času a polohy na spoločnom plátne (ox, oy = posun tohto výseku), takže päta v lište a kmeň
 // nad ňou kreslia ten istý obraz vo fáze a bez švu. Pohyb pasívny a pokojný (cyklus 6–12 s), softvér ~8 obr/s, GPU 24.
 // motion: vzdy · kurzor (iba keď awake) · vypnute (statický snímok).
+// Všetko (aj GIF) sa kreslí do jedného Canvasu, orezané na tvar výseku (radii: zaoblené rohy, napr. päta = ostrov
+// lišty), preto sedí s obrysom okna v tvare L. GIF môžu viaceré výseky zdieľať (image: spoločný AnimatedImage),
+// takže päta, kmeň aj dlaždica na lište ukazujú ten istý snímok.
 import QtQuick
 import Quickshell
 
@@ -18,42 +21,69 @@ Item {
     property real canvasH: height
     property real time: 0                   // spoločný čas (nastaví rodič, aby výseky boli vo fáze)
     property bool mirror: false             // pravý roh: zrkadlová geometria
+    property var radii: [0, 0, 0, 0]        // orezanie výseku: tl, tr, br, bl
+    property var image: null                // spoločný AnimatedImage (inak si výsek vytvorí vlastný)
+    property color base: colors.surfaceVariant   // podklad pod textúrou
     readonly property bool gpu: ["softver", "minimalny", "safe"].indexOf(Quickshell.env("LATTE_TIER") || "softver") < 0
     readonly property int fps: gpu ? 24 : 8
     readonly property bool moving: motion === "vzdy" || (motion === "kurzor" && awake)
     readonly property string kind: spec.indexOf(":") > 0 ? spec.slice(0, spec.indexOf(":")) : spec
     readonly property string arg: spec.indexOf(":") > 0 ? spec.slice(spec.indexOf(":") + 1) : ""
-    clip: true
+    readonly property var img: image || ownImg
 
     function rgba(c, a) { return Qt.rgba(c.r, c.g, c.b, a); }
 
-    Rectangle { anchors.fill: parent; visible: sc.kind === "solid"; color: sc.arg || sc.colors.surfaceVariant }
     AnimatedImage {
-        visible: sc.kind === "file"
-        x: -sc.ox; y: -sc.oy; width: sc.canvasW; height: sc.canvasH
-        source: sc.kind === "file" ? "file://" + sc.arg : ""
-        fillMode: Image.PreserveAspectCrop; playing: sc.moving && visible; cache: false; asynchronous: true
+        id: ownImg
+        visible: false
+        source: !sc.image && sc.kind === "file" ? "file://" + sc.arg : ""
+        playing: sc.moving && sc.kind === "file" && !sc.image; cache: false; asynchronous: true
     }
+    Connections { target: sc.img; function onFrameChanged() { if (sc.kind === "file") cv.requestPaint(); }
+                  function onStatusChanged() { cv.requestPaint(); } ignoreUnknownSignals: true }
+
     Canvas {
         id: cv
         anchors.fill: parent
-        visible: ["para", "matrix", "gears", "glow"].indexOf(sc.kind) >= 0
         renderStrategy: Canvas.Immediate
         property real t: sc.time
-        onTChanged: requestPaint()
+        onTChanged: if (sc.kind !== "file" && sc.kind !== "solid") requestPaint()
         onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+        Connections { target: sc; function onSpecChanged() { cv.requestPaint(); } function onOxChanged() { cv.requestPaint(); }
+                      function onOyChanged() { cv.requestPaint(); } function onRadiiChanged() { cv.requestPaint(); } }
         onPaint: {
             const c = getContext("2d"); c.reset();
+            const w = width, h = height, R = sc.radii || [0, 0, 0, 0];
+            // tvar výseku (zaoblené rohy) → orezanie
+            c.beginPath();
+            c.moveTo(R[0], 0); c.lineTo(w - R[1], 0); if (R[1]) c.arcTo(w, 0, w, R[1], R[1]);
+            c.lineTo(w, h - R[2]); if (R[2]) c.arcTo(w, h, w - R[2], h, R[2]);
+            c.lineTo(R[3], h); if (R[3]) c.arcTo(0, h, 0, h - R[3], R[3]);
+            c.lineTo(0, R[0]); if (R[0]) c.arcTo(0, 0, R[0], 0, R[0]);
+            c.closePath();
+            c.clip();
+            c.fillStyle = sc.kind === "solid" ? (sc.arg || sc.base) : sc.base;
+            c.fillRect(0, 0, w, h);
+            if (sc.kind === "solid") return;
             const W = sc.canvasW, H = sc.canvasH, ox = sc.ox, oy = sc.oy, t = sc.time, pc = sc.colors.primary;
+            if (sc.kind === "file") {
+                // obrázok / GIF vyplní celé spoločné plátno (orezanie na stred), výsek z neho ukáže svoju časť
+                const im = sc.img;
+                if (!im || im.status !== Image.Ready || !im.implicitWidth) return;
+                const k = Math.max(W / im.implicitWidth, H / im.implicitHeight), dw = im.implicitWidth * k, dh = im.implicitHeight * k;
+                c.drawImage(im, (W - dw) / 2 - ox, (H - dh) / 2 - oy, dw, dh);
+                return;
+            }
             c.save(); c.translate(-ox, -oy);
             if (sc.mirror && sc.kind !== "matrix") { c.translate(W, 0); c.scale(-1, 1); }   // písmená sa nezrkadlia
             if (sc.kind === "para") {                   // stĺpce ako para nad šálkou, pomaly dýchajú
                 const n = Math.max(6, Math.floor(W / 9));
                 for (let i = 0; i < n; i++) {
                     const x = 4 + i * (W - 8) / n, ph = t * (2 * Math.PI / 8) + i * 0.7;
-                    const h = H * (0.25 + 0.55 * (0.5 + 0.5 * Math.sin(ph))) * (1 - 0.35 * (i / n));
+                    const bh = H * (0.25 + 0.55 * (0.5 + 0.5 * Math.sin(ph))) * (1 - 0.35 * (i / n));
                     c.fillStyle = sc.rgba(pc, 0.16 + 0.26 * (1 - i / n));
-                    c.fillRect(x, H - h - 3, 3, h);
+                    c.fillRect(x, H - bh - 3, 3, bh);
                 }
             } else if (sc.kind === "matrix") {          // stekajúci kód v akcente motívu
                 const cw = 9, cols = Math.ceil(W / cw), rows = Math.ceil(H / 11), chars = "01LATTE7392ABCDEF";
@@ -75,13 +105,13 @@ Item {
                         c.lineTo(cx + Math.cos(a0 + Math.PI / teeth * 0.6) * rr, cy + Math.sin(a0 + Math.PI / teeth * 0.6) * rr);
                     }
                     c.closePath(); c.fillStyle = sc.rgba(pc, alpha); c.fill();
-                    c.beginPath(); c.arc(cx, cy, r * 0.32, 0, 2 * Math.PI); c.fillStyle = sc.colors.surfaceVariant; c.fill();
+                    c.beginPath(); c.arc(cx, cy, r * 0.32, 0, 2 * Math.PI); c.fillStyle = sc.base; c.fill();
                 };
-                const R = H * 0.42;
-                let x = R * 0.9, big = true, i = 0;
-                while (x < W + R) {
-                    const r = big ? R : R * 0.62, teeth = big ? 12 : 8, dir = i % 2 ? -1 : 1;
-                    gear(x, H * (big ? 0.62 : 0.4), r, teeth, dir * t * (0.5 / (r / R)) + i, big ? 0.28 : 0.2);
+                const RR = H * 0.42;
+                let x = RR * 0.9, big = true, i = 0;
+                while (x < W + RR) {
+                    const r = big ? RR : RR * 0.62, teeth = big ? 12 : 8, dir = i % 2 ? -1 : 1;
+                    gear(x, H * (big ? 0.62 : 0.4), r, teeth, dir * t * (0.5 / (r / RR)) + i, big ? 0.28 : 0.2);
                     x += r * 1.72; big = !big; i++;
                 }
             } else if (sc.kind === "glow") {            // pomalé svetlo: mäkké škvrny po dráhach

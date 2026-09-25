@@ -24,7 +24,10 @@ Item {
     property real dim: 0.55                 // stlmenie textúry pod textom kmeňa
     property var islands: []                // všetky ostrovy lišty (latte-ostrovy): L nesmie prekryť susedné položky
     property real gap: 10                   // medzera kmeňa nad lištou, ako maximalizované okno (Hyprland gaps_out)
-    property string footGlyph: ""           // ikona ostrova (päta ho prekryje, preto ju nakreslí znova)
+    property string footGlyph: ""           // ikona ostrova (päta ho prekryje, preto ju nakreslí znova — vždy, aj pri animácii)
+    property var image: null                // spoločný AnimatedImage pre GIF textúru (päta, kmeň aj dlaždica na lište)
+    property real footRadius: 16            // zaoblenie ostrova na lište (capsule_radius)
+    readonly property real panelRadius: 22
     default property alias content: body.data
     property alias trunk: trunkContent.data
     readonly property bool anim: ["softver", "minimalny", "safe"].indexOf(Quickshell.env("LATTE_TIER") || "softver") < 0
@@ -65,6 +68,9 @@ Item {
     readonly property real trunkBottom: barTop - gap
     readonly property real trunkY: trunkBottom - trunkH * armP
     readonly property real rad: 16
+    // spoločné plátno textúry (kmeň + päta); TileOverlay na lište ukazuje ten istý výsek päty
+    readonly property real sceneH: trunkH + foot.y + foot.h - trunkBottom
+    readonly property real footOx: foot.x - left0
 
     // spoločný čas textúry (päta a kmeň kreslia ten istý obraz vo fáze)
     property real t: 0
@@ -77,7 +83,7 @@ Item {
         x: lp.left0; width: lp.panelW
         y: lp.trunkY - lp.panelH * lp.panelP; height: lp.panelH * lp.panelP + lp.rad
         visible: lp.panelP > 0.01
-        radius: 22; color: lp.theme.surface; border { color: lp.theme.outline; width: 1 }
+        radius: lp.panelRadius; color: lp.theme.surface      // obrys kreslí spoločný obrys L (nižšie)
         opacity: lp.panelP
     }
     // kmeň: textúra, zaoblený vonkajší dolný roh
@@ -85,12 +91,11 @@ Item {
         id: trunkClip
         x: lp.armX; y: lp.trunkY; width: lp.armW; height: lp.trunkBottom - lp.trunkY
         visible: lp.armP > 0.01
-        clip: true
-        Rectangle { anchors.fill: parent; color: lp.theme.surfaceVariant; radius: 0 }
         Scena {
             id: trunkScene
             anchors.fill: parent
-            colors: lp.theme; spec: lp.sceneSpec; motion: lp.motion; time: lp.t; mirror: lp.isRight
+            colors: lp.theme; spec: lp.sceneSpec; motion: lp.motion; time: lp.t; mirror: lp.isRight; image: lp.image
+            radii: lp.isRight ? [0, 0, 0, lp.rad] : [0, 0, lp.rad, 0]          // vonkajší dolný roh kmeňa
             ox: trunkClip.x - lp.left0; oy: lp.trunkY - (lp.trunkBottom - lp.trunkH); canvasW: lp.panelW; canvasH: lp.trunkH + lp.foot.y + lp.foot.h - lp.trunkBottom
         }
         // stlmenie pod textom: textúra ostáva viditeľná pri päte, pokojná pod písmom
@@ -110,11 +115,10 @@ Item {
         // od vrchu lišty (ak je susedný ostrov vyšší, päta sa k kmeňu dotiahne stĺpcom nad vlastným ostrovom)
         x: lp.foot.x; y: lp.trunkBottom; width: lp.foot.w; height: lp.foot.y + lp.foot.h - lp.trunkBottom
         visible: lp.p > 0.01
-        clip: true
-        Rectangle { anchors.fill: parent; color: lp.theme.surfaceVariant; radius: 0 }
         Scena {
             anchors.fill: parent
-            colors: lp.theme; spec: lp.sceneSpec; motion: lp.motion; time: lp.t; mirror: lp.isRight
+            colors: lp.theme; spec: lp.sceneSpec; motion: lp.motion; time: lp.t; mirror: lp.isRight; image: lp.image
+            radii: [0, 0, lp.footRadius, lp.footRadius]                           // spodok päty = tvar ostrova
             ox: lp.foot.x - lp.left0; oy: lp.trunkH; canvasW: lp.panelW; canvasH: lp.trunkH + lp.foot.y + lp.foot.h - lp.trunkBottom
         }
         Rectangle {
@@ -122,22 +126,6 @@ Item {
             x: (parent.width - 30) / 2; y: parent.height - lp.foot.h / 2 - 15; width: 30; height: 30; radius: 10
             color: Qt.rgba(lp.theme.surfaceVariant.r, lp.theme.surfaceVariant.g, lp.theme.surfaceVariant.b, 0.85)
             Glyph { anchors.centerIn: parent; name: lp.footGlyph || "apps"; size: 18; color: lp.theme.primary }
-        }
-    }
-    // zaoblenie päty dole (ostrov má zaoblené rohy)
-    Canvas {
-        x: lp.foot.x - 1; y: lp.foot.y; width: lp.foot.w + 2; height: lp.foot.h + 1
-        visible: lp.p > 0.01
-        onVisibleChanged: requestPaint()
-        onPaint: {
-            const c = getContext("2d"); c.reset();
-            c.fillStyle = "rgba(0,0,0,0)";
-            c.globalCompositeOperation = "source-over";
-            const r = lp.rad, w = width, h = height;
-            // vyrežeme dolné rohy do priehľadna tak, že nakreslíme okolie farbou pozadia nie je možné — preto obrys
-            c.strokeStyle = lp.theme.outline; c.lineWidth = 1;
-            c.beginPath(); c.moveTo(0.5, 0); c.lineTo(0.5, h - r); c.quadraticCurveTo(0.5, h - 0.5, r, h - 0.5);
-            c.lineTo(w - r, h - 0.5); c.quadraticCurveTo(w - 0.5, h - 0.5, w - 0.5, h - r); c.lineTo(w - 0.5, 0); c.stroke();
         }
     }
     // vyduté zaoblenie medzi kmeňom a pätou (vnútorný roh L)
@@ -157,6 +145,40 @@ Item {
             if (lp.isRight) { c.moveTo(s, 0); c.lineTo(s, s); c.quadraticCurveTo(s, 0, 0, 0); }
             else { c.moveTo(0, 0); c.lineTo(0, s); c.quadraticCurveTo(0, 0, s, 0); }
             c.closePath(); c.fill();
+        }
+    }
+    // jeden obrys celého tvaru L (panel, kmeň, vydutý roh, päta so zaoblením ostrova) — ako obrys okna predtým
+    Canvas {
+        id: outline
+        anchors.fill: parent
+        visible: lp.p > 0.01
+        readonly property real sig: lp.p + lp.foot.x + lp.foot.y + lp.foot.w + lp.panelW + lp.panelH + lp.gap
+        onSigChanged: requestPaint()
+        onVisibleChanged: requestPaint()
+        onPaint: {
+            const c = getContext("2d"); c.reset();
+            if (!visible) return;
+            const f = lp.foot, fw = f.w, W = lp.armW, Rp = lp.panelRadius, Rt = lp.rad, Rf = lp.footRadius;
+            const top = lp.panelP > 0.01 ? lp.trunkY - lp.panelH * lp.panelP : lp.trunkY;
+            const tb = lp.trunkBottom, fb = f.y + f.h, s = Math.min(notch.s, W - fw);
+            // u = vzdialenosť od vonkajšej hrany päty (vľavo pri App Manageri, vpravo pri Zariadeniach)
+            const X = (u) => lp.isRight ? f.x + f.w - u : f.x + u;
+            c.strokeStyle = lp.theme.outline; c.lineWidth = 1;
+            c.beginPath();
+            c.moveTo(X(0) + (lp.isRight ? -0.5 : 0.5), top + Rp);
+            c.arcTo(X(0), top + 0.5, X(Rp), top + 0.5, Rp);
+            c.lineTo(X(W - Rp), top + 0.5);
+            c.arcTo(X(W), top + 0.5, X(W), top + Rp, Rp);
+            c.lineTo(X(W), tb - Rt);
+            c.arcTo(X(W), tb - 0.5, X(W - Rt), tb - 0.5, Rt);
+            if (s >= 2) { c.lineTo(X(fw + s), tb - 0.5); c.quadraticCurveTo(X(fw), tb - 0.5, X(fw), tb + s); }
+            else c.lineTo(X(fw), tb - 0.5);
+            c.lineTo(X(fw), fb - Rf);
+            c.arcTo(X(fw), fb - 0.5, X(fw - Rf), fb - 0.5, Rf);
+            c.lineTo(X(Rf), fb - 0.5);
+            c.arcTo(X(0), fb - 0.5, X(0), fb - Rf, Rf);
+            c.closePath();
+            c.stroke();
         }
     }
     // obsah panelu (nad kmeňom)
