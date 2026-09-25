@@ -30,6 +30,9 @@ Scope {
     readonly property color outline:        p.mOutline || "#4A3B30"
     readonly property color hover:          p.mHover || "#3A2D24"
     readonly property color error:          p.mError || "#E07A5F"
+    // stav NET nezávisle od palety (zapnutý = zelené plné koliesko, vypnutý = červené prázdne — tvar aj pre farboslepých)
+    readonly property color netOnColor:  "#3FB950"
+    readonly property color netOffColor: "#E5484D"
     readonly property color field: Qt.rgba(0, 0, 0, mode === "dark" ? 0.25 : 0.06)
     readonly property color line: Qt.rgba(fg.r, fg.g, fg.b, 0.10)
 

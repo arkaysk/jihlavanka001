@@ -143,7 +143,7 @@ ShellRoot {
             { glyph: "terminal-2", label: "Otvoriť v termináli", action: () => pl.sh('cd "$1" && setsid foot >/dev/null 2>&1 &', [pl.desk]) },
             { separator: true },
             { glyph: "device-desktop", label: "Nastavenia obrazovky", action: () => pl.sh('latte-app zariadenia obrazovky >/dev/null 2>&1 &') },
-            { glyph: "photo", label: "Tapety a živé tapety…", action: () => pl.sh('latte-app tapety >/dev/null 2>&1 &') },
+            { glyph: "photo", label: "Prispôsobiť pozadie…", action: () => pl.sh('latte-app nastavenia pozadie >/dev/null 2>&1 &') },
             { glyph: "palette", label: "Prispôsobiť (motív, pozadie)", action: () => pl.sh('latte-app nastavenia pozadie >/dev/null 2>&1 &') }
         ]);
     }
@@ -364,7 +364,7 @@ ShellRoot {
                     id: ima; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.LeftButton | Qt.RightButton
                     property point start
                     onPressed: (m) => {
-                        root.forceActiveFocus(); start = Qt.point(m.x, m.y);
+                        root.forceActiveFocus(); start = mapToItem(root, m.x, m.y);    // v súradniciach plochy — ikona sa počas ťahania hýbe
                         if (m.button === Qt.LeftButton) {
                             if (m.modifiers & Qt.ControlModifier) { const s = Object.assign({}, pl.sel); if (s[ic.path]) delete s[ic.path]; else s[ic.path] = true; pl.sel = s; }
                             else if (!ic.selected) { const s = {}; s[ic.path] = true; pl.sel = s; }
@@ -372,11 +372,11 @@ ShellRoot {
                     }
                     onPositionChanged: (m) => {
                         if (!(m.buttons & Qt.LeftButton)) return;
-                        const ddx = m.x - start.x, ddy = m.y - start.y;
+                        const q = mapToItem(root, m.x, m.y), ddx = q.x - start.x, ddy = q.y - start.y;
                         if (!ic.dragging && Math.abs(ddx) + Math.abs(ddy) < 8) return;
                         ic.dragging = true; ic.dx = ddx; ic.dy = ddy;
                         pl.dragPath = ic.path; pl.dragDx = ddx; pl.dragDy = ddy;
-                        const q = mapToItem(root, m.x, m.y), t = pl.iconAt(q.x, q.y);
+                        const t = pl.iconAt(q.x, q.y);
                         pl.dropTarget = t !== "" && !pl.sel[t] && (t === pl.trashDir || pl.isDirPath(t)) ? t : "";
                     }
                     onReleased: (m) => {

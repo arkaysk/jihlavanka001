@@ -24,6 +24,14 @@
                       [--rozlisenie hd|4k|2k|ultrawide] [--triedenie toplist|date_added|random]   JSON: katalóg
   latte-tapety stiahni URL NÁZOV                    stiahne do ~/.local/share/latteos/tapety (riadky „P 42“, na konci „OK cesta“)
   latte-tapety farby SÚBOR                          snímka videa → statická tapeta Noctalie (farby témy z tapety)
+  latte-tapety rezim crop|fit|stretch|repeat|center|span   prispôsobenie obrázka (ako Windows: Vyplniť, Prispôsobiť,
+                                                    Roztiahnuť, Dlaždica, Centrovať, Cez viac obrazoviek)
+  latte-tapety farba #RRGGBB [--vystup OUT]         plná farba namiesto obrázka
+  latte-tapety prezentacia PRIEČINOK|"" [--vystup OUT]   prezentácia (striedanie) z priečinka; "" = z knižnice
+  latte-tapety typ obrazok|farba|prezentacia|ziva   druh pozadia (Nastavenia › Pozadie)
+  latte-tapety adresar pridaj|odober PRIEČINOK      priečinky knižnice
+  latte-tapety pouzi CESTA [--vystup OUT]           pretiahnutý / vybraný súbor: priečinok = prezentácia, obrázok, video
+                                                    (animovaný GIF/WebP bez GPU = softvérová živá tapeta zivatapeta.qml)
 Nastavenia: ~/.config/latteos/tapety.json. Sockety: $XDG_RUNTIME_DIR/latteos/tapety/<obrazovka>.sock
 """
 import glob, hashlib, json, os, re, shutil, socket, subprocess, sys, time, urllib.parse, urllib.request
@@ -51,7 +59,15 @@ DEFAULTS = {
     "oblubene": [],
     "adresare": [HOME + "/Videá/Tapety", HOME + "/Obrázky/Tapety", DATA],
     "poradie": [],
+    "typ": "obrazok",           # obrazok | farba | prezentacia | ziva (Nastavenia › Pozadie, ako Windows)
+    "farba": "#3B2A20",
+    "nedavne": [],              # naposledy nastavené obrázky (najnovší prvý)
+    "posledna": {},             # obrazovka alebo "*" → posledný statický obrázok (pre ďalšia/predošlá)
+    "prezentacia_priecinok": "",   # "" = celá knižnica
 }
+FILL_MODES = ("crop", "fit", "stretch", "repeat", "center", "span")
+# mpv (živé video) pozná iba vyplniť / prispôsobiť / roztiahnuť
+MPV_SCALE = {"crop": "fill", "fit": "fit", "stretch": "stretch", "repeat": "fit", "center": "fit", "span": "fill"}
 
 
 def load():
@@ -202,7 +218,7 @@ def library(c):
     for d in c["adresare"]:
         for p in sorted(glob.glob(os.path.join(os.path.expanduser(d), "**", "*"), recursive=True)):
             e = ext(p)
-            if e not in VIDEO + IMAGE or not os.path.isfile(p) or p in seen:
+            if e not in VIDEO + IMAGE or not os.path.isfile(p) or p in seen or p.startswith(os.path.join(DATA, "farby") + "/"):
                 continue
             seen.add(p)
             st = os.stat(p)
@@ -397,6 +413,62 @@ def set_pause(paused):
         ipc(out, ["set_property", "pause", paused])
 
 
+def fill_mode():
+    r = subprocess.run(["latte-shellset", "get", "wallpaper.fill_mode"], capture_output=True, text=True)
+    m = r.stdout.strip().strip('"')
+    return m if m in FILL_MODES else "crop"
+
+
+def static_walls():
+    """obrazovka → aktuálny statický obrázok Noctalie"""
+    out = {}
+    for o in outputs():
+        r = subprocess.run(["noctalia", "msg", "wallpaper-get", o["name"]], capture_output=True, text=True)
+        if r.returncode == 0 and r.stdout.strip():
+            out[o["name"]] = r.stdout.strip()
+    r = subprocess.run(["noctalia", "msg", "wallpaper-get"], capture_output=True, text=True)
+    if r.returncode == 0 and r.stdout.strip():
+        out["*"] = r.stdout.strip()                 # predvolená (aj keď sa obrazovky nedajú zistiť)
+    return out
+
+
+def remember(c, path, out):
+    c["nedavne"] = ([path] + [x for x in c.get("nedavne", []) if x != path and os.path.isfile(x)])[:8]
+    c.setdefault("posledna", {})[out] = path
+
+
+def solid(color):
+    """plná farba = obrázok vo veľkosti celej plochy (sedí pri každom režime prispôsobenia, aj Cez viac obrazoviek)"""
+    from PIL import Image
+    color = color.upper()
+    outs = outputs() or [{"x": 0, "y": 0, "width": 1920, "height": 1080}]
+    w = max(o["x"] + o["width"] for o in outs) - min(o["x"] for o in outs)
+    h = max(o["y"] + o["height"] for o in outs) - min(o["y"] for o in outs)
+    path = os.path.join(DATA, "farby", "farba-%s-%dx%d.png" % (color.lstrip("#"), w, h))
+    if not os.path.exists(path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        Image.new("RGB", (max(16, w), max(16, h)), color).save(path)
+    return path
+
+
+def slideshow_items(c):
+    d = c.get("prezentacia_priecinok") or ""
+    if d and os.path.isdir(d):
+        items = [p for p in sorted(glob.glob(os.path.join(d, "**", "*"), recursive=True)) if os.path.isfile(p) and ext(p) in VIDEO + IMAGE]
+    else:
+        items = [x["path"] for x in library(c)]
+        if c.get("len_oblubene") and c.get("oblubene"):
+            items = [p for p in items if p in c["oblubene"]] or items
+    if not gpu_ok():                       # bez grafickej akcelerácie iba obrázky
+        items = [p for p in items if ext(p) in IMAGE]
+    return items
+
+
+def ensure_service(c):
+    if c.get("rotacia") and (c["vystupy"] or c.get("typ") == "prezentacia"):
+        subprocess.Popen([sys.argv[0], "sluzba"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+
 def main(a):
     if not a:
         print(__doc__); return 2
@@ -404,7 +476,10 @@ def main(a):
     c = load()
     if cmd == "nastav" and a:
         out = opt(a, "--vystup", "*")
-        scaling = opt(a, "--mierka", (c["vystupy"].get(out) or {}).get("mierka", "fill"))
+        keep_type = "--rotacia" in a
+        if keep_type:
+            a.remove("--rotacia")
+        scaling = opt(a, "--mierka", (c["vystupy"].get(out) or {}).get("mierka", MPV_SCALE.get(fill_mode(), "fill")))
         path = os.path.abspath(os.path.expanduser(a[0]))
         if not os.path.isfile(path):
             print("E súbor neexistuje"); return 1
@@ -412,6 +487,12 @@ def main(a):
             # obrázok: natívna tapeta Noctalie (bez GPU, farby témy z nej); živé video na obrazovke sa vypne
             for o in ([out] if out != "*" else list(c["vystupy"]) + running_outputs()):
                 stop(o); c["vystupy"].pop(o, None)
+            if out == "*":
+                c["posledna"] = {}
+            c.setdefault("posledna", {})[out] = path
+            if not keep_type:                   # ručný výber (nie prezentácia ani plná farba)
+                remember(c, path, out)
+                c["typ"] = "obrazok"
             save(c)
             r = subprocess.run(["noctalia", "msg", "wallpaper-set"] + ([out] if out != "*" else []) + [path], capture_output=True, text=True)
             print("OK" if r.returncode == 0 else "E " + (r.stderr or r.stdout).strip()[:200]); return r.returncode
@@ -424,6 +505,8 @@ def main(a):
             stop("*")
             c["vystupy"].pop("*", None)
         c["vystupy"][out] = {"subor": path, "mierka": scaling}
+        if not keep_type:
+            c["typ"] = "ziva"
         save(c)
         ok = start(out, path, scaling, c)
         if not ok and not gpu_ok():
@@ -439,7 +522,7 @@ def main(a):
                 start(out, v["subor"], v.get("mierka", "fill"), c)
         if c.get("bateria") and on_battery():
             set_pause(True)
-        if (c.get("rotacia") or c.get("bateria")) and c["vystupy"] and gpu_ok():
+        if ((c.get("rotacia") or c.get("bateria")) and c["vystupy"] and gpu_ok()) or (c.get("rotacia") and c.get("typ") == "prezentacia"):
             subprocess.Popen([sys.argv[0], "sluzba"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         return 0
     if cmd == "sluzba":
@@ -455,33 +538,34 @@ def main(a):
         while True:
             time.sleep(20)
             c = load()
-            if not c["vystupy"]:
+            slides = c.get("rotacia") and c.get("typ") == "prezentacia"
+            if not c["vystupy"] and not slides:
                 return 0
             b = on_battery() if c.get("bateria") else False
             if b != batt:
                 set_pause(b); batt = b
             if c.get("rotacia") and time.time() - last >= int(c["rotacia"]) * 60 and not b:
                 last = time.time()
-                main(["dalsia"])
+                main(["dalsia", "--rotacia"])
     if cmd == "oblubena" and len(a) == 2:
         p = os.path.abspath(a[0]); fav = [x for x in c.get("oblubene", []) if x != p]
         if a[1] == "on": fav.append(p)
         c["oblubene"] = fav; save(c); return 0
     if cmd in ("dalsia", "predosla"):
+        rot = ["--rotacia"] if "--rotacia" in a or c.get("typ") == "prezentacia" else []
+        if "--rotacia" in a:
+            a.remove("--rotacia")
         out = opt(a, "--vystup", "*" if "*" in c["vystupy"] or not c["vystupy"] else next(iter(c["vystupy"])))
-        lib = [x["path"] for x in library(c)]
-        if c.get("len_oblubene") and c.get("oblubene"):
-            lib = [p for p in lib if p in c["oblubene"]] or lib
-        if cmd == "dalsia" and c.get("rotacia_poradie") == "nahodne" and len(lib) > 1:
-            import random
-            cur = (c["vystupy"].get(out) or {}).get("subor")
-            return main(["nastav", random.choice([p for p in lib if p != cur]), "--vystup", out])
+        lib = slideshow_items(c)
         if not lib:
             print("E knižnica je prázdna"); return 1
-        cur = (c["vystupy"].get(out) or {}).get("subor")
+        cur = (c["vystupy"].get(out) or {}).get("subor") or (c.get("posledna") or {}).get(out)
+        if cmd == "dalsia" and c.get("rotacia_poradie") == "nahodne" and len(lib) > 1:
+            import random
+            return main(["nastav", random.choice([p for p in lib if p != cur]), "--vystup", out] + rot)
         i = lib.index(cur) if cur in lib else -1
         nxt = lib[(i + (1 if cmd == "dalsia" else -1)) % len(lib)]
-        return main(["nastav", nxt, "--vystup", out])
+        return main(["nastav", nxt, "--vystup", out] + rot)
     if cmd in ("pauza", "pozastav", "pokracuj"):
         outs = running_outputs()
         if not outs:
@@ -506,7 +590,11 @@ def main(a):
         for out, v in c["vystupy"].items():
             r = ipc(out, ["get_property", "pause"])
             st[out] = dict(v, hra=r is not None and r.get("error") == "success", pauza=bool(r and r.get("data") is True))
-        print(json.dumps({"vystupy": st, "nastavenia": {k: c[k] for k in ("zvuk", "ticho", "hwdec", "auto_pauza", "bateria", "farby", "rotacia", "rotacia_poradie", "len_oblubene", "oblubene", "adresare")},
+        print(json.dumps({"vystupy": st, "nastavenia": {k: c[k] for k in ("zvuk", "ticho", "hwdec", "auto_pauza", "bateria", "farby", "rotacia", "rotacia_poradie", "len_oblubene", "oblubene", "adresare",
+                                                                        "typ", "farba", "prezentacia_priecinok")},
+                          "nedavne": [p for p in c.get("nedavne", []) if os.path.isfile(p)], "rezim": fill_mode(), "staticke": static_walls(),
+                          "okraje": subprocess.run(["latte-shellset", "get", "wallpaper.fill_color"], capture_output=True, text=True).stdout.strip().strip('"'),
+                          "ziva_gif": (open(os.path.join(CFG_DIR, "latteos", "live-wallpaper")).read().strip()[6:] if os.path.exists(os.path.join(CFG_DIR, "latteos", "live-wallpaper")) and open(os.path.join(CFG_DIR, "latteos", "live-wallpaper")).read().startswith("video:") else ""),
                           "engine": bool(shutil.which("mpvpaper")), "gpu": gpu_ok(), "bateria_teraz": on_battery()}, ensure_ascii=False)); return 0
     if cmd == "hlasitost" and a:
         c["zvuk"] = max(0, min(100, int(a[0]))); c["ticho"] = c["zvuk"] == 0; save(c)
@@ -532,7 +620,62 @@ def main(a):
         save(c)
         if k in ("auto_pauza", "hwdec"):          # voľby procesu: reštart prehrávača
             main(["obnov"])
+        if k == "rotacia":
+            ensure_service(c)
         return 0
+    if cmd == "rezim" and a and a[0] in FILL_MODES:
+        r = subprocess.run(["latte-shellset", "set", "wallpaper.fill_mode", a[0]], capture_output=True, text=True)
+        for o in list(c["vystupy"]):
+            main(["mierka", o, MPV_SCALE[a[0]]])
+        print("OK" if r.returncode == 0 else "E " + (r.stderr or r.stdout).strip()[:200]); return r.returncode
+    if cmd == "farba" and a and re.fullmatch(r"#[0-9a-fA-F]{6}", a[0]):
+        out = opt(a, "--vystup", "*")
+        c["typ"] = "farba"; c["farba"] = a[0].upper(); save(c)
+        return main(["nastav", solid(a[0]), "--vystup", out, "--rotacia"])
+    if cmd == "prezentacia" and a:
+        out = opt(a, "--vystup", "*")
+        d = os.path.abspath(os.path.expanduser(a[0])) if a[0] else ""
+        if d and not os.path.isdir(d):
+            print("E priečinok neexistuje"); return 1
+        c["typ"] = "prezentacia"; c["prezentacia_priecinok"] = d
+        if not c.get("rotacia"):
+            c["rotacia"] = 30
+        save(c)
+        rc = main(["dalsia", "--vystup", out, "--rotacia"])
+        ensure_service(load())
+        return rc
+    if cmd == "typ" and a and a[0] in ("obrazok", "farba", "prezentacia", "ziva"):
+        c["typ"] = a[0]
+        if a[0] != "prezentacia" and not c["vystupy"]:
+            c["rotacia"] = 0
+        save(c)
+        if a[0] == "prezentacia":
+            ensure_service(c)
+        print("OK"); return 0
+    if cmd == "adresar" and len(a) == 2 and a[0] in ("pridaj", "odober"):
+        d = os.path.abspath(os.path.expanduser(a[1]))
+        ds = [x for x in c["adresare"] if os.path.abspath(os.path.expanduser(x)) != d]
+        if a[0] == "pridaj":
+            if not os.path.isdir(d):
+                print("E priečinok neexistuje"); return 1
+            ds.append(d)
+        c["adresare"] = ds; save(c); print("OK"); return 0
+    if cmd == "pouzi" and a:
+        out = opt(a, "--vystup", "*")
+        path = os.path.abspath(os.path.expanduser(a[0]))
+        if os.path.isdir(path):
+            return main(["prezentacia", path, "--vystup", out])
+        e = ext(path)
+        if e in ("gif", "webp") and not gpu_ok():
+            live = os.path.join(CFG_DIR, "latteos", "live-wallpaper")
+            with open(live, "w") as f:
+                f.write("video:" + path + "\n")
+            if subprocess.run(["pgrep", "-f", "latteos/apps/[z]ivatapeta.qml"], stdout=subprocess.DEVNULL).returncode != 0:
+                subprocess.Popen(["latte-app", "zivatapeta"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+            c["typ"] = "ziva"; save(c); print("OK"); return 0
+        if e not in VIDEO + IMAGE:
+            print("E toto nie je obrázok ani video"); return 1
+        return main(["nastav", path, "--vystup", out])
     if cmd == "vystupy":
         print(json.dumps(outputs(), ensure_ascii=False)); return 0
     if cmd == "kniznica":

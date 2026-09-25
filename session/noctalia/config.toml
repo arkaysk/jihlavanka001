@@ -11,6 +11,11 @@ mode           = "dark"
 source         = "custom"
 custom_palette = "Latte"
 
+# farby GTK 3/4 (zenity, portálový dialóg súborov vo Firefoxe, GTK aplikácie) podľa témy a svetlej/tmavej verzie:
+# vstavané šablóny Noctalie zapíšu ~/.config/gtk-{3,4}.0/noctalia.css a import v gtk.css, tému adw-gtk3(-dark)
+[theme.templates]
+builtin_ids = ["gtk3", "gtk4"]
+
 [shell]
 font_family         = "Manrope"
 corner_radius_scale = 1.15

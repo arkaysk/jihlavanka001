@@ -3,7 +3,7 @@
 // nad aktívnym oknom: v titulku kompozitora (hyprbars) naľavo od – □ ✕, pri oknách s vlastnou hlavičkou
 // (GTK, Firefox, Electron…) ako prilepený jazýček nad horným okrajom okna. Znak sa ukáže, až keď proces
 // okna alebo jeho potomkovia majú spojenie mimo lo (latte-net used PID); vypnutý NET ostáva viditeľný.
-// Klik prepne NET aplikácie (latte-net on/off podľa triedy okna — platí od ďalšieho spustenia aplikácie).
+// Klik prepne NET aplikácie (latte-net on/off podľa triedy okna — platí hneď cez latte-netd).
 // Spúšťa: latte-app netznak (hyprland.lua pri štarte).
 import QtQuick
 import Quickshell
@@ -94,9 +94,12 @@ ShellRoot {
         id: toggle
         property bool turnOff: false
         onExited: (code) => {
+            if (code === 0) { const o = Object.assign({}, nz.off); o[nz.cls] = turnOff; nz.off = o; }   // znak sa prefarbí hneď
             nz.checkOff();
             tell.command = code === 0
-                ? ["notify-send", "-a", "LatteOS", "-i", "network-wired", (turnOff ? "NET vypnutý: " : "NET zapnutý: ") + nz.cls, "Platí od ďalšieho spustenia aplikácie."]
+                ? ["notify-send", "-a", "LatteOS", "-i", turnOff ? "network-offline" : "network-wired",
+                   (turnOff ? "Internet zablokovaný: " : "Internet povolený: ") + nz.cls,
+                   turnOff ? "Platí hneď, otvorené spojenia sa ukončili." : "Platí hneď, aplikácia sa môže znova pripojiť."]
                 : ["notify-send", "-a", "LatteOS", "-u", "critical", "NET sa nedá prepnúť: " + nz.cls, "Aplikácia sa nenašla medzi spúšťačmi (.desktop)."];
             tell.running = true;
         }
@@ -128,10 +131,14 @@ ShellRoot {
             topLeftRadius: 9; topRightRadius: 9
             bottomLeftRadius: nz.outside ? 0 : height / 2; bottomRightRadius: nz.outside ? 0 : height / 2
             color: ma.containsMouse ? theme.hover : theme.surfaceVariant
-            border { color: nz.netOff ? theme.error : Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.5); width: 1 }
+            border { color: nz.netOff ? theme.netOffColor : Qt.rgba(theme.netOnColor.r, theme.netOnColor.g, theme.netOnColor.b, 0.6); width: 1 }
             Row {
                 anchors.centerIn: parent; spacing: 5
-                Rectangle { width: 7; height: 7; radius: 3.5; anchors.verticalCenter: parent.verticalCenter; color: nz.netOff ? theme.error : theme.primary }
+                Rectangle {         // zapnutý: zelené plné koliesko; vypnutý: červené prázdne
+                    width: 8; height: 8; radius: 4; anchors.verticalCenter: parent.verticalCenter
+                    color: nz.netOff ? "transparent" : theme.netOnColor
+                    border { color: nz.netOff ? theme.netOffColor : theme.netOnColor; width: nz.netOff ? 1.5 : 0 }
+                }
                 Text { text: "NET"; color: theme.fg; font { family: theme.fontUi; pixelSize: 11; weight: Font.Bold } }
             }
             MouseArea {

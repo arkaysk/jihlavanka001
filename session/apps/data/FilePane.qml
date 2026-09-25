@@ -124,6 +124,23 @@ Rectangle {
                text: (ghost.move ? "Presunúť " : "Kopírovať ") + (pane.dragItems.length === 1 ? pane.dragItems[0].name : pane.dragItems.length + " položiek") + (ghost.move ? "" : "  · Shift = presunúť") }
     }
     readonly property alias dragGhost: ghost
+    // ťahanie mimo okna (do Nastavení, na plochu, do prehliadača…): systémový drag & drop so zoznamom súborov
+    Item {
+        id: sysDrag
+        Drag.dragType: Drag.Automatic
+        Drag.supportedActions: Qt.CopyAction
+        Drag.keys: ["text/uri-list"]
+    }
+    function leaveWindow(ma, m) {
+        const w = pane.Window.window;
+        if (!w || !ghost.Drag.active) return false;
+        const g = ma.mapToItem(null, m.x, m.y);
+        if (g.x >= 0 && g.y >= 0 && g.x < w.width && g.y < w.height) return false;
+        ghost.Drag.cancel(); ghost.Drag.active = false;
+        sysDrag.Drag.mimeData = { "text/uri-list": pane.dragItems.map(e => "file://" + encodeURI(e.path)).join("\r\n") + "\r\n" };
+        sysDrag.Drag.startDrag();
+        return true;
+    }
 
     color: "transparent"
     border { color: active ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.45) : "transparent"; width: 1 }
@@ -327,7 +344,7 @@ Rectangle {
                 drag.threshold: 10
                 onPressed: (m) => { const q = mapToItem(pane, m.x, m.y); ghost.x = q.x + 14; ghost.y = q.y + 14; }
                 onPositionChanged: (m) => { if (drag.active && !ghost.Drag.active) { pane.beginDrag(rowItem.index); ghost.Drag.active = true; }
-                                            ghost.move = (m.modifiers & Qt.ShiftModifier) !== 0; }
+                                            ghost.move = (m.modifiers & Qt.ShiftModifier) !== 0; pane.leaveWindow(this, m); }
                 onReleased: if (ghost.Drag.active) { ghost.Drag.drop(); ghost.Drag.active = false; }
                 onClicked: (m) => {
                     if (m.button === Qt.LeftButton && (m.modifiers & Qt.ControlModifier)) { pane.toggleMark(rowItem.index); pane.anchorIdx = rowItem.index; }
@@ -413,7 +430,7 @@ Rectangle {
                 drag.threshold: 10
                 onPressed: (m) => { const q = mapToItem(pane, m.x, m.y); ghost.x = q.x + 14; ghost.y = q.y + 14; }
                 onPositionChanged: (m) => { if (drag.active && !ghost.Drag.active) { pane.beginDrag(cell.index); ghost.Drag.active = true; }
-                                            ghost.move = (m.modifiers & Qt.ShiftModifier) !== 0; }
+                                            ghost.move = (m.modifiers & Qt.ShiftModifier) !== 0; pane.leaveWindow(this, m); }
                 onReleased: if (ghost.Drag.active) { ghost.Drag.drop(); ghost.Drag.active = false; }
                 onClicked: (m) => {
                     if (m.button === Qt.LeftButton && (m.modifiers & Qt.ControlModifier)) pane.toggleMark(cell.index);

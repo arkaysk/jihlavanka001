@@ -30,6 +30,18 @@ Rectangle {
     Timer { interval: 5000; repeat: true; running: hb.netVisible && !hb.netUsed; triggeredOnStart: true; onTriggered: netProbe.running = true }
     Process { id: winCmd }
     function winAction(code) { winCmd.command = ["hyprctl", "eval", code]; winCmd.running = true; }
+    // prázdne miesto hlavičky: ťahanie presunie okno (xdg_toplevel.move ako GTK/KDE), dvojklik = zväčšiť.
+    // Leží pod ostatnými prvkami, tlačidlá a hľadanie majú prednosť. Super + myš je iba doplnok.
+    MouseArea {
+        z: -1; anchors.fill: parent; acceptedButtons: Qt.LeftButton
+        property point start
+        onPressed: (m) => start = Qt.point(m.x, m.y)
+        onPositionChanged: (m) => {
+            if ((m.buttons & Qt.LeftButton) && Math.abs(m.x - start.x) + Math.abs(m.y - start.y) > 4 && hb.Window.window)
+                hb.Window.window.startSystemMove();
+        }
+        onDoubleClicked: hb.winAction("latte.win.maximize()")
+    }
     default property alias tools: toolRow.data
     signal back()
     signal forward()
@@ -135,14 +147,19 @@ Rectangle {
                 font { family: hb.theme.fontUi; pixelSize: 13 }
             }
         }
-        // NET: sieťový prístup aplikácie (bezpečnostný model F6) — zatiaľ iba zobrazenie
+        // NET: sieťový prístup aplikácie (bezpečnostný model F6), prepnutie platí hneď (latte-netd)
         Rectangle {
             visible: hb.netVisible && (hb.netUsed || !hb.netOn)      // vypnutý NET ostáva viditeľný, aby sa dal zapnúť
             width: netRow.implicitWidth + 16; height: 36; radius: 10
-            color: hb.netOn ? Qt.rgba(hb.theme.primary.r, hb.theme.primary.g, hb.theme.primary.b, 0.14) : hb.theme.field
+            color: hb.netOn ? Qt.rgba(hb.theme.netOnColor.r, hb.theme.netOnColor.g, hb.theme.netOnColor.b, 0.14) : hb.theme.field
+            border { color: hb.netOn ? "transparent" : hb.theme.netOffColor; width: 1 }
             Row {
                 id: netRow; anchors.centerIn: parent; spacing: 6
-                Rectangle { width: 8; height: 8; radius: 4; anchors.verticalCenter: parent.verticalCenter; color: hb.netOn ? hb.theme.primary : hb.theme.error }
+                Rectangle {         // zapnutý: zelené plné koliesko; vypnutý: červené prázdne
+                    width: 9; height: 9; radius: 4.5; anchors.verticalCenter: parent.verticalCenter
+                    color: hb.netOn ? hb.theme.netOnColor : "transparent"
+                    border { color: hb.netOn ? hb.theme.netOnColor : hb.theme.netOffColor; width: hb.netOn ? 0 : 1.5 }
+                }
                 Text { text: "NET"; color: hb.theme.fg; font { family: hb.theme.fontUi; pixelSize: 12; weight: Font.ExtraBold } }
             }
             MouseArea {

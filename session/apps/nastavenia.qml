@@ -117,6 +117,7 @@ ShellRoot {
             { key: "motiv", label: "Motív a farby", glyph: "palette", status: "ready" },
             { key: "pismo", label: "Písmo a mierka", glyph: "typography", status: "ready" },
             { key: "pozadie", label: "Pozadie", glyph: "photo", status: "ready" },
+            { key: "tapetyonline", label: "Tapety online", glyph: "world", status: "ready" },
             { key: "okna", label: "Okná", glyph: "layout-columns", status: "ready" },
             { key: "lista", label: "Lišta a systémové menu", glyph: "layout-bottombar", status: "ready" },
             { key: "oznamenia", label: "Oznámenia", glyph: "bell", status: "ready" },
@@ -510,7 +511,8 @@ ShellRoot {
             diagnostika: "Počítadlo pádov a prvý log z posledného pádu relácie. Ten istý záznam ukazuje vývojárska obrazovka prihlásenia.",
             prihlasovanie: "Vzhľad obrazovky prihlásenia: obrázok alebo farba a ľavý panel. Posledné dva účty sa ukazujú samé.",
             motiv: "Téma prefarbí lištu, panely, okná aj aplikácie naraz. Každá téma má tmavú aj svetlú verziu.",
-            pozadie: "Tapeta plochy. Témy si pri zmene vyberú svoju, tu ju môžeš zmeniť.",
+            pozadie: "Tapeta plochy ako vo Windows: obrázok, plná farba, prezentácia alebo živá tapeta, pre všetky obrazovky naraz alebo každú zvlášť. Obrázok, video aj priečinok sem môžeš pretiahnuť zo Súborov.",
+            tapetyonline: "Katalógy tapiet na internete: MotionBGS (živé), Wallhaven (4K/8K), Bing (denná fotka) a minimalistické. Klik stiahne tapetu do knižnice, v Pozadí ju hneď nájdeš.",
             okna: "Ako sa ukladajú okná. Super+W prepína režimy aj bez otvárania nastavení.",
             lista: "Spodná lišta z ostrovov. Šírku určuje odsadenie od okrajov obrazovky. Vľavo dlaždica aplikácií, vpravo maskot.",
             efekty: "Pohyblivé textúry tém (živá tapeta) a efekty okien.",
@@ -545,6 +547,14 @@ ShellRoot {
         if (k === "domov" || k === "start") return (m.mode || "?").toUpperCase() + " · " + (m.renderer || "?") + " · stupeň " + (m.tier || "?") + (m.reason ? "\n" + m.reason : "");
         if (k === "motiv") return "Téma " + theme.themeName + " · režim " + modeName(modePref) + " (teraz " + theme.mode + ")";
         if (k === "okna") return ({ paska: "Nekonečná páska", dlazdice: "Dlaždice", plavajuce: "Plávajúce okná" })[app.windowMode] || app.windowMode;
+        if (k === "pozadie") {
+            const n = tp.nastavenia || {}, t = n.typ || "obrazok";
+            return ({ obrazok: "Obrázok", farba: "Plná farba " + (n.farba || ""), prezentacia: "Prezentácia · každých " + (n.rotacia || 30) + " min", ziva: "Živá tapeta" })[t]
+                   + (t !== "farba" ? " · " + ({ crop: "Vyplniť", fit: "Prispôsobiť", stretch: "Roztiahnuť", repeat: "Dlaždica", center: "Centrovať", span: "Cez viac obrazoviek" })[tp.rezim || "crop"] : "")
+                   + "\n" + tpOuts.length + (tpOuts.length === 1 ? " obrazovka" : " obrazovky") + (tpTarget !== "*" ? " · upravuješ " + tpTarget : "")
+                   + (tp.gpu ? "" : "\nBez GPU: video sa spustí až s grafickou akceleráciou");
+        }
+        if (k === "tapetyonline") return tpLib.filter(x => x.online).length + " stiahnutých v knižnici" + (Object.keys(tpDownloads).length ? "\nSťahujem " + Object.keys(tpDownloads).length : "");
         if (k === "efekty") return "Živá tapeta: " + (liveWp === "" ? "vypnutá" : liveWp) + "\nStupeň: " + (app.tierChoice === "auto" ? "automaticky (" + (m.tier || "?") + ")" : app.tierChoice);
         if (k === "vykon") return app.tierChoice === "auto" ? "Automaticky (" + (m.tier || "?") + ")" : "Vynútený: " + app.tierChoice;
         if (k === "ai") return (ai.ok === "1" ? "● Dostupné" : "× Nedostupné") + "\n" + (ai.target || "") + (ai.model ? "\nmodel " + ai.model : "") + (ai.error ? "\n" + ai.error : "");
@@ -567,7 +577,7 @@ ShellRoot {
     }
     function storedIn(k) {
         return ({
-            domov: "/run/latteos/mode.toml", motiv: "~/.config/latteos/theme\n~/.config/latteos/theme-mode", pozadie: "~/.local/state/noctalia/settings.toml",
+            domov: "/run/latteos/mode.toml", motiv: "~/.config/latteos/theme\n~/.config/latteos/theme-mode", pozadie: "~/.config/latteos/tapety.json\n~/.local/state/noctalia/settings.toml [wallpaper]", tapetyonline: "~/.local/share/latteos/tapety",
             okna: "~/.local/state/latteos/window-mode", vykon: "~/.config/latteos/tier", efekty: "~/.config/latteos/live-wallpaper\n~/.config/latteos/tier",
             start: "/etc/latteos/boot.toml\n/var/lib/latteos/", ai: "~/.config/latteos/ai.toml\n~/.config/latteos/ai-keys (0600)",
             lista: "~/.local/state/noctalia/settings.toml [bar.main]\n~/.config/latteos/bar-anim, bar-scene, bar-scene-vpravo, bar-stlmenie, mascot", cas: "~/.local/state/noctalia/settings.toml [location]\n~/.config/latteos/clock.conf",
@@ -704,7 +714,7 @@ ShellRoot {
         if (managed[k]) return pManaged;
         if (dalsie.pages[k]) return dalsie.pages[k];
         return ({ domov: pDomov, ai: pAi, subory: pSubory, ulozisko: pUlozisko, vykon: pVykon, diagnostika: pDiag,
-                  prihlasovanie: pGreeter, motiv: pMotiv, pozadie: pPozadie, okna: pOkna, lista: pLista, efekty: pEfekty,
+                  prihlasovanie: pGreeter, motiv: pMotiv, pozadie: pPozadie, tapetyonline: pTapetyOnline, okna: pOkna, lista: pLista, efekty: pEfekty,
                   start: pStart, cas: pCas, o: pO, klavesnica: pKlavesy, oznamenia: pOznamenia, pristupnost: pPristupnost,
                   uzamknutie: pUzamknutie, mojucet: pUcet, jazyk: pJazyk, zalohy: pZalohy, pouzivatelia: pPouzivatelia, synchronizacia: pCloud })[k] || pPlan;
     }
@@ -1022,67 +1032,487 @@ ShellRoot {
             }
         }
     }
+    // ── Pozadie (ako Windows › Prispôsobenie › Pozadie; backend latte-tapety, obrázky = tapeta Noctalie) ──────────
+    // náhľad tapety v zozname (obrázok, video s náhľadom, farba)
+    component Thumb: Rectangle {
+        id: th
+        property string src: ""                // obrázok alebo náhľad videa
+        property string name: ""
+        property bool video: false
+        property bool active: false
+        property bool fav: false
+        property real progress: -2              // sťahovanie 0–100 (-2 = nie)
+        property int w: 164
+        signal clicked()
+        signal menu(real x, real y)
+        width: w; height: Math.round(w * 9 / 16); radius: 10; clip: true; color: theme.field
+        border { color: active ? theme.primary : (thm.containsMouse ? theme.outline : "transparent"); width: active ? 2.5 : 1 }
+        Image { anchors { fill: parent; margins: th.active ? 3 : 1 } source: th.src ? (th.src.startsWith("http") ? th.src : "file://" + th.src) : ""
+                fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: true; sourceSize { width: 360; height: 204 } }
+        Glyph { anchors.centerIn: parent; visible: !th.src; name: th.video ? "movie" : "photo"; size: 26; color: theme.fgDim }
+        Rectangle { visible: th.video; anchors { left: parent.left; bottom: parent.bottom; margins: 6 } width: vtl.implicitWidth + 12; height: 18; radius: 6; color: Qt.rgba(0, 0, 0, 0.6)
+                    Text { id: vtl; anchors.centerIn: parent; text: "▶ živá"; color: "white"; font { family: theme.fontUi; pixelSize: 10; weight: Font.Bold } } }
+        Text { visible: th.fav; anchors { right: parent.right; top: parent.top; margins: 6 } text: "★"; color: "#F2C14E"; style: Text.Outline; styleColor: Qt.rgba(0, 0, 0, 0.5); font.pixelSize: 15 }
+        Rectangle { visible: th.progress > -2; anchors { left: parent.left; right: parent.right; bottom: parent.bottom } height: 6; color: Qt.rgba(0, 0, 0, 0.45)
+                    Rectangle { width: parent.width * Math.max(0.03, th.progress / 100); height: parent.height; color: theme.primary } }
+        Rectangle { visible: thm.containsMouse && th.name !== ""; anchors { left: parent.left; right: parent.right; bottom: parent.bottom } height: 22; color: Qt.rgba(0, 0, 0, 0.55)
+                    Text { anchors { fill: parent; leftMargin: 8; rightMargin: 8 } verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; text: th.name; color: "white"; font { family: theme.fontUi; pixelSize: 11 } } }
+        MouseArea { id: thm; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.LeftButton | Qt.RightButton; cursorShape: Qt.PointingHandCursor
+                    onClicked: (m) => { if (m.button === Qt.RightButton) { const q = mapToItem(null, m.x, m.y); th.menu(q.x, q.y); } else th.clicked(); } }
+    }
+    // prepínač s popisom
+    component Toggle: Row {
+        id: tg
+        property bool on: false
+        property string label
+        signal toggled()
+        spacing: 10
+        Rectangle {
+            width: 46; height: 26; radius: 13; anchors.verticalCenter: parent.verticalCenter
+            color: tg.on ? theme.primary : theme.field; border { color: theme.line; width: 1 }
+            Rectangle { width: 20; height: 20; radius: 10; y: 3; x: tg.on ? 23 : 3; color: tg.on ? theme.fgOnPrimary : theme.fgDim }
+            MouseArea { anchors.fill: parent; onClicked: tg.toggled() }
+        }
+        Text { anchors.verticalCenter: parent.verticalCenter; text: tg.label; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 } }
+    }
+    // riadok „Pretiahni sem… / Prehľadávať“ (ako Windows „Výber fotografie“), prijme aj pretiahnutie zo Súborov
+    component PickRow: Rectangle {
+        id: pr
+        property string label
+        property string hint: "alebo sem pretiahni súbor zo Súborov"
+        property string button: "Prehľadávať…"
+        signal browse()
+        signal dropped(var paths)
+        width: parent ? Math.min(parent.width, 760) : 600; height: 58; radius: 12
+        color: prDrop.containsDrag ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.16) : theme.field
+        border { color: prDrop.containsDrag ? theme.primary : "transparent"; width: 1.5 }
+        Column { anchors { left: parent.left; leftMargin: 16; right: prBtn.left; rightMargin: 12; verticalCenter: parent.verticalCenter } spacing: 2
+            Text { width: parent.width; elide: Text.ElideRight; text: pr.label; color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.DemiBold } }
+            Text { width: parent.width; elide: Text.ElideRight; text: prDrop.containsDrag ? "Pusti — nastaví sa hneď" : pr.hint; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } } }
+        Button { id: prBtn; anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter } label: pr.button; glyph: "folder-open"; onClicked: pr.browse() }
+        DropArea { id: prDrop; anchors.fill: parent; keys: ["text/uri-list"]
+                   onDropped: (d) => { if (d.hasUrls) { pr.dropped(app.dropPaths(d.urls)); d.accept(Qt.CopyAction); } } }
+    }
+    function setBackupTarget(t) { if (t !== app.backup.target) { run(["latte-backup", "set-target", t], "Cieľ zálohy: " + t); backupProc.running = true; } }
+    function setBarFile(f) { barScene = "file:" + f; writePref("bar-scene", barScene, "Textúra L: " + f.split("/").pop()); }
+    function dropPaths(urls) { return urls.map(u => decodeURIComponent(String(u).replace(/^file:\/\//, ""))); }
+    // dialóg výberu (latte-vyber = zenity s farbami témy); výsledok dostane callback
+    property var pickCb: null
+    Cmd { id: picker; onDone: (out) => { const p = out.split("\n").filter(x => x !== ""); if (p.length && app.pickCb) app.pickCb(p); } }
+    function browse(args, cb) { if (picker.running) return; pickCb = cb; picker.command = ["latte-vyber"].concat(args); picker.running = true; }
+
+    // stav tapiet (spoločný pre Pozadie a Tapety online; obnovuje sa, kým je jedna z nich otvorená)
+    property var tp: ({ nastavenia: {}, vystupy: {}, staticke: {}, nedavne: [], rezim: "crop", gpu: false })
+    property var tpLib: []
+    property var tpOuts: []
+    property string tpTarget: "*"
+    readonly property bool tpVisible: section === "pozadie" || section === "tapetyonline"
+    Cmd { id: tpStav; command: ["latte-tapety", "stav"]; onDone: (o) => { try { app.tp = JSON.parse(o); } catch (e) {} } }
+    Cmd { id: tpLibP; command: ["latte-tapety", "kniznica"]; onDone: (o) => { try { app.tpLib = JSON.parse(o); } catch (e) {} app.tpThumbNext(); } }
+    Cmd { id: tpOutP; command: ["latte-tapety", "vystupy"]; onDone: (o) => { try { app.tpOuts = JSON.parse(o); } catch (e) {} } }
+    onTpVisibleChanged: if (tpVisible) { tpStav.running = true; tpLibP.running = true; tpOutP.running = true; }
+    Timer { interval: 5000; repeat: true; running: app.tpVisible; onTriggered: if (!tpStav.running) tpStav.running = true }
+    // príkazy latte-tapety po jednom (rad), po každom sa obnoví stav
+    property var tpQueue: []
+    Cmd { id: tpAct; property string msg: ""
+          onDone: (o) => { const t = o.trim(); app.status = t.startsWith("E ") ? "⚠ " + t.slice(2) : (tpAct.msg || "Hotovo");
+                           tpStav.running = true; if (app.tpQueue.length) { const n = app.tpQueue[0]; app.tpQueue = app.tpQueue.slice(1); app.tpRun(n[0], n[1]); } } }
+    function tpRun(args, msg) {
+        if (tpAct.running) { tpQueue = tpQueue.concat([[args, msg]]); return; }
+        tpAct.msg = msg || ""; tpAct.command = ["latte-tapety"].concat(args); tpAct.running = true;
+        if (msg) status = msg + "…";
+    }
+    function tpOut() { return tpTarget === "*" ? [] : ["--vystup", tpTarget]; }
+    function tpUse(path) { tpRun(["pouzi", path].concat(tpOut()), "Pozadie: " + path.split("/").pop()); }
+    // náhľady videí (ffmpeg) po jednom
+    Cmd { id: tpThumb; property string path: ""
+          onDone: (o) => { const t = o.trim(); const l = app.tpLib.slice(); const i = l.findIndex(x => x.path === tpThumb.path);
+                           if (i >= 0) { l[i] = Object.assign({}, l[i], { thumb: t, noThumb: true }); app.tpLib = l; } app.tpThumbNext(); } }
+    function tpThumbNext() {
+        if (tpThumb.running) return;
+        const x = tpLib.find(i => i.video && !i.thumb && !i.noThumb);
+        if (!x) return;
+        tpThumb.path = x.path; tpThumb.command = ["latte-tapety", "nahlad", x.path]; tpThumb.running = true;
+    }
+    function tpThumbOf(p) { const x = tpLib.find(i => i.path === p); return x ? (x.thumb || (x.video ? "" : p)) : (/\.(mp4|webm|mkv|mov|avi)$/i.test(p) ? "" : p); }
+    function tpIsFav(p) { return ((tp.nastavenia || {}).oblubene || []).indexOf(p) >= 0; }
+    function tpMenu(x, y, path, name, video) {
+        const items = [{ glyph: "photo", label: "Nastaviť na všetky obrazovky", action: () => app.tpRun(["pouzi", path], "Pozadie: " + name) }];
+        if (tpOuts.length > 1) for (const o of tpOuts) items.push({ glyph: "device-desktop", label: "Nastaviť na " + o.name + (o.popis ? " (" + o.popis + ")" : ""), action: () => app.tpRun(["pouzi", path, "--vystup", o.name], o.name + ": " + name) });
+        items.push({ separator: true });
+        if (!video) items.push({ glyph: "login", label: "Aj na prihlasovaciu obrazovku", action: () => app.setGreeter("background", path) });
+        items.push({ glyph: "star", label: tpIsFav(path) ? "Odobrať z obľúbených" : "Pridať medzi obľúbené", action: () => app.tpRun(["oblubena", path, tpIsFav(path) ? "off" : "on"], "") });
+        items.push({ glyph: "palette", label: "Farby témy z tejto tapety", action: () => app.tpRun(["farby", path], "Farby témy podľa " + name) });
+        items.push({ glyph: "folder", label: "Ukázať v Súboroch", action: () => app.run(["latte-app", "subory", path.substring(0, path.lastIndexOf("/"))]) });
+        items.push({ glyph: "clipboard", label: "Kopírovať cestu", action: () => app.run(["wl-copy", "--", path], "Cesta skopírovaná") });
+        ctx.open(x, y, items, name);
+    }
+    // sťahovanie z katalógov (na úrovni aplikácie, aby pokračovalo aj po odchode zo stránky)
+    property var tpDownloads: ({})          // url → percento
+    Component {
+        id: tpDlComp
+        Process {
+            id: dl
+            property string url: ""
+            stdout: SplitParser { onRead: (l) => {
+                const m = l.match(/^P (-?\d+)/); if (m) { const d = Object.assign({}, app.tpDownloads); d[dl.url] = parseInt(m[1]); app.tpDownloads = d; }
+                if (l.startsWith("OK ")) app.status = "Stiahnuté do knižnice: " + l.slice(3).split("/").pop();
+                if (l.startsWith("E ")) app.status = "⚠ Sťahovanie zlyhalo: " + l.slice(2);
+            } }
+            onExited: { const d = Object.assign({}, app.tpDownloads); delete d[dl.url]; app.tpDownloads = d; tpLibP.running = true; destroy(); }
+        }
+    }
+    function tpDownload(it) {
+        if (tpDownloads[it.url] !== undefined) return;
+        const d = Object.assign({}, tpDownloads); d[it.url] = 0; tpDownloads = d;
+        const p = tpDlComp.createObject(app, { url: it.url }); p.command = ["latte-tapety", "stiahni", it.url, it.title]; p.running = true;
+        status = "Sťahujem " + it.title + "…";
+    }
+
     Component {
         id: pPozadie
         Column {
-          spacing: 14
-          // živé tapety a katalógy tapiet (Tapety, podľa Aury)
-          Row {
-            spacing: 10
-            Button { label: "Tapety a živé tapety"; glyph: "photo"; primaryStyle: true; onClicked: app.run(["latte-app", "tapety"], "Tapety") }
-            Button { label: "Objavovať (MotionBGS, Wallhaven, Bing)"; glyph: "world"; onClicked: app.run(["latte-app", "tapety", "objavovat"], "Tapety › Objavovať") }
-          }
-          Row {
-            spacing: 10
-            Rectangle {
-                width: 46; height: 26; radius: 13; anchors.verticalCenter: parent.verticalCenter
-                color: app.wsWallpaper ? theme.primary : theme.field; border { color: theme.line; width: 1 }
-                Rectangle { width: 20; height: 20; radius: 10; y: 3; x: app.wsWallpaper ? 23 : 3; color: app.wsWallpaper ? theme.fgOnPrimary : theme.fgDim }
-                MouseArea { anchors.fill: parent; onClicked: { app.wsWallpaper = !app.wsWallpaper; app.writePref("wallpaper-per-workspace", app.wsWallpaper ? "1" : "", app.wsWallpaper ? "Tapeta podľa plochy: zapnuté" : "Tapeta podľa plochy: vypnuté"); } }
+            id: pz
+            spacing: 14
+            readonly property var n: app.tp.nastavenia || {}
+            property string pick: ""                                   // zvolený druh (pred prvou zmenou = uložený)
+            readonly property string typ: pick || n.typ || "obrazok"
+            readonly property string mode: app.tp.rezim || "crop"
+            readonly property bool soft: !app.tp.gpu
+            readonly property var images: app.wallpapers.map(p => ({ path: p, name: p.split("/").pop().replace(/\.[^.]*$/, ""), video: false, system: true }))
+                                          .concat(app.tpLib.filter(x => !x.video))
+            readonly property var lives: app.tpLib.filter(x => x.video)
+            property bool allImages: false
+            // aktuálna tapeta pre obrazovku (živá má prednosť)
+            function wallOf(name) {
+                const v = (app.tp.vystupy || {})[name] || (app.tp.vystupy || {})["*"];
+                if (v) return { path: v.subor, video: true };
+                if (app.tp.ziva_gif) return { path: app.tp.ziva_gif, video: false };
+                return { path: (app.tp.staticke || {})[name] || (app.tp.staticke || {})["*"] || "", video: false };
             }
-            Text { anchors.verticalCenter: parent.verticalCenter; text: "Každá plocha má inú tapetu (poradie tapiet LatteOS)"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 } }
-          }
-          Row {
-            spacing: 10
+            readonly property string current: wallOf(app.tpTarget === "*" ? ((app.tpOuts[0] || {}).name || "") : app.tpTarget).path
+
+            // ── náhľad obrazoviek (klik = vybrať obrazovku, pretiahnutie = nastaviť) ──
             Rectangle {
-                width: 46; height: 26; radius: 13; anchors.verticalCenter: parent.verticalCenter
-                color: app.deskIcons !== "off" ? theme.primary : theme.field; border { color: theme.line; width: 1 }
-                Rectangle { width: 20; height: 20; radius: 10; y: 3; x: app.deskIcons !== "off" ? 23 : 3; color: app.deskIcons !== "off" ? theme.fgOnPrimary : theme.fgDim }
-                MouseArea { anchors.fill: parent; onClicked: {
-                    const on = app.deskIcons === "off";
-                    app.deskIcons = on ? "" : "off";
-                    app.writePref("desktop-icons", on ? "" : "off", on ? "Ikony na ploche zapnuté" : "Ikony na ploche vypnuté");
-                    if (on) app.run(["sh", "-c", "pgrep -f 'apps/[p]locha.qml' >/dev/null || setsid latte-app plocha >/dev/null 2>&1 &"]);
-                } }
-            }
-            Text { anchors.verticalCenter: parent.verticalCenter; text: "Ikony na ploche (Kôš a súbory z ~/Plocha)"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 } }
-          }
-          Flow {
-            width: parent.width
-            spacing: 10
-            Repeater {
-                model: app.wallpapers
-                Rectangle {
-                    required property string modelData
-                    width: 200; height: 112; radius: 12; clip: true; color: theme.field
-                    Image { anchors.fill: parent; source: "file://" + parent.modelData; fillMode: Image.PreserveAspectCrop; asynchronous: true; sourceSize { width: 400; height: 224 } }
-                    MouseArea {
-                        anchors.fill: parent; acceptedButtons: Qt.LeftButton | Qt.RightButton
-                        onClicked: (m) => {
-                            const w = parent.modelData;
-                            if (m.button !== Qt.RightButton) { app.run(["noctalia", "msg", "wallpaper-set", w], "Tapeta zmenená"); return; }
-                            const q = mapToItem(null, m.x, m.y);
-                            ctx.open(q.x, q.y, [
-                                { glyph: "photo", label: "Nastaviť ako tapetu", action: () => app.run(["noctalia", "msg", "wallpaper-set", w], "Tapeta zmenená") },
-                                { glyph: "login", label: "Aj na prihlasovaciu obrazovku", action: () => app.setGreeter("background", w) },
-                                { glyph: "folder", label: "Ukázať v Súboroch", action: () => app.run(["latte-app", "subory", w.substring(0, w.lastIndexOf("/"))]) },
-                                { glyph: "clipboard", label: "Kopírovať cestu", action: () => app.run(["wl-copy", "--", w], "Cesta skopírovaná") }
-                            ], w.split("/").pop());
+                id: prev
+                width: Math.min(parent.width, 760); height: 250; radius: 14
+                color: prevDrop.containsDrag ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.14) : theme.field
+                border { color: prevDrop.containsDrag ? theme.primary : "transparent"; width: 1.5 }
+                readonly property var outs: app.tpOuts.length ? app.tpOuts : [{ name: "", width: 1920, height: 1080, x: 0, y: 0 }]
+                readonly property real minX: Math.min.apply(null, outs.map(o => o.x))
+                readonly property real minY: Math.min.apply(null, outs.map(o => o.y))
+                readonly property real spanW: Math.max(1, Math.max.apply(null, outs.map(o => o.x + o.width)) - minX)
+                readonly property real spanH: Math.max(1, Math.max.apply(null, outs.map(o => o.y + o.height)) - minY)
+                readonly property real k: Math.min((width - 60) / spanW, (height - 70) / spanH)
+                Item {
+                    id: desk
+                    width: prev.spanW * prev.k; height: prev.spanH * prev.k
+                    anchors { horizontalCenter: parent.horizontalCenter; top: parent.top; topMargin: 18 }
+                    Repeater {
+                        model: prev.outs
+                        Item {
+                            id: mon
+                            required property var modelData
+                            readonly property var w: pz.wallOf(modelData.name)
+                            readonly property bool sel: app.tpTarget === "*" || app.tpTarget === modelData.name
+                            x: (modelData.x - prev.minX) * prev.k; y: (modelData.y - prev.minY) * prev.k
+                            width: modelData.width * prev.k; height: modelData.height * prev.k
+                            Rectangle {       // rám monitora
+                                anchors.fill: parent; anchors.margins: 2; radius: 8; color: "#111"
+                                border { color: mon.sel && prev.outs.length > 1 ? theme.primary : Qt.rgba(1, 1, 1, 0.18); width: mon.sel && prev.outs.length > 1 ? 3 : 2 }
+                                Item {
+                                    anchors { fill: parent; margins: 6 }
+                                    clip: true
+                                    Rectangle { anchors.fill: parent; color: pz.typ === "farba" ? (pz.n.farba || "#3B2A20") : (app.tp.okraje || "#000000") }
+                                    Image {
+                                        visible: pz.typ !== "farba"
+                                        // Cez viac obrazoviek: jeden obrázok cez celú plochu (každý monitor ukáže svoj výrez)
+                                        x: pz.mode === "span" ? -(mon.modelData.x - prev.minX) * prev.k : 0
+                                        y: pz.mode === "span" ? -(mon.modelData.y - prev.minY) * prev.k : 0
+                                        width: pz.mode === "span" ? prev.spanW * prev.k - 12 : parent.width
+                                        height: pz.mode === "span" ? prev.spanH * prev.k - 12 : parent.height
+                                        source: mon.w.path ? "file://" + (mon.w.video ? app.tpThumbOf(mon.w.path) : mon.w.path) : ""
+                                        asynchronous: true
+                                        fillMode: ({ crop: Image.PreserveAspectCrop, fit: Image.PreserveAspectFit, stretch: Image.Stretch, repeat: Image.Tile,
+                                                     center: Image.Pad, span: Image.PreserveAspectCrop })[pz.mode] ?? Image.PreserveAspectCrop
+                                        // dlaždica a centrovanie: obrázok v skutočnej veľkosti zmenšenej ako obrazovka
+                                        sourceSize.width: (pz.mode === "repeat" || pz.mode === "center") ? Math.max(24, 1600 * prev.k) : 640
+                                        sourceSize.height: (pz.mode === "repeat" || pz.mode === "center") ? Math.max(14, 900 * prev.k) : 360
+                                    }
+                                    Rectangle { visible: mon.w.video; anchors { left: parent.left; bottom: parent.bottom; margins: 5 } width: pvl.implicitWidth + 10; height: 16; radius: 5; color: Qt.rgba(0, 0, 0, 0.6)
+                                                Text { id: pvl; anchors.centerIn: parent; text: "▶ živá"; color: "white"; font { family: theme.fontUi; pixelSize: 9; weight: Font.Bold } } }
+                                }
+                            }
+                            Text { anchors { top: parent.bottom; topMargin: 4; horizontalCenter: parent.horizontalCenter }
+                                   text: (prev.outs.length > 1 ? (prev.outs.indexOf(mon.modelData) + 1) + " · " : "") + (mon.modelData.name || "") + (mon.modelData.width ? "  " + mon.modelData.width + " × " + mon.modelData.height : "")
+                                   color: mon.sel ? theme.fg : theme.fgDim; font { family: theme.fontUi; pixelSize: 11; weight: mon.sel ? Font.Bold : Font.Normal } }
+                            MouseArea { anchors.fill: parent; enabled: prev.outs.length > 1; cursorShape: Qt.PointingHandCursor
+                                        onClicked: app.tpTarget = app.tpTarget === mon.modelData.name ? "*" : mon.modelData.name }
                         }
                     }
                 }
+                Text { anchors { bottom: parent.bottom; bottomMargin: 10; horizontalCenter: parent.horizontalCenter }
+                       text: prevDrop.containsDrag ? "Pusti — obrázok a video sa nastavia, priečinok spustí prezentáciu"
+                                                   : "Pretiahni sem obrázok, video alebo priečinok" + (prev.outs.length > 1 ? " · klik na obrazovku ju vyberie" : "")
+                       color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } }
+                DropArea { id: prevDrop; anchors.fill: parent; keys: ["text/uri-list"]
+                           onDropped: (d) => { if (d.hasUrls) { app.tpUse(app.dropPaths(d.urls)[0]); d.accept(Qt.CopyAction); } } }
             }
-          }
+            // viac obrazoviek: pre ktorú obrazovku (ako Windows „Nastaviť pre monitor 1/2“)
+            Segments {
+                visible: app.tpOuts.length > 1
+                options: [["*", "Všetky obrazovky"]].concat(app.tpOuts.map((o, i) => [o.name, (i + 1) + " · " + o.name + (o.popis ? " (" + o.popis + ")" : "")]))
+                value: app.tpTarget
+                onPicked: (v) => app.tpTarget = v
+            }
+
+            // ── druh pozadia ──
+            Heading { text: "PRISPÔSOBENIE POZADIA" }
+            Segments {
+                options: [["obrazok", "Obrázok"], ["farba", "Plná farba"], ["prezentacia", "Prezentácia"], ["ziva", "Živá tapeta"]]
+                value: pz.typ
+                onPicked: (v) => {
+                    pz.pick = v;
+                    if (v === "farba") app.tpRun(["farba", pz.n.farba || "#3B2A20"].concat(app.tpOut()), "Plná farba");
+                    else if (v === "prezentacia") app.tpRun(["prezentacia", pz.n.prezentacia_priecinok || ""].concat(app.tpOut()), "Prezentácia");
+                    else if (v === "obrazok" && pz.n.typ !== "obrazok" && (app.tp.nedavne || []).length) app.tpRun(["pouzi", app.tp.nedavne[0]].concat(app.tpOut()), "Obrázok");
+                    else app.tpRun(["typ", v], "");
+                }
+            }
+
+            // Obrázok
+            Column {
+                visible: pz.typ === "obrazok"
+                width: parent.width; spacing: 10
+                Heading { text: "NEDÁVNE OBRÁZKY"; visible: (app.tp.nedavne || []).length > 0; font.pixelSize: 11 }
+                Flow {
+                    width: parent.width; spacing: 10; visible: (app.tp.nedavne || []).length > 0
+                    Repeater { model: (app.tp.nedavne || []).slice(0, 5)
+                        Thumb { required property string modelData; src: modelData; name: modelData.split("/").pop(); active: pz.current === modelData; fav: app.tpIsFav(modelData)
+                                onClicked: app.tpUse(modelData); onMenu: (x, y) => app.tpMenu(x, y, modelData, name, false) } }
+                }
+                PickRow { label: "Vybrať fotografiu"; button: "Prehľadávať fotografie"
+                          onBrowse: app.browse(["--typ", "obrazok", "--nazov", "Vybrať tapetu", "--start", app.home + "/Obrázky"], (p) => app.tpUse(p[0]))
+                          onDropped: (p) => app.tpUse(p[0]) }
+                Heading { text: "TAPETY LATTEOS A KNIŽNICA · " + pz.images.length; font.pixelSize: 11 }
+                Flow {
+                    width: parent.width; spacing: 10
+                    Repeater { model: pz.allImages ? pz.images : pz.images.slice(0, 12)
+                        Thumb { required property var modelData; src: modelData.thumb || modelData.path; name: modelData.name; active: pz.current === modelData.path; fav: app.tpIsFav(modelData.path)
+                                onClicked: app.tpUse(modelData.path); onMenu: (x, y) => app.tpMenu(x, y, modelData.path, modelData.name, false) } }
+                }
+                Button { visible: pz.images.length > 12; label: pz.allImages ? "Menej" : "Zobraziť všetky (" + pz.images.length + ")"; glyph: pz.allImages ? "chevron-up" : "layout-grid"; onClicked: pz.allImages = !pz.allImages }
+            }
+
+            // Plná farba
+            Column {
+                visible: pz.typ === "farba"
+                width: parent.width; spacing: 10
+                Heading { text: "VYBERTE FARBU POZADIA"; font.pixelSize: 11 }
+                Grid {
+                    columns: 12; spacing: 8
+                    Repeater {
+                        model: ["#3B2A20", "#6F4E37", "#C8A27A", "#1B1410", "#FFB900", "#FF8C00", "#F7630C", "#CA5010", "#DA3B01", "#EF6950", "#D13438", "#FF4343",
+                                "#E74856", "#E81123", "#EA005E", "#C30052", "#E3008C", "#BF0077", "#C239B3", "#9A0089", "#0078D7", "#0063B1", "#8E8CD8", "#6B69D6",
+                                "#8764B8", "#744DA9", "#B146C2", "#881798", "#0099BC", "#2D7D9A", "#00B7C3", "#038387", "#00B294", "#018574", "#00CC6A", "#10893E",
+                                "#7A7574", "#5D5A58", "#68768A", "#515C6B", "#567C73", "#486860", "#498205", "#107C10", "#767676", "#4C4A48", "#69797E", "#4A5459"]
+                        Rectangle {
+                            required property string modelData
+                            width: 38; height: 38; radius: 8; color: modelData
+                            border { color: (pz.n.farba || "").toUpperCase() === modelData ? theme.fg : "transparent"; width: 2.5 }
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: app.tpRun(["farba", modelData].concat(app.tpOut()), "Farba " + modelData) }
+                        }
+                    }
+                }
+                Row {
+                    spacing: 10
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: "Vlastná farba"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13 } }
+                    Field { width: 140; placeholder: "#RRGGBB"; text: pz.n.farba || ""
+                            onCommitted: (t) => { const c = t.trim().startsWith("#") ? t.trim() : "#" + t.trim(); if (/^#[0-9a-fA-F]{6}$/.test(c) && c.toUpperCase() !== (pz.n.farba || "").toUpperCase()) app.tpRun(["farba", c].concat(app.tpOut()), "Farba " + c); } }
+                }
+            }
+
+            // Prezentácia
+            Column {
+                visible: pz.typ === "prezentacia"
+                width: parent.width; spacing: 10
+                PickRow { label: "Obrázky z: " + (pz.n.prezentacia_priecinok ? pz.n.prezentacia_priecinok.replace(app.home, "~") : "celej knižnice tapiet")
+                          hint: "Iný priečinok vyber tlačidlom alebo ho sem pretiahni zo Súborov"; button: "Prehľadávať priečinok"
+                          onBrowse: app.browse(["--priecinok", "--nazov", "Priečinok pre prezentáciu", "--start", app.home + "/Obrázky"], (p) => app.tpRun(["prezentacia", p[0]].concat(app.tpOut()), "Prezentácia z " + p[0].split("/").pop()))
+                          onDropped: (p) => app.tpUse(p[0]) }
+                Button { visible: !!pz.n.prezentacia_priecinok; label: "Použiť celú knižnicu tapiet"; glyph: "books"; onClicked: app.tpRun(["prezentacia", ""].concat(app.tpOut()), "Prezentácia z knižnice") }
+                Heading { text: "MENIŤ OBRÁZOK KAŽDÝCH"; font.pixelSize: 11 }
+                Segments { options: [["1", "1 minútu"], ["10", "10 minút"], ["30", "30 minút"], ["60", "1 hodinu"], ["360", "6 hodín"], ["1440", "1 deň"]]
+                           value: String(pz.n.rotacia || 30); onPicked: (v) => app.tpRun(["nastavenie", "rotacia", v], "Prezentácia: každých " + v + " min") }
+                Segments { options: [["postupne", "Postupne"], ["nahodne", "Náhodné poradie"]]; value: pz.n.rotacia_poradie || "postupne"
+                           onPicked: (v) => app.tpRun(["nastavenie", "rotacia_poradie", v], v === "nahodne" ? "Náhodné poradie" : "Postupne") }
+                Toggle { visible: !pz.n.prezentacia_priecinok; on: !!pz.n.len_oblubene; label: "Iba obľúbené ★ (pravý klik na tapetu › Pridať medzi obľúbené)"
+                         onToggled: app.tpRun(["nastavenie", "len_oblubene", pz.n.len_oblubene ? "false" : "true"], "") }
+                Row { spacing: 10
+                    Button { label: "Predošlý"; glyph: "chevron-left"; onClicked: app.tpRun(["predosla"].concat(app.tpOut()), "Predošlý obrázok") }
+                    Button { label: "Ďalší obrázok"; glyph: "chevron-right"; onClicked: app.tpRun(["dalsia"].concat(app.tpOut()), "Ďalší obrázok") } }
+            }
+
+            // Živá tapeta
+            Column {
+                visible: pz.typ === "ziva"
+                width: parent.width; spacing: 10
+                Text { visible: pz.soft; width: Math.min(parent.width, 760); wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                       text: "Tento počítač kreslí bez grafickej akcelerácie: animovaný GIF alebo WebP pôjde hneď, video (MP4, WebM) sa uloží a spustí sa samo na počítači s GPU." }
+                PickRow { label: "Vybrať video alebo animáciu"; button: "Prehľadávať videá"
+                          onBrowse: app.browse(["--typ", "video", "--nazov", "Vybrať živú tapetu", "--start", app.home + "/Videá"], (p) => app.tpUse(p[0]))
+                          onDropped: (p) => app.tpUse(p[0]) }
+                Flow {
+                    width: parent.width; spacing: 10
+                    Repeater { model: pz.lives
+                        Thumb { required property var modelData; src: modelData.thumb || ""; video: true; name: modelData.name; active: pz.current === modelData.path; fav: app.tpIsFav(modelData.path)
+                                onClicked: app.tpUse(modelData.path); onMenu: (x, y) => app.tpMenu(x, y, modelData.path, modelData.name, true) } }
+                    Rectangle { visible: pz.lives.length === 0; width: 164; height: 92; radius: 10; color: theme.field
+                                Text { anchors.centerIn: parent; horizontalAlignment: Text.AlignHCenter; text: "Živé tapety stiahneš\nv Tapety online"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } }
+                                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: app.go("tapetyonline") } }
+                }
+                Row { spacing: 10
+                    Button { label: "Pauza / pokračovať"; glyph: "player-pause"; onClicked: app.tpRun(["pauza"], "Pauza") }
+                    Button { label: "Ďalšia"; glyph: "chevron-right"; onClicked: app.tpRun(["dalsia"].concat(app.tpOut()), "Ďalšia živá tapeta") }
+                    Button { label: "Vypnúť živú tapetu"; glyph: "x"; onClicked: { app.tpRun(["stop"], "Živá tapeta vypnutá"); if (app.tp.ziva_gif) app.setLive(""); } } }
+                Heading { text: "AUTOMATICKÁ PAUZA (0 % CPU A GPU)"; font.pixelSize: 11 }
+                Segments { options: [["max", "Pri maximalizovanom okne"], ["full", "Iba pri celej obrazovke (hry)"], ["skryta", "Keď je zakrytá"], ["off", "Nikdy"]]
+                           value: pz.n.auto_pauza || "max"; onPicked: (v) => app.tpRun(["nastavenie", "auto_pauza", v], "Uložené") }
+                Toggle { on: pz.n.bateria !== false; label: "Na batérii pozastaviť"; onToggled: app.tpRun(["nastavenie", "bateria", pz.n.bateria !== false ? "false" : "true"], "Uložené") }
+                Heading { text: "ZVUK TAPETY"; font.pixelSize: 11 }
+                Segments { options: [["0", "Bez zvuku"], ["20", "Potichu"], ["50", "Stredne"], ["80", "Nahlas"]]; value: String(pz.n.ticho ? 0 : (pz.n.zvuk || 0))
+                           onPicked: (v) => app.tpRun(["hlasitost", v], "Zvuk tapety") }
+                Heading { text: "DEKÓDOVANIE VIDEA"; font.pixelSize: 11 }
+                Segments { options: [["auto-safe", "Automaticky"], ["vaapi", "VA-API (Intel, AMD)"], ["nvdec", "NVDEC (NVIDIA)"], ["no", "Procesorom"]]
+                           value: pz.n.hwdec || "auto-safe"; onPicked: (v) => app.tpRun(["nastavenie", "hwdec", v], "Uložené") }
+            }
+
+            // ── prispôsobenie obrázka (Windows: Vyplniť … Cez viac obrazoviek) ──
+            Heading { visible: pz.typ !== "farba"; text: "PRISPÔSOBENIE OBRÁZKA" }
+            Segments {
+                visible: pz.typ !== "farba"
+                options: [["crop", "Vyplniť"], ["fit", "Prispôsobiť"], ["stretch", "Roztiahnuť"], ["repeat", "Dlaždica"], ["center", "Centrovať"], ["span", "Cez viac obrazoviek"]]
+                value: pz.mode
+                onPicked: (v) => app.tpRun(["rezim", v], ({ crop: "Vyplniť", fit: "Prispôsobiť", stretch: "Roztiahnuť", repeat: "Dlaždica", center: "Centrovať", span: "Cez viac obrazoviek" })[v])
+            }
+            Text { visible: pz.typ !== "farba"; width: Math.min(parent.width, 760); wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: ({ crop: "Obrázok vyplní obrazovku, presah sa oreže.", fit: "Celý obrázok je vidieť, voľné okraje majú farbu nižšie.", stretch: "Obrázok sa roztiahne na obrazovku (môže sa zdeformovať).",
+                            repeat: "Obrázok v pôvodnej veľkosti sa opakuje ako dlaždice.", center: "Obrázok v pôvodnej veľkosti v strede, okolo farba nižšie.",
+                            span: "Jeden obrázok cez všetky obrazovky, ako jedna veľká plocha." + (app.tpOuts.length < 2 ? " Pri jednej obrazovke je to ako Vyplniť." : "") })[pz.mode]
+                         + (pz.typ === "ziva" ? " Video pozná Vyplniť, Prispôsobiť a Roztiahnuť." : "") }
+            Row {
+                visible: pz.typ !== "farba" && (pz.mode === "fit" || pz.mode === "center")
+                spacing: 8
+                Text { anchors.verticalCenter: parent.verticalCenter; text: "Farba okrajov"; color: theme.fg; rightPadding: 6; font { family: theme.fontUi; pixelSize: 13 } }
+                Repeater {
+                    model: ["#000000", "#1B1410", "#3B2A20", "#6F4E37", "#C8A27A", "#F5EDE2", "#2F5D8A", "#3E7C59"]
+                    Rectangle {
+                        required property string modelData
+                        width: 30; height: 30; radius: 15; color: modelData
+                        border { color: (app.tp.okraje || "").toUpperCase() === modelData ? theme.primary : theme.line; width: 2 }
+                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { app.shellSet("wallpaper.fill_color", modelData, "Farba okrajov " + modelData); tpRefresh.restart(); } }
+                    }
+                }
+                Timer { id: tpRefresh; interval: 600; onTriggered: tpStav.running = true }
+            }
+
+            // ── ďalšie ──
+            Heading { text: "ĎALŠIE" }
+            Toggle { on: app.wsWallpaper; label: "Každá plocha má inú tapetu (poradie tapiet LatteOS)"
+                     onToggled: { app.wsWallpaper = !app.wsWallpaper; app.writePref("wallpaper-per-workspace", app.wsWallpaper ? "1" : "", app.wsWallpaper ? "Tapeta podľa plochy: zapnuté" : "Tapeta podľa plochy: vypnuté"); } }
+            Toggle { on: app.deskIcons !== "off"; label: "Ikony na ploche (Kôš a súbory z ~/Plocha)"
+                     onToggled: {
+                         const on = app.deskIcons === "off";
+                         app.deskIcons = on ? "" : "off";
+                         app.writePref("desktop-icons", on ? "" : "off", on ? "Ikony na ploche zapnuté" : "Ikony na ploche vypnuté");
+                         if (on) app.run(["sh", "-c", "pgrep -f 'apps/[p]locha.qml' >/dev/null || setsid latte-app plocha >/dev/null 2>&1 &"]);
+                     } }
+            Toggle { on: !!pz.n.farby; label: "Farby témy podľa tapety (inak farby témy LatteOS)"
+                     onToggled: app.tpRun(["nastavenie", "farby", pz.n.farby ? "false" : "true"], pz.n.farby ? "Farby podľa témy" : "Farby podľa tapety") }
+            Heading { text: "PRIEČINKY KNIŽNICE TAPIET"; font.pixelSize: 11 }
+            Repeater {
+                model: pz.n.adresare || []
+                Row {
+                    required property string modelData
+                    spacing: 8
+                    Glyph { anchors.verticalCenter: parent.verticalCenter; name: "folder"; size: 16; color: theme.primary }
+                    Text { width: 380; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideMiddle; text: modelData.replace(app.home, "~"); color: theme.fg; font { family: theme.fontUi; pixelSize: 13 } }
+                    IconButton { theme: app.latteTheme; glyph: "folder-open"; tip: "Otvoriť v Súboroch"; onClicked: app.run(["latte-app", "subory", modelData]) }
+                    IconButton { theme: app.latteTheme; glyph: "x"; tip: "Odobrať z knižnice (súbory ostanú)"; onClicked: { app.tpRun(["adresar", "odober", modelData], "Priečinok odobratý"); tpLibP.running = true; } }
+                }
+            }
+            PickRow { label: "Pridať priečinok do knižnice"; button: "Prehľadávať priečinok"; hint: "alebo sem pretiahni priečinok zo Súborov"
+                      onBrowse: app.browse(["--priecinok", "--nazov", "Priečinok s tapetami"], (p) => { app.tpRun(["adresar", "pridaj", p[0]], "Priečinok pridaný"); tpLibP.running = true; })
+                      onDropped: (p) => { app.tpRun(["adresar", "pridaj", p[0]], "Priečinok pridaný"); tpLibP.running = true; } }
+        }
+    }
+
+    // ── Tapety online (katalógy z Aury) ──────────────────────────────────────────
+    property string olSrc: "motionbgs"
+    property string olCat: "all"
+    property string olQuery: ""
+    property string olRes: "hd"
+    property string olSort: "toplist"
+    property int olPage: 1
+    property var olItems: []
+    property string olErr: ""
+    Cmd { id: olProc; onDone: (o) => { try { const d = JSON.parse(o); app.olItems = app.olPage > 1 ? app.olItems.concat(d.items) : d.items; app.olErr = d.error; } catch (e) { app.olErr = "katalóg sa nedá načítať"; } } }
+    function olLoad(more) {
+        olPage = more ? olPage + 1 : 1;
+        if (!more) olItems = [];
+        olProc.command = ["latte-tapety", "online", olSrc, "--strana", String(olPage), "--rozlisenie", olRes, "--triedenie", olSort]
+                         .concat(olQuery ? ["--hladaj", olQuery] : []).concat(olCat !== "all" ? ["--kategoria", olCat] : []);
+        olProc.running = true;
+    }
+    onSectionChanged: if (section === "tapetyonline" && olItems.length === 0 && !olProc.running) olLoad(false)
+    readonly property var olCats: ({
+        motionbgs: [["all", "Všetko"], ["anime", "Anime"], ["nature", "Príroda"], ["games", "Hry"], ["space", "Vesmír"], ["fantasy", "Fantasy"],
+                    ["car", "Autá"], ["superhero", "Superhrdinovia"], ["technology", "Technológie"]],
+        wallhaven: [["111", "Všetko"], ["100", "Všeobecné"], ["010", "Anime"], ["110", "Všeobecné + anime"]],
+        bing: [], minimal: [] })
+    Component {
+        id: pTapetyOnline
+        Column {
+            spacing: 12
+            Segments { options: [["motionbgs", "MotionBGS · živé"], ["wallhaven", "Wallhaven · 4K"], ["bing", "Bing · denná fotka"], ["minimal", "Minimalistické"]]
+                       value: app.olSrc; onPicked: (v) => { app.olSrc = v; app.olCat = v === "wallhaven" ? "111" : "all"; app.olLoad(false); } }
+            Row {
+                spacing: 10
+                Field { width: 360; placeholder: "Hľadať v katalógu (Enter)"; text: app.olQuery; visible: app.olSrc !== "bing"
+                        onCommitted: (t) => { if (t.trim() !== app.olQuery) { app.olQuery = t.trim(); app.olLoad(false); } } }
+                Segments { width: 420; visible: app.olSrc === "motionbgs" || app.olSrc === "wallhaven"
+                           options: app.olSrc === "motionbgs" ? [["hd", "1080p"], ["4k", "4K"]] : [["all", "Všetky"], ["2k", "2K"], ["4k", "4K"], ["ultrawide", "Ultrawide"]]
+                           value: app.olRes; onPicked: (v) => { app.olRes = v; app.olLoad(false); } }
+            }
+            Segments { visible: app.olSrc === "wallhaven"; options: [["toplist", "Najlepšie"], ["hot", "Populárne"], ["random", "Náhodne"]]
+                       value: app.olSort; onPicked: (v) => { app.olSort = v; app.olLoad(false); } }
+            Segments { visible: (app.olCats[app.olSrc] || []).length > 0; options: app.olCats[app.olSrc] || []
+                       value: app.olCat; onPicked: (v) => { app.olCat = v; app.olLoad(false); } }
+            Text { visible: app.olErr !== ""; text: "⚠ " + app.olErr; color: theme.error; font { family: theme.fontUi; pixelSize: 12 } }
+            Text { visible: olProc.running && app.olItems.length === 0; text: "Načítavam katalóg…"; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 } }
+            Flow {
+                width: parent.width; spacing: 12
+                Repeater {
+                    model: app.olItems
+                    Column {
+                        required property var modelData
+                        spacing: 4
+                        Thumb { w: 220; src: modelData.thumb; video: modelData.video; name: modelData.title
+                                progress: app.tpDownloads[modelData.url] !== undefined ? app.tpDownloads[modelData.url] : -2
+                                onClicked: app.tpDownload(modelData)
+                                onMenu: (x, y) => ctx.open(x, y, [
+                                    { glyph: "download", label: "Stiahnuť do knižnice", action: () => app.tpDownload(modelData) },
+                                    { glyph: "external-link", label: "Otvoriť v prehliadači", action: () => app.run(["xdg-open", modelData.url]) }
+                                ], modelData.title) }
+                        Text { width: 220; elide: Text.ElideRight; text: modelData.res + (modelData.author ? " · " + modelData.author : "") + (modelData.date ? " · " + modelData.date : "")
+                               color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } }
+                    }
+                }
+            }
+            Button { visible: app.olItems.length > 0 && app.olSrc !== "bing"; label: olProc.running ? "Načítavam…" : "Načítať ďalšie"; glyph: "refresh"
+                     onClicked: if (!olProc.running) app.olLoad(true) }
+            Text { width: Math.min(parent.width, 760); wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Klik stiahne tapetu do ~/.local/share/latteos/tapety. Nastavíš ju v Pozadí (Obrázok alebo Živá tapeta). Živé videá hrajú iba s grafickou akceleráciou." }
         }
     }
     Component {
@@ -1170,8 +1600,9 @@ ShellRoot {
             Column {
                 visible: app.barScene.startsWith("file:")
                 spacing: 6
-                Field { width: 520; placeholder: "/cesta/k/animacii.gif (GIF, WebP, PNG, JPG)"; text: app.barScene.startsWith("file:") ? app.barScene.slice(5) : ""
-                        onCommitted: (t) => { const f = t.trim().replace(/^file:\/\//, ""); if (f) { app.barScene = "file:" + f; app.writePref("bar-scene", app.barScene, "Textúra L: " + f.split("/").pop()); } } }
+                PickRow { label: app.barScene.length > 5 ? "Textúra: " + app.barScene.slice(5).split("/").pop() : "Vybrať obrázok alebo GIF (GIF, WebP, PNG, JPG)"; button: "Prehľadávať"
+                          onBrowse: app.browse(["--typ", "obrazok", "--nazov", "Obrázok pre textúru L", "--start", app.home + "/Obrázky"], (p) => app.setBarFile(p[0]))
+                          onDropped: (p) => app.setBarFile(p[0]) }
                 Text { color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 }
                        text: "Obrázok vyplní celý pás L (orezaný na šírku). Dlaždica na lište ukáže pri obrázku textúru Para." }
             }
@@ -1231,10 +1662,12 @@ ShellRoot {
                 onPicked: (v) => app.setLive(v)
             }
             Heading { text: "VIDEO ALEBO ANIMÁCIA AKO TAPETA (ako X Live Wallpaper)" }
+            PickRow { label: app.liveWp.startsWith("video:") ? "Hrá: " + app.liveWp.slice(6).split("/").pop() : "Vybrať video alebo animáciu"; button: "Prehľadávať videá"
+                      onBrowse: app.browse(["--typ", "video", "--nazov", "Vybrať živú tapetu", "--start", app.home + "/Videá"], (p) => app.tpRun(["pouzi", p[0]], "Živá tapeta: " + p[0].split("/").pop()))
+                      onDropped: (p) => app.tpRun(["pouzi", p[0]], "Živá tapeta: " + p[0].split("/").pop()) }
             Row {
                 spacing: 10
-                Field { width: 460; text: app.liveWp.startsWith("video:") ? app.liveWp.slice(6) : ""; placeholder: "/cesta/k/videu.mp4 alebo animácia.gif — Enter zapne"
-                        onCommitted: (t) => { if (t.trim() !== "") app.setLive("video:" + t.trim()); } }
+                Button { label: "Živé tapety v Pozadí"; glyph: "photo"; onClicked: app.go("pozadie") }
                 Button { visible: app.liveWp.startsWith("video:"); label: "Vypnúť video"; glyph: "x"; onClicked: app.setLive("") }
             }
             Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
@@ -1420,7 +1853,7 @@ ShellRoot {
             spacing: 14
             Heading { text: "KAM ZÁLOHOVAŤ" }
             Text { visible: app.backupDrives.length === 0; width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 }
-                   text: "Pripoj USB disk (objaví sa tu), alebo zadaj priečinok nižšie." }
+                   text: "Pripoj USB disk (objaví sa tu), alebo vyber priečinok nižšie." }
             Flow {
                 width: parent.width; spacing: 10
                 Repeater {
@@ -1432,8 +1865,10 @@ ShellRoot {
                     }
                 }
             }
-            Field { placeholder: "alebo priečinok, napr. /run/media/" + app.user + "/Zaloha"; text: app.backup.target || ""
-                    onCommitted: (t) => { if (t !== "" && t !== app.backup.target) { app.run(["latte-backup", "set-target", t], "Cieľ zálohy: " + t); backupRefresh.restart(); } } }
+            PickRow { label: app.backup.target ? "Cieľ: " + app.backup.target.replace(app.home, "~") : "Iný priečinok (sieťový disk, druhý disk…)"; button: "Prehľadávať priečinok"
+                      hint: "alebo sem pretiahni priečinok zo Súborov"
+                      onBrowse: app.browse(["--priecinok", "--nazov", "Kam zálohovať", "--start", "/run/media/" + app.user], (p) => app.setBackupTarget(p[0]))
+                      onDropped: (p) => app.setBackupTarget(p[0]) }
             Timer { id: backupRefresh; interval: 500; onTriggered: backupProc.running = true }
             Row {
                 spacing: 10

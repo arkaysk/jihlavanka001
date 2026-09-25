@@ -22,7 +22,7 @@ sudo usermod -aG latte "$user"
 
 echo "== binárky a skripty → /usr/bin"
 sudo install -Dm755 "$repo/target/release/latte-boot" /usr/bin/latte-boot
-for f in latte-session latte-safe latte-greeter latte-theme latte-app latte-ai latte-shellset latte-sysmon latte-apps latte-devices latte-backup latte-games latte-net latte-cloud latte-siet latte-otvor latte-kos latte-spustac latte-sandbox latte-kopia latte-tc latte-ostrovy latte-rychle latte-tapety; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
+for f in latte-session latte-safe latte-greeter latte-theme latte-app latte-ai latte-shellset latte-sysmon latte-apps latte-devices latte-backup latte-games latte-net latte-cloud latte-siet latte-otvor latte-kos latte-spustac latte-sandbox latte-kopia latte-tc latte-ostrovy latte-rychle latte-tapety latte-vyber; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
 
 echo "== konfigurácie relácií → /usr/share/latteos"
 # bežiaci Hyprland sleduje svoje súbory a pri zmene sa znovu načíta: súbor sa preto vymieňa atomicky
@@ -91,6 +91,8 @@ rpm -q pandoc-cli hunspell-sk poppler-utils >/dev/null || sudo dnf -y -q install
 rpm -q smartmontools dmidecode mesa-demos vulkan-tools i2c-tools >/dev/null || sudo dnf -y -q install smartmontools dmidecode mesa-demos vulkan-tools i2c-tools   # Monitor › Hardvér (SMART, moduly, OpenGL/Vulkan, SPD)
 rpm -q bsdtar 7zip >/dev/null || sudo dnf -y -q install bsdtar 7zip
 # Tapety (živé tapety podľa Aury): mpvpaper, mpv, ffmpeg na náhľady — video sa spustí iba s GPU
+# dialóg výberu súboru (Prehľadávať…) a vzhľad GTK aplikácií podľa témy (šablóny gtk3/gtk4 v config.toml Noctalie)
+rpm -q zenity adw-gtk3-theme >/dev/null || sudo dnf -y -q install zenity adw-gtk3-theme
 rpm -q mpvpaper mpv ffmpeg-free ffmpegthumbnailer >/dev/null || sudo dnf -y -q install mpvpaper mpv ffmpeg-free ffmpegthumbnailer   # Súbory: archívy ako priečinky (zip, 7z, rar, tar, iso), balenie 7z
 rpm -q fuse3 >/dev/null || sudo dnf -y -q install fuse3                             # FTP/SFTP ako priečinky (latte-siet, rclone mount)
 flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
