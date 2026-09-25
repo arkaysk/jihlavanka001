@@ -26,6 +26,9 @@ Item {
     property real gap: 10                   // medzera kmeňa nad lištou, ako maximalizované okno (Hyprland gaps_out)
     property string footGlyph: ""           // ikona ostrova (päta ho prekryje, preto ju nakreslí znova — vždy, aj pri animácii)
     property var image: null                // spoločný AnimatedImage pre GIF textúru (päta, kmeň aj dlaždica na lište)
+    property string frameDir: ""            // snímky GIF ako PNG (z TileOverlay)
+    property int frameCount: 0
+    property var ohnisko: null                // ohnisko pohybu GIF → padne do ostrova (ako v TileOverlay)
     property real footRadius: 16            // zaoblenie ostrova na lište (capsule_radius)
     readonly property real panelRadius: 22
     default property alias content: body.data
@@ -94,7 +97,8 @@ Item {
         Scena {
             id: trunkScene
             anchors.fill: parent
-            colors: lp.theme; spec: lp.sceneSpec; motion: lp.motion; time: lp.t; mirror: lp.isRight; image: lp.image
+            colors: lp.theme; spec: lp.sceneSpec; motion: lp.motion; time: lp.t; mirror: lp.isRight; image: lp.image; frameDir: lp.frameDir; frameCount: lp.frameCount
+            ohnisko: lp.ohnisko; anchorX: lp.footOx + lp.foot.w / 2; anchorY: lp.sceneH - lp.foot.h / 2
             radii: lp.isRight ? [0, 0, 0, lp.rad] : [0, 0, lp.rad, 0]          // vonkajší dolný roh kmeňa
             ox: trunkClip.x - lp.left0; oy: lp.trunkY - (lp.trunkBottom - lp.trunkH); canvasW: lp.panelW; canvasH: lp.trunkH + lp.foot.y + lp.foot.h - lp.trunkBottom
         }
@@ -117,7 +121,8 @@ Item {
         visible: lp.p > 0.01
         Scena {
             anchors.fill: parent
-            colors: lp.theme; spec: lp.sceneSpec; motion: lp.motion; time: lp.t; mirror: lp.isRight; image: lp.image
+            colors: lp.theme; spec: lp.sceneSpec; motion: lp.motion; time: lp.t; mirror: lp.isRight; image: lp.image; frameDir: lp.frameDir; frameCount: lp.frameCount
+            ohnisko: lp.ohnisko; anchorX: lp.footOx + lp.foot.w / 2; anchorY: lp.sceneH - lp.foot.h / 2
             radii: [0, 0, lp.footRadius, lp.footRadius]                           // spodok päty = tvar ostrova
             ox: lp.foot.x - lp.left0; oy: lp.trunkH; canvasW: lp.panelW; canvasH: lp.trunkH + lp.foot.y + lp.foot.h - lp.trunkBottom
         }

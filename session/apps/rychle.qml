@@ -123,7 +123,7 @@ ShellRoot {
             side: "right"
             open: rq.open
             panelW: 420; panelH: 540; trunkH: 50
-            sceneSpec: rq.sceneRight || rq.sceneAll; motion: rq.barMotion; dim: rq.dim; footGlyph: "adjustments"; image: tile.image
+            sceneSpec: rq.sceneRight || rq.sceneAll; motion: rq.barMotion; dim: rq.dim; footGlyph: "adjustments"; image: tile.image; frameDir: tile.frameDir; frameCount: tile.frameCount; ohnisko: tile.ohnisko
             trunk: [
                 Row {
                     anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }

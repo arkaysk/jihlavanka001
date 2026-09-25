@@ -199,7 +199,7 @@ ShellRoot {
             side: "left"
             open: sp.open
             panelW: 660; panelH: 590; trunkH: 50
-            sceneSpec: sp.barScene; motion: sp.barMotion; footGlyph: "apps"; image: tile.image
+            sceneSpec: sp.barScene; motion: sp.barMotion; footGlyph: "apps"; image: tile.image; frameDir: tile.frameDir; frameCount: tile.frameCount; ohnisko: tile.ohnisko
             trunk: [
                 Row {
                     anchors { right: parent.right; rightMargin: 14; verticalCenter: parent.verticalCenter }

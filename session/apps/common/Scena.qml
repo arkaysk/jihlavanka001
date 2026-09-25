@@ -23,6 +23,13 @@ Item {
     property bool mirror: false             // pravý roh: zrkadlová geometria
     property var radii: [0, 0, 0, 0]        // orezanie výseku: tl, tr, br, bl
     property var image: null                // spoločný AnimatedImage (inak si výsek vytvorí vlastný)
+    property string frameDir: ""            // snímky GIF ako PNG (latte-tapety snimky): Canvas kreslí aktuálny snímok
+    property int frameCount: 0
+    // ohnisko pohybu GIF (podiel šírky/výšky, z latte-tapety snimky) a bod plátna, kam má padnúť (stred ostrova na lište):
+    // obraz sa zväčší a posunie, aby ostrov ukazoval práve pohyblivú časť; všetky výseky počítajú rovnako → bez švu
+    property var ohnisko: null
+    property real anchorX: canvasW / 2
+    property real anchorY: canvasH / 2
     property color base: colors.surfaceVariant   // podklad pod textúrou
     readonly property bool gpu: ["softver", "minimalny", "safe"].indexOf(Quickshell.env("LATTE_TIER") || "softver") < 0
     readonly property int fps: gpu ? 24 : 8
@@ -37,7 +44,7 @@ Item {
         id: ownImg
         visible: false
         source: !sc.image && sc.kind === "file" ? "file://" + sc.arg : ""
-        playing: sc.moving && sc.kind === "file" && !sc.image; cache: false; asynchronous: true
+        playing: status === AnimatedImage.Ready && sc.moving && sc.kind === "file" && !sc.image; cache: false; asynchronous: true
     }
     Connections { target: sc.img; function onFrameChanged() { if (sc.kind === "file") cv.requestPaint(); }
                   function onStatusChanged() { cv.requestPaint(); } ignoreUnknownSignals: true }
@@ -50,7 +57,12 @@ Item {
         onTChanged: if (sc.kind !== "file" && sc.kind !== "solid") requestPaint()
         onWidthChanged: requestPaint()
         onHeightChanged: requestPaint()
-        Connections { target: sc; function onSpecChanged() { cv.requestPaint(); } function onOxChanged() { cv.requestPaint(); }
+        onImageLoaded: requestPaint()
+        function frameUrl(i) { return "file://" + sc.frameDir + "/" + ("00" + (i + 1)).slice(-3) + ".png"; }
+        Connections { target: sc; function onFrameDirChanged() { if (sc.frameDir) for (let i = 0; i < sc.frameCount; i++) cv.loadImage(cv.frameUrl(i)); } }
+        Component.onCompleted: if (sc.frameDir) for (let i = 0; i < sc.frameCount; i++) loadImage(frameUrl(i))
+        Connections { target: sc; function onOhniskoChanged() { cv.requestPaint(); } function onAnchorXChanged() { cv.requestPaint(); }
+                      function onSpecChanged() { cv.requestPaint(); } function onOxChanged() { cv.requestPaint(); }
                       function onOyChanged() { cv.requestPaint(); } function onRadiiChanged() { cv.requestPaint(); } }
         onPaint: {
             const c = getContext("2d"); c.reset();
@@ -71,8 +83,23 @@ Item {
                 // obrázok / GIF vyplní celé spoločné plátno (orezanie na stred), výsek z neho ukáže svoju časť
                 const im = sc.img;
                 if (!im || im.status !== Image.Ready || !im.implicitWidth) return;
-                const k = Math.max(W / im.implicitWidth, H / im.implicitHeight), dw = im.implicitWidth * k, dh = im.implicitHeight * k;
-                c.drawImage(im, (W - dw) / 2 - ox, (H - dh) / 2 - oy, dw, dh);
+                const iw = im.implicitWidth, ih = im.implicitHeight, kc = Math.max(W / iw, H / ih);
+                let k = kc, dx0, dy0;
+                if (sc.ohnisko && sc.ohnisko.length === 2) {
+                    const fx = sc.ohnisko[0] * iw, fy = sc.ohnisko[1] * ih, ax = sc.anchorX, ay = sc.anchorY;
+                    if (fx > 0) k = Math.max(k, ax / fx);
+                    if (iw - fx > 0) k = Math.max(k, (W - ax) / (iw - fx));
+                    if (fy > 0) k = Math.max(k, ay / fy);
+                    if (ih - fy > 0) k = Math.max(k, (H - ay) / (ih - fy));
+                    k = Math.min(k, kc * 3);
+                    dx0 = Math.min(0, Math.max(W - iw * k, ax - fx * k));
+                    dy0 = Math.min(0, Math.max(H - ih * k, ay - fy * k));
+                } else { dx0 = (W - iw * k) / 2; dy0 = (H - ih * k) / 2; }
+                const dw = iw * k, dh = ih * k;
+                // Canvas si obrázok položky pamätá ako prvý snímok → animácia ide zo snímok PNG podľa currentFrame
+                const u = sc.frameDir && sc.frameCount ? frameUrl(Math.min(sc.frameCount - 1, Math.max(0, im.currentFrame))) : "";
+                if (u && isImageLoaded(u)) c.drawImage(u, dx0 - ox, dy0 - oy, dw, dh);
+                else c.drawImage(im, dx0 - ox, dy0 - oy, dw, dh);
                 return;
             }
             c.save(); c.translate(-ox, -oy);
