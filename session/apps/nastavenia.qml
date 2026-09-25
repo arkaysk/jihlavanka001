@@ -218,7 +218,7 @@ ShellRoot {
         onLoaded: { const r = text().match(/^zones = "(.*)"/m); app.clockZones = r && r[1] ? r[1].split(",") : []; }
     }
     FileView { path: app.cfgHome + "/latteos/mascot"; printErrors: false; watchChanges: true; onFileChanged: reload()
-               onLoaded: app.mascot = text().trim() || "macka"; onLoadFailed: app.mascot = "macka" }
+               onLoaded: app.mascot = text().trim() || "homebrew"; onLoadFailed: app.mascot = "homebrew" }
     FileView { path: app.cfgHome + "/latteos/bar-anim"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.barAnim = text().trim(); onLoadFailed: app.barAnim = "" }
     FileView { path: app.cfgHome + "/latteos/desktop-icons"; printErrors: false; watchChanges: true; onFileChanged: reload()
@@ -614,8 +614,9 @@ ShellRoot {
         MouseArea { id: bm; anchors.fill: parent; hoverEnabled: true; onClicked: btn.clicked() }
     }
     // voľby vedľa seba (segmenty)
-    component Segments: Row {
+    component Segments: Flow {           // zalomí sa, keď sa voľby nezmestia do riadku
         id: seg
+        width: parent ? parent.width : 600
         property var options: []      // [[hodnota, text]]
         property string value
         signal picked(string v)
@@ -1190,8 +1191,11 @@ ShellRoot {
             }
             Heading { text: "MASKOT" }
             Segments {
-                options: [["macka", "Latte mačka"], ["mokka", "Mokka"], ["zrnko", "Zrnko"], ["ktulu", "Ktulu (Cthulhu)"], ["ziadny", "Žiadny"]]
-                value: app.mascot
+                // rovnaké postavy ako plugin latteos/cat (common.luau M.names); staré voľby macka/zrnko = Latte mačka
+                options: [["homebrew", "Homebrew"], ["drak", "Kávový drak"], ["ktulu", "Ktulu"], ["robot", "Robot turista"], ["maid", "Maid"],
+                          ["kapybara", "Kapybara"], ["latte", "Latte mačka"], ["mokka", "Mokka"], ["tien", "Tieň"], ["liska", "Líška"],
+                          ["myval", "Mýval"], ["svetluska", "Svetluška"], ["cdrak", "Dráčik"], ["ziadny", "Žiadny"]]
+                value: ({ macka: "latte", zrnko: "latte", void: "cdrak" })[app.mascot] || app.mascot
                 onPicked: (v) => { app.mascot = v; app.writePref("mascot", v, "Maskot: " + v); }
             }
             Segments {

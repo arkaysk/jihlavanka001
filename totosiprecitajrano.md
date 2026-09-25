@@ -100,6 +100,23 @@ Poradie: 1. Monitor (hotové nižšie) → 2. Digitálna pohoda podľa Pulse →
     alebo animácie Hyprlandu;
   - pri stupni Softvér ostanú vypnuté (pravidlo „každý prvok má variant bez shaderov“).
 
+### Zadanie 25. 9. ráno (tvoje pripomienky pri testovaní) — stav
+- [x] L okná: spodná hrana okna má odstup od lišty ako maximalizované okno (10 px, gaps_out)
+- [x] App Manager: päta bez ikony (stačí textúra)
+- [ ] Zariadenia: pravý roh ešte upraviť (povieš, čo presne)
+- [x] Pravý klik na maskota → výber a nastavenia *(pozri nižšie)*
+- [x] Plocha: premenovať priečinok, ponuky ako vo Windows (Zobraziť, Zoradiť podľa, Nový…), ťahanie ikon, zoradenie
+- [x] TC premenovanie: kurzor hneď v poli, názov označený, Enter/klik mimo uloží a **neotvorí** priečinok
+- [x] TC klikateľná adresa (/ home / user / …)
+- [x] TC drag & drop medzi panelmi a na priečinok (Shift = presunúť), Zoradiť podľa v ponuke
+- [ ] Lišta: výraznejšie hodinky (hrubšie písmo alebo iná farba) + počasie za dátumom
+- [ ] Lišta: šálka výraznejšia (väčšia ikona)
+- [ ] Lišta: prepínač režimu okien odlíšiť od okien (odstup, iný vzhľad); skupina okien rastie doprava
+- [ ] Lišta: vyhľadávanie sa plynulo posúva doprava s počtom okien, pri schránke sa zmenší až na polovicu
+- [ ] Lišta: schránka má byť rovnako vysoká a v rovnakom kontajneri ako ostatné ostrovy
+- [ ] Živé tapety: **aura integrovať kompletne** (GPL-3.0 je v poriadku, LatteOS je otvorený)
+- [ ] Nápad: okná v páske a dlaždiciach by sa posúvali ako tapety v skwd-wall
+
 ### 25. 9. 2026, 7:30: Sklo, fork Noctalie (príprava), Total Commander 3. časť ✅ · ⚠ čaká na teba: sudo
 - **Sklo** (Hyprland nevie kresliť vnútro menu, iba okno ako celok):
   - pri stupni Plný/Štandard je bočný panel Nastavení polopriehľadný a Hyprland pod ním rozmaže tapetu;
