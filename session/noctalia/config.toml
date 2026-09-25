@@ -40,9 +40,13 @@ transparency_mode        = "soft"
 borders                  = true
 shadow                   = true
 launcher_placement       = "floating"
-launcher_position        = "center"
+launcher_position        = "auto"     # z ostrova vyhľadávania (tvar L)
 clipboard_placement      = "floating"
 control_center_placement = "attached"
+# LatteOS fork (latte-shell): panel otvorený z ostrova vyrastie z neho v tvare L — medzera nad lištou ako okná,
+# „krk“ v šírke ostrova, vyduté rohy (pôvodná Noctalia túto voľbu iba ohlási ako neznámu)
+island_panels            = true
+floating_offset          = 10
 
 # ── Lišta: ostrovy zľava doprava ───────────────────────────────────────────────
 # Aplikácie · Čas, oznámenia, dátum · Systém+páska · Hľadanie+Kapsa · Maskot · Súbory+zariadenia
@@ -69,7 +73,7 @@ font_scale         = 1.05
 # (textbar si šírku počíta z počtu okien, najviac na polovicu) — zadanie 25. 9.
 start  = ["group:apps", "group:time", "group:system", "group:search"]
 center = []
-end    = ["group:kapsa", "latte-cat", "group:devices"]
+end    = ["group:kapsa", "latte-cat", "group:subory", "group:devices", "group:dev"]
 
 [[bar.main.capsule_group]]
 id      = "apps"
@@ -87,6 +91,16 @@ members = ["latte-cup", "latte-okna"]
 enabled = true
 
 [[bar.main.capsule_group]]
+id      = "subory"                 # Súbory výrazne ako šálka (zadanie 25. 9.)
+members = ["latte-subory"]
+enabled = true
+
+[[bar.main.capsule_group]]
+id      = "dev"                    # pravý roh = zrkadlo dlaždice aplikácií (textúra, klik = Zariadenia v tvare L)
+members = ["latte-dev"]
+enabled = true
+
+[[bar.main.capsule_group]]
 id      = "kapsa"                  # Kapsa v rovnakom ostrove (výška a tvar) ako ostatné položky
 members = ["latte-kapsa"]
 enabled = true
@@ -98,7 +112,7 @@ enabled = true
 
 [[bar.main.capsule_group]]
 id      = "devices"
-members = ["latte-sukromie", "latte-senzory", "files", "network", "volume", "battery", "latte-dev"]   # aplikácie na pozadí: App Manager › Na pozadí
+members = ["latte-sukromie", "latte-senzory", "network", "volume", "battery"]   # aplikácie na pozadí: App Manager › Na pozadí
 enabled = true
 
 # ── Widgety ────────────────────────────────────────────────────────────────────
@@ -131,6 +145,9 @@ type = "latteos/time:date"
 # šálka Latte = systémové menu LatteOS (plugin latteos/system); riadiace centrum ostáva v ostrove zariadení
 [widget.latte-cup]
 type = "latteos/system:cup"
+
+[widget.latte-subory]
+type = "latteos/system:subory"
 
 # Zariadenia = riadiace centrum LatteOS (plugin latteos/devices); riadiace centrum Noctalie: Super+A
 [widget.latte-dev]

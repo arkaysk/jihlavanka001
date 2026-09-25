@@ -17,6 +17,10 @@ description = "Šálka: účet a Odhlásiť, Nastavenia, Monitor, rýchly stupe�
 id    = "cup"
 entry = "widget.luau"
 
+[[widget]]
+id    = "subory"
+entry = "subory.luau"
+
 [[panel]]
 id        = "menu"
 entry     = "menu.luau"

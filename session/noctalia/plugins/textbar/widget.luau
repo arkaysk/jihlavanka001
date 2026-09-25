@@ -26,10 +26,9 @@ local function load()
   for i, m in ipairs(modes) do if string.find(saved, m.id, 1, true) then index = i end end
 end
 
+-- spúšťač sa otvorí z ostrova vyhľadávania (fork latte-shell: tvar L; kontext = predpona režimu)
 local function open()
-  local p = modes[index].prefix
-  if p == "" then noctalia.runAsync({ "noctalia", "msg", "panel-toggle", "launcher" })
-  else noctalia.runAsync({ "noctalia", "msg", "panel-open", "launcher", p }) end
+  noctalia.togglePanel("launcher", modes[index].prefix)
 end
 
 -- šírka hľadania (zadanie 25. 9.): kým je miesto, 400 px a ostrov sa s pribúdajúcimi oknami posúva doprava
