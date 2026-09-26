@@ -212,12 +212,27 @@ fn process_running(name: &str) -> bool {
     }).unwrap_or(false)
 }
 
+/// Neznáme hodnoty parametrov kernelu (preklep v GRUB): varovanie do záznamu, rozhodnutie ide ďalej automaticky.
+fn cmdline_warnings(c: &latte_hw::Cmdline) -> Vec<String> {
+    let mut w = Vec::new();
+    if let Some(m) = c.mode.as_deref().filter(|m| !["safe", "normal"].contains(m)) {
+        w.push(format!("neznáme latte.mode={m} (povolené: safe, normal) — ignorujem"));
+    }
+    if let Some(r) = c.renderer.as_deref().filter(|r| !["hw", "vm-3d", "sw-gl", "pixman"].contains(r)) {
+        w.push(format!("neznáme latte.renderer={r} (povolené: hw, vm-3d, sw-gl, pixman) — ignorujem"));
+    }
+    w
+}
+
 fn cmd_select(p: &Paths, dry: bool) -> ExitCode {
     let cfg = Config::load(p);
     if latte_hw::wait_for_drm(Duration::from_secs(5)).is_none() {
         eprintln!("latte-boot: /dev/dri/card* sa neobjavilo do 5 s");
     }
     let probe = Probe::run();
+    for w in cmdline_warnings(&probe.cmdline) {
+        eprintln!("latte-boot: {w}");
+    }
     let crashes = read_u32(&p.crash_count());
     let force = p.force_safe().exists();
     let d = decide(&probe, &cfg, crashes, force);
@@ -340,6 +355,14 @@ fn main() -> ExitCode {
 mod tests {
     use super::*;
     use latte_hw::{Cmdline, Egl, Gpu};
+
+    #[test]
+    fn neplatne_parametre_kernelu_sa_ohlasia() {
+        assert!(cmdline_warnings(&Cmdline::parse("latte.mode=safe latte.renderer=hw")).is_empty());
+        let w = cmdline_warnings(&Cmdline::parse("latte.mode=neplatny latte.renderer=vulkan"));
+        assert_eq!(w.len(), 2);
+        assert!(w[0].contains("latte.mode=neplatny"));
+    }
 
     fn egl(renderer: &str, gles: (u32, u32)) -> Egl {
         Egl { ok: true, renderer: renderer.into(), gles, ..Default::default() }

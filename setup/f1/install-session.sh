@@ -13,6 +13,12 @@ user="$(id -un)"
 # bez terminálu (automatizácia): SUDO_ASKPASS=<skript> → sudo -A
 sudo() { if [ -n "${SUDO_ASKPASS:-}" ]; then command sudo -A "$@"; else command sudo "$@"; fi; }
 
+# kontrola pred prvým zásahom do systému (DSanalyze.md): chýbajúci súbor = poškodený checkout, nie polovičná inštalácia
+BINS="latte-session latte-safe latte-greeter latte-theme latte-app latte-ai latte-shellset latte-sysmon latte-apps latte-devices latte-backup latte-games latte-net latte-cloud latte-siet latte-otvor latte-kos latte-spustac latte-sandbox latte-kopia latte-tc latte-ostrovy latte-rychle latte-tapety latte-vyber latte-ponuka latte-prichytenie latte-snimka latte-emoji latte-nove-okno latte-nahravanie latte-maskoti latte-sklo latte-inspektor"
+missing=""
+for f in $BINS; do [ -f "$S/bin/$f" ] || missing="$missing $f"; done
+[ -z "$missing" ] || { echo "Chýbajú skripty v $S/bin:$missing — inštaláciu nezačínam (git status / git pull)."; exit 1; }
+
 echo "== build latte-boot"
 (cd "$repo" && cargo build --release --offline -q)
 
@@ -22,13 +28,13 @@ sudo usermod -aG latte "$user"
 
 echo "== binárky a skripty → /usr/bin"
 sudo install -Dm755 "$repo/target/release/latte-boot" /usr/bin/latte-boot
-for f in latte-session latte-safe latte-greeter latte-theme latte-app latte-ai latte-shellset latte-sysmon latte-apps latte-devices latte-backup latte-games latte-net latte-cloud latte-siet latte-otvor latte-kos latte-spustac latte-sandbox latte-kopia latte-tc latte-ostrovy latte-rychle latte-tapety latte-vyber latte-ponuka latte-prichytenie latte-snimka latte-emoji latte-nove-okno latte-nahravanie latte-maskoti latte-sklo latte-inspektor; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
+for f in $BINS; do sudo install -Dm755 "$S/bin/$f" "/usr/bin/$f"; done
 
 echo "== konfigurácie relácií → /usr/share/latteos"
 # bežiaci Hyprland sleduje svoje súbory a pri zmene sa znovu načíta: súbor sa preto vymieňa atomicky
 # (dočasný súbor + premenovanie) a moduly latte/*.lua idú pred hyprland.lua. Inak reload uprostred
 # inštalácie nenájde modul a Hyprland prejde do núdzového režimu (stalo sa 24. 9. 2026).
-put() { sudo install -Dm644 "$1" "$2.latte-new" && sudo mv -f "$2.latte-new" "$2"; }
+put() { sudo install -Dm644 "$1" "$2.latte-new" && sudo mv -f "$2.latte-new" "$2" || { sudo rm -f "$2.latte-new"; return 1; }; }
 sudo install -d /usr/share/latteos/hypr/latte
 for f in "$S"/hypr/latte/*.lua; do put "$f" "/usr/share/latteos/hypr/latte/$(basename "$f")"; done
 put "$S/hypr/hyprland.conf" /usr/share/latteos/hypr/hyprland.conf
