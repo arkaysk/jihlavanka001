@@ -7,7 +7,7 @@
 --   pri hornom okraji v strede          → lišta rozložení ako Windows 11 (polovice, ⅔+⅓, ⅓+⅔, štvrtiny); pustenie
 --                                         na políčko rozloží okno, úplne hore = maximalizovať
 -- Počas ťahania ukáže priehľadný náhľad cieľa (nahlad.qml, IPC „prichytenie“). Udalosti ťahania posiela plugin
--- latte-okna (/usr/lib64/latteos/latte-okna.so), Hyprland 0.56.2 ich sám nemá. Vypnutie: ~/.config/latteos/bez-prichytenia
+-- latte-okna (/usr/lib64/latteos/latte-okna.so), Hyprland 0.56.2 ich sám nemá. Vypnutie: ~/.config/latteos/bez-prichytenia, lišta rozložení: bez-listy-rozlozeni (Nastavenia › Okná)
 local P = {}
 local S = require("latte.snap")
 
@@ -68,17 +68,21 @@ end
 local drag = nil         -- { address, zone, bar, barZone }
 
 local function on_motion(w, x, y)
-    if not w or not floating_mode() or file_exists(cfgdir .. "/bez-prichytenia") then return end
+    if not w or not floating_mode() then return end
     if not drag or drag.address ~= w.address then
-        drag = { address = w.address, zone = nil }
+        -- voľby Nastavení › Okná › Multitasking sa čítajú raz na začiatku ťahania (nie pri každom pohybe myši)
+        drag = { address = w.address, zone = nil, off = file_exists(cfgdir .. "/bez-prichytenia"),
+                 noBar = file_exists(cfgdir .. "/bez-listy-rozlozeni") }
         -- odtiahnutie prichyteného okna: vráti pôvodnú veľkosť, kurzor ostane v titulku (ako Windows)
         if S.is_snapped(w) then S.restore(w, x, y) end
     end
+    if drag.off then return end
     local m = hl.get_monitor_at(x, y) or w.monitor
     if not m then return end
     local z = P.zone(m, x, y)
     -- lišta rozložení (Windows 11): ukáže sa pri hornom okraji v strede, políčko pod kurzorom má prednosť
-    local showBar, bz = P.bar(m, x, y)
+    local showBar, bz = false, nil
+    if not drag.noBar then showBar, bz = P.bar(m, x, y) end
     if z then showBar, bz = false, nil end                  -- úplne pri okraji: maximalizovať / polovica / štvrtina
     if showBar ~= drag.bar or bz ~= drag.barZone then
         drag.bar, drag.barZone = showBar, bz

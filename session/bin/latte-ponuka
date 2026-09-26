@@ -9,6 +9,7 @@ case "$kind" in
     okno)   call="okno ${1:-0} ${2:-0} ${3:-}" ;;
     okno-rel) call="oknoRel ${1:-0} ${2:-0}" ;;
     rozlozenia) [ "${4:-1}" = 1 ] || exit 0                          # iba nad □ (hyprbars: 0 ✕, 1 □, 2 –)
+                [ -e "${XDG_CONFIG_HOME:-$HOME/.config}/latteos/bez-listy-rozlozeni" ] && exit 0   # Nastavenia › Okná
                 call="rozlozenia ${1:-0} ${2:-0} ${3:-}" ;;                    # súradnice v aktívnom okne (vlastná hlavička aplikácií LatteOS)
     *) echo "neznáma ponuka: $kind"; exit 1 ;;
 esac

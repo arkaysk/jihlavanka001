@@ -42,6 +42,12 @@ ShellRoot {
                onLoaded: app.kapsaMax = text().trim(); onLoadFailed: app.kapsaMax = "" }
     Process { id: kapsaCnt; command: ["sh", "-c", "cliphist list 2>/dev/null | wc -l"]
               stdout: StdioCollector { onStreamFinished: app.kapsaCount = parseInt(this.text) || 0 } }
+    property string snapOff: ""
+    property string snapBarOff: ""
+    FileView { path: app.cfgHome + "/latteos/bez-prichytenia"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.snapOff = "off"; onLoadFailed: app.snapOff = "" }
+    FileView { path: app.cfgHome + "/latteos/bez-listy-rozlozeni"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.snapBarOff = "off"; onLoadFailed: app.snapBarOff = "" }
     property string zoomPick: "1"          // Prístupnosť › Lupa (Win+Plus/Mínus mení aj mimo Nastavení)
     property string pozadieTab: ""       // "" = moja knižnica, "online" = katalógy tapiet (bývalá stránka Tapety online)
     property bool ulRozsirene: false     // Úložisko: rozbaliť Rozšírené (disky a oddiely) — pri príchode z „disky“             // pre vložené komponenty s vlastnou vlastnosťou theme (theme: theme by ukazovalo na seba)
@@ -1758,7 +1764,10 @@ ShellRoot {
     }
     Component {
         id: pOkna
-        Flow {
+        Column {
+          spacing: 14
+          Flow {
+            width: parent.width
             spacing: 10
             Repeater {
                 model: [["paska", "Nekonečná páska", "Okná v stĺpcoch vedľa seba, páska sa posúva"],
@@ -1770,6 +1779,21 @@ ShellRoot {
                     onClicked: { app.run(["hyprctl", "eval", "require(\"latte.windows\").apply(\"" + modelData[0] + "\", true)"], modelData[1]); app.windowMode = modelData[0]; }
                 }
             }
+        }
+          Heading { text: "MULTITASKING (plávajúce okná, ako Windows 11)"; topPadding: 6 }
+          Segments {
+              options: [["", "Prichytávať okná k okrajom"], ["off", "Neprichytávať"]]
+              value: app.snapOff
+              onPicked: (v) => { app.snapOff = v; app.writePref("bez-prichytenia", v === "off" ? "1" : "", v === "off" ? "Prichytávanie vypnuté" : "Okno pritiahnuté k okraju sa prichytí (polovica, štvrtina, celá obrazovka)"); }
+          }
+          Segments {
+              enabled: app.snapOff !== "off"; opacity: enabled ? 1 : 0.5
+              options: [["", "Lišta rozložení (horný okraj a podržanie nad □)"], ["off", "Bez lišty rozložení"]]
+              value: app.snapBarOff
+              onPicked: (v) => { app.snapBarOff = v; app.writePref("bez-listy-rozlozeni", v === "off" ? "1" : "", v === "off" ? "Lišta rozložení vypnutá" : "Lišta rozložení zapnutá"); }
+          }
+          Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                 text: "Okno pritiahnuté k ľavému alebo pravému okraju zaberie polovicu, k rohu štvrtinu, k hornému okraju celú obrazovku; odtiahnutie vráti pôvodnú veľkosť. Win + šípky robia to isté z klávesnice. V páske a dlaždiciach okná rozkladá systém sám." }
         }
     }
     Component {
