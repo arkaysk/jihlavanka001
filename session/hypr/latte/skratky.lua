@@ -239,8 +239,8 @@ end
 local function linux()
     local W = require("latte.windows")
     bind("SUPER + SUPER_L", run("latte-spustac prepni"), { release = true })     -- GNOME/KDE: samotný Super = spúšťač
-    bind("SUPER + Return", run("foot"))
-    bind("CTRL + ALT + T", run("foot"))
+    bind("SUPER + Return", run("latte-terminal"))
+    bind("CTRL + ALT + T", run("latte-terminal"))
     bind("SUPER + Space", panel("launcher"))
     bind("ALT + F2", panel("launcher"))
     bind("SUPER + SHIFT + Tab", run("noctalia msg window-switcher"))

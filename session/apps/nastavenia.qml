@@ -10,7 +10,31 @@ import "data"
 ShellRoot {
     id: app
     LatteTheme { id: theme }
-    readonly property var th: theme             // pre vložené komponenty s vlastnou vlastnosťou theme (theme: theme by ukazovalo na seba)
+    readonly property var th: theme
+    // Pre pokročilých
+    property string terminal: "foot"
+    property var terminals: []
+    property var envLines: []
+    property string memInfo: ""
+    property string remotes: ""
+    FileView { path: app.cfgHome + "/latteos/terminal"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.terminal = text().trim() || "foot"; onLoadFailed: app.terminal = "foot" }
+    readonly property string envFile: app.cfgHome + "/environment.d/90-latteos.conf"
+    FileView { path: app.envFile; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.envLines = text().split("\n").filter(l => /^[A-Za-z_][A-Za-z0-9_]*=/.test(l)); onLoadFailed: app.envLines = [] }
+    Process { id: advProc
+              command: ["sh", "-c", "for t in foot kitty alacritty wezterm konsole ptyxis gnome-terminal xterm; do command -v $t >/dev/null && echo T:$t; done; "
+                        + "swapon --show=NAME,TYPE,SIZE,USED --noheadings 2>/dev/null | sed 's/^/M:/'; flatpak remotes --columns=name,url 2>/dev/null | sed 's/^/R:/'"]
+              stdout: StdioCollector { onStreamFinished: { const l = this.text.split("\n");
+                  app.terminals = l.filter(x => x.startsWith("T:")).map(x => x.slice(2));
+                  app.memInfo = l.filter(x => x.startsWith("M:")).map(x => x.slice(2).trim().replace(/\s+/g, " · ")).join("\n");
+                  app.remotes = l.filter(x => x.startsWith("R:")).map(x => x.slice(2).trim().replace(/\s+/g, " · ")).join("\n"); } } }
+    function saveEnv(lines) {
+        run(["sh", "-c", "mkdir -p \"$(dirname \"$1\")\" && shift && printf '%s\\n' \"# LatteOS › Nastavenia › Pre pokročilých (platí po odhlásení)\" \"$@\" > \"$0\"",
+             app.envFile, app.envFile].concat(lines), "Premenné prostredia uložené — platia po odhlásení");
+    }
+    property string pozadieTab: ""       // "" = moja knižnica, "online" = katalógy tapiet (bývalá stránka Tapety online)
+    property bool ulRozsirene: false     // Úložisko: rozbaliť Rozšírené (disky a oddiely) — pri príchode z „disky“             // pre vložené komponenty s vlastnou vlastnosťou theme (theme: theme by ukazovalo na seba)
     readonly property var latteTheme: theme      // pre vnorené prvky s vlastnou vlastnosťou „theme“ (IconButton)
 
     readonly property string home: Quickshell.env("HOME") || "/"
@@ -108,7 +132,6 @@ ShellRoot {
             { key: "siet", label: "Sieť", glyph: "wifi", status: "ready" },
             { key: "bluetooth", label: "Bluetooth a periférie", glyph: "bluetooth", status: "ready" },
             { key: "vstup", label: "Myš, touchpad a ovládače", glyph: "mouse", status: "ready" },
-            { key: "disky", label: "Úložné zariadenia", glyph: "usb", status: "partial" },
             { key: "tlac", label: "Tlač a skenovanie", glyph: "printer", status: "partial" },
             { key: "napajanie", label: "Napájanie", glyph: "battery", status: "ready" },
             { key: "diagnostika", label: "Diagnostika a pády", glyph: "stethoscope", status: "partial" } ] },
@@ -124,7 +147,6 @@ ShellRoot {
             { key: "motiv", label: "Motív a farby", glyph: "palette", status: "ready" },
             { key: "pismo", label: "Písmo a mierka", glyph: "typography", status: "ready" },
             { key: "pozadie", label: "Pozadie", glyph: "photo", status: "ready" },
-            { key: "tapetyonline", label: "Tapety online", glyph: "world", status: "ready" },
             { key: "okna", label: "Okná", glyph: "layout-columns", status: "ready" },
             { key: "lista", label: "Lišta a systémové menu", glyph: "layout-bottombar", status: "ready" },
             { key: "oznamenia", label: "Oznámenia", glyph: "bell", status: "ready" },
@@ -138,6 +160,7 @@ ShellRoot {
             { key: "klavesnica", label: "Klávesnica a skratky", glyph: "keyboard", status: "ready" },
             { key: "bezpecnost", label: "Bezpečnosť", glyph: "shield-lock", status: "ready" },
             { key: "zdielanie", label: "Zdieľanie", glyph: "share", status: "partial" },
+            { key: "pokrocile", label: "Pre pokročilých", glyph: "terminal-2", status: "ready" },
             { key: "o", label: "O LatteOS", glyph: "info-circle", status: "ready" } ] }
     ]
     readonly property var allPages: {
@@ -149,6 +172,10 @@ ShellRoot {
 
     function go(key, push) {
         if (key === "zariadenia") key = "vykon";        // staré odkazy
+        // zlúčené stránky (alfatest 2, duplicity): disky sú v Úložisku › Rozšírené, tapety online sú karta Pozadia
+        if (key === "disky") { key = "ulozisko"; app.ulRozsirene = true; }
+        if (key === "tapetyonline") { key = "pozadie"; app.pozadieTab = "online"; }
+        else if (key === "pozadie" && push !== false) app.pozadieTab = "";
         if (key === "vzhlad") key = "motiv";
         section = key;
         const p = allPages.find(x => x.key === key);
@@ -517,6 +544,12 @@ ShellRoot {
                 spacing: 16
                 Text { text: app.current.label; color: theme.fg; font { family: theme.fontDisplay; pixelSize: 28; weight: Font.DemiBold } }
                 Text { width: parent.width; wrapMode: Text.WordWrap; text: app.intro(app.section); color: theme.fgDim; font { family: theme.fontUi; pixelSize: 14 } }
+                Segments {
+                    visible: app.section === "pozadie"
+                    options: [["", "Moja knižnica"], ["online", "Tapety online (MotionBGS, Wallhaven, Bing…)"]]
+                    value: app.pozadieTab
+                    onPicked: (v) => app.pozadieTab = v
+                }
                 Loader { width: parent.width; sourceComponent: app.page(app.section) }
             }
         }
@@ -562,6 +595,7 @@ ShellRoot {
             spustanie: "Aplikácie a služby, ktoré sa spúšťajú samé.",
             ai: "Kam sa pýta režim AI v Text Bare: malý model na tomto PC, tvoj domáci server (napr. LM Studio), alebo veľké AI v cloude.",
             subory: "Súbory (Data Manager) otvoríš tlačidlom nižšie alebo Super+E. Priečinky sa dajú farebne označiť pravým klikom.",
+            pokrocile: "Ako Windows 11 › Systém › Pre pokročilých: predvolený terminál, premenné prostredia, virtuálna pamäť a zdroje aplikácií.",
             ulozisko: "Pripojené disky a voľné miesto. Upratovanie a veľké súbory pribudnú v Data Manageri.",
             vykon: "Stupeň určuje efekty (sklo, tiene, žiara, animácie). Automaticky ho volí štart systému podľa hardvéru.",
             diagnostika: "Počítadlo pádov a prvý log z posledného pádu relácie. Ten istý záznam ukazuje vývojárska obrazovka prihlásenia.",
@@ -666,6 +700,26 @@ ShellRoot {
         MouseArea { id: cm; anchors.fill: parent; hoverEnabled: true; onClicked: card.clicked() }
     }
     component Heading: Text { color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12; weight: Font.Bold; letterSpacing: 0.8 } }
+    // Rozšírené (rozhodnutie 26. 9., ako Windows): bežné nastavenia hore, pokročilé zbalené na konci stránky
+    component Rozsirene: Column {
+        id: rz
+        property bool open: false
+        property string hint: ""
+        default property alias content: rzBody.data
+        width: parent ? parent.width : 600; spacing: 10
+        Rectangle {
+            width: parent.width; height: 44; radius: 12
+            color: rzm.containsMouse ? theme.hover : theme.field
+            Row {
+                x: 14; anchors.verticalCenter: parent.verticalCenter; spacing: 10
+                Glyph { name: rz.open ? "chevron-down" : "chevron-right"; size: 16; color: theme.primary; anchors.verticalCenter: parent.verticalCenter }
+                Text { text: "Rozšírené"; color: theme.fg; font { family: theme.fontUi; pixelSize: 14; weight: Font.Bold } anchors.verticalCenter: parent.verticalCenter }
+                Text { text: rz.hint; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } anchors.verticalCenter: parent.verticalCenter }
+            }
+            MouseArea { id: rzm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: rz.open = !rz.open }
+        }
+        Column { id: rzBody; visible: rz.open; width: parent.width; spacing: 10 }
+    }
     component Button: Rectangle {
         id: btn
         property string label; property string glyph: ""; property bool danger: false; property bool primaryStyle: false
@@ -768,9 +822,9 @@ ShellRoot {
         if (managed[k]) return pManaged;
         if (dalsie.pages[k]) return dalsie.pages[k];
         return ({ domov: pDomov, ai: pAi, subory: pSubory, ulozisko: pUlozisko, vykon: pVykon, diagnostika: pDiag,
-                  prihlasovanie: pGreeter, motiv: pMotiv, pozadie: pPozadie, tapetyonline: pTapetyOnline, okna: pOkna, lista: pLista, efekty: pEfekty,
+                  prihlasovanie: pGreeter, motiv: pMotiv, pozadie: pozadieTab === "online" ? pTapetyOnline : pPozadie, tapetyonline: pTapetyOnline, okna: pOkna, lista: pLista, efekty: pEfekty,
                   start: pStart, cas: pCas, o: pO, klavesnica: pKlavesy, oznamenia: pOznamenia, pristupnost: pPristupnost,
-                  uzamknutie: pUzamknutie, mojucet: pUcet, jazyk: pJazyk, zalohy: pZalohy, pouzivatelia: pPouzivatelia, synchronizacia: pCloud })[k] || pPlan;
+                  uzamknutie: pUzamknutie, pokrocile: pPokrocile, mojucet: pUcet, jazyk: pJazyk, zalohy: pZalohy, pouzivatelia: pPouzivatelia, synchronizacia: pCloud })[k] || pPlan;
     }
 
     // ── stránky ──────────────────────────────────────────────────────────────────
@@ -949,6 +1003,84 @@ ShellRoot {
                         }
                     }
                 }
+            }
+            Item { width: 1; height: 6 }
+            Rozsirene {
+                id: ulRz
+                hint: "disky a oddiely, stav SMART, bezpečné odpojenie (bývalé Úložné zariadenia)"
+                open: app.ulRozsirene
+                onOpenChanged: app.ulRozsirene = open
+                Loader {
+                    active: ulRz.open; width: parent.width; height: item ? item.naturalHeight : 0
+                    sourceComponent: SpravcaZariadeni { theme: app.th; compact: false; embedded: true; only: "disky"; onOpenWindow: (a) => app.run(a) }
+                }
+            }
+        }
+    }
+    Component {
+        id: pPokrocile
+        Column {
+            spacing: 10
+            Component.onCompleted: advProc.running = true
+            Heading { text: "PREDVOLENÝ TERMINÁL" }
+            Segments {
+                options: (app.terminals.length ? app.terminals : ["foot"]).map(t => [t, t])
+                value: app.terminal
+                onPicked: (v) => { app.terminal = v; app.writePref("terminal", v === "foot" ? "" : v, "Terminál: " + v + " (Win+Enter, Ctrl+Alt+T, ponuka Win+X)"); }
+            }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Otvára sa klávesmi Win + Enter a Ctrl + Alt + T a z ponuky Win + X (latte-terminal). Dialógy so správcovskými právami používajú foot." }
+
+            Heading { text: "PREMENNÉ PROSTREDIA"; topPadding: 10 }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Pre celý tvoj účet (systemd environment.d). Platia po odhlásení a prihlásení. Súbor: " + app.envFile.replace(app.home, "~") }
+            Repeater {
+                model: app.envLines
+                Rectangle {
+                    required property string modelData
+                    required property int index
+                    width: parent.width; height: 38; radius: 10; color: theme.field
+                    Text { x: 12; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 60; elide: Text.ElideRight; text: parent.modelData
+                           color: theme.fg; font { family: theme.fontMono; pixelSize: 12 } }
+                    Rectangle { anchors { right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter } width: 26; height: 26; radius: 8
+                                color: em.containsMouse ? theme.hover : "transparent"
+                                Glyph { anchors.centerIn: parent; name: "x"; size: 14; color: theme.fgDim }
+                                MouseArea { id: em; anchors.fill: parent; hoverEnabled: true
+                                            onClicked: { const i = parent.parent.index; app.saveEnv(app.envLines.filter((_, k) => k !== i)); } } }
+                }
+            }
+            Rectangle {
+                width: parent.width; height: 38; radius: 10; color: theme.field; border { width: envIn.activeFocus ? 1 : 0; color: theme.primary }
+                TextInput {
+                    id: envIn
+                    anchors { fill: parent; leftMargin: 12; rightMargin: 12 } verticalAlignment: TextInput.AlignVCenter; clip: true
+                    color: theme.fg; font { family: theme.fontMono; pixelSize: 12 } selectByMouse: true
+                    Keys.onReturnPressed: {
+                        const t = text.trim();
+                        if (!/^[A-Za-z_][A-Za-z0-9_]*=.*$/.test(t)) { app.status = "Zápis: NÁZOV=hodnota (napr. MANGOHUD=1)"; return; }
+                        const k = t.split("=")[0];
+                        app.saveEnv(app.envLines.filter(l => l.split("=")[0] !== k).concat([t])); text = "";
+                    }
+                    Text { visible: !envIn.text && !envIn.activeFocus; anchors.verticalCenter: parent.verticalCenter; text: "Pridať: NÁZOV=hodnota a Enter (napr. MANGOHUD=1)"
+                           color: theme.fgDim; font: envIn.font }
+                }
+            }
+
+            Heading { text: "VIRTUÁLNA PAMÄŤ (SWAP A ZRAM)"; topPadding: 10 }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fg; font { family: theme.fontMono; pixelSize: 12 }
+                   text: app.memInfo || "Bez swapu." }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Fedora používa zram: stlačená časť RAM namiesto pomalého disku. Veľkosť určuje /etc/systemd/zram-generator.conf (zmena platí po reštarte)." }
+            Button { label: "Upraviť zram (správca)"; glyph: "settings"; onClicked: app.run(["foot", "-T", "zram", "-e", "sudoedit", "/etc/systemd/zram-generator.conf"]) }
+
+            Heading { text: "ZDROJE APLIKÁCIÍ A VÝVOJ"; topPadding: 10 }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fg; font { family: theme.fontMono; pixelSize: 12 }
+                   text: app.remotes ? "Flatpak: " + app.remotes : "Flatpak: žiadny zdroj" }
+            Flow {
+                width: parent.width; spacing: 8
+                Button { label: "SSH server a firewall"; glyph: "terminal"; onClicked: app.go("siet") }
+                Button { label: "Súkromie a NET"; glyph: "shield"; onClicked: app.go("sukromie") }
+                Button { label: "Štart a režim (SAFE)"; glyph: "refresh"; onClicked: app.go("start") }
             }
         }
     }
@@ -1528,7 +1660,8 @@ ShellRoot {
                          .concat(olQuery ? ["--hladaj", olQuery] : []).concat(olCat !== "all" ? ["--kategoria", olCat] : []);
         olProc.running = true;
     }
-    onSectionChanged: if (section === "tapetyonline" && olItems.length === 0 && !olProc.running) olLoad(false)
+    onSectionChanged: if (section === "pozadie" && pozadieTab === "online" && olItems.length === 0 && !olProc.running) olLoad(false)
+    onPozadieTabChanged: if (section === "pozadie" && pozadieTab === "online" && olItems.length === 0 && !olProc.running) olLoad(false)
     readonly property var olCats: ({
         motionbgs: [["all", "Všetko"], ["anime", "Anime"], ["nature", "Príroda"], ["games", "Hry"], ["space", "Vesmír"], ["fantasy", "Fantasy"],
                     ["car", "Autá"], ["superhero", "Superhrdinovia"], ["technology", "Technológie"]],

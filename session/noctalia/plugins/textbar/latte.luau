@@ -37,7 +37,7 @@ local items = {
   { "AI", "Lokálne, domáci server, cloud (Nastavenia)", "sparkles", "ai llm lm studio ollama claude chatgpt", { "latte-app", "nastavenia", "ai" } },
   { "Kalendár", "Panel Čas · plánovač udalostí", "calendar", "kalendar udalosti planovac todo", { "noctalia", "msg", "panel-open", "latteos/time:panel" } },
   { "Súbory", "Data Manager: Tento počítač, dva panely", "folder", "subory files data manager disky", { "latte-app", "subory" } },
-  { "Terminál", "foot", "terminal-2", "terminal konzola shell", { "foot" } },
+  { "Terminál", "predvolený terminál", "terminal-2", "terminal konzola shell", { "latte-terminal" } },
   { "Zamknúť obrazovku", "Super+L", "lock", "zamknut lock", { "noctalia", "msg", "session", "lock" } },
 }
 
