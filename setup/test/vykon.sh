@@ -19,8 +19,15 @@ pids = [p for p in os.listdir("/proc") if p.isdigit() and want.search(cmd(p))]
 def ticks(p):
     try: f = open(f"/proc/{p}/stat").read().rsplit(")", 1)[1].split(); return int(f[11]) + int(f[12])
     except OSError: return None
+def sysstat():
+    f = [int(x) for x in open("/proc/stat").readline().split()[1:]]
+    return sum(f), f[3] + f[4]            # spolu, nečinnosť (idle + iowait)
 t0 = {p: ticks(p) for p in pids}
+s0 = sysstat()
 time.sleep(secs)
+s1 = sysstat()
+ncpu = os.cpu_count() or 1
+system = (1 - (s1[1] - s0[1]) / max(1, s1[0] - s0[0])) * 100 * ncpu   # v % jedného jadra, ako top
 rows = []
 for p in pids:
     t1 = ticks(p)
@@ -34,6 +41,7 @@ lines = [f"LatteOS výkon · {time.strftime('%F %T')} · commit {rev} · {secs:g
          f"{'proces':<22}{'CPU %':>8}{'PSS MB':>10}"]
 lines += [f"{n:<22}{c:>8.1f}{(f'{m:.1f}' if m is not None else '—'):>10}" for n, c, m in rows]
 lines.append(f"{'SPOLU':<22}{sum(r[1] for r in rows):>8.1f}{sum(r[2] or 0 for r in rows):>10.1f}")
+lines.append(f"{'CELÝ SYSTÉM':<22}{system:>8.1f}          (vrátane krátkych procesov; {ncpu} jadrá = {ncpu*100} %)")
 out = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "latteos", "vykon")
 os.makedirs(out, exist_ok=True)
 path = os.path.join(out, time.strftime("%Y%m%d-%H%M%S") + f"-{rev}.txt")
