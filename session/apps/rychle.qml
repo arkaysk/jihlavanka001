@@ -1,7 +1,8 @@
-// LatteOS — Zariadenia: rýchle nastavenia vyrastajúce z ostrova zariadení na lište (tvar L zrkadlovo vpravo,
-// common/LPopup.qml; zadanie 25. 9. — kresba). Nahrádza panel Noctalie (plugins/devices/panel.luau), ktorý sa
-// k ostrovu pripojiť nevie. Wi-Fi/sieť, Bluetooth, Nerušiť, Nočné svetlo, hlasitosť, jas, herný režim, profil výkonu.
-// Kmeň L: súhrn Správcu zariadení (latte-devices list) a tlačidlo na plného Správcu. Beží na pozadí, prepína latte-rychle.
+// LatteOS — Správca zariadení v okne v tvare L z pravého rohu lišty (zadanie 26. 9.; tvar L zrkadlovo vpravo, common/LPopup.qml).
+// Hore karty Zariadenia / Siete, dlaždice hardvéru a detail so softvérom ovládačov (common/SpravcaZariadeni.qml, rovnaký
+// ako samostatné okno a stránky Nastavení). Dole pás (kmeň L, textúra aj GIF): keď nie je nič vybrané, základné voľby
+// hardvéru — hlasitosť a mikrofón, Wi-Fi, Bluetooth, jas, batéria a režim výkonu, nočné svetlo, bezpečné odobratie USB;
+// po výbere kategórie alebo zariadenia jeho stav a akcie. Beží na pozadí, prepína latte-rychle (klik na rohovú dlaždicu).
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -41,27 +42,24 @@ ShellRoot {
     FileView { path: rq.cfg + "/bar-stlmenie"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: { const v = parseFloat(text()); rq.dim = isNaN(v) ? 0.55 : Math.max(0, Math.min(0.9, v)); } }
 
-    // ── stav ────────────────────────────────────────────────────────────────────────
-    property var wifi: null                 // true | false | null (neznáme)
+    // ── stav pre pás (základné voľby) ───────────────────────────────────────────────
+    property var wifi: null
     property string ssid: ""
     property string wired: ""
     property var bt: null
     property bool btAvail: true
-    property var dnd: null
     property bool night: false
     property var volume: null
     property bool muted: false
+    property bool micMuted: false
+    property bool hasMic: false
     property var brightness: null
     property string profile: ""
     property var profiles: []
     property bool game: false
-    property string tier: "softver"
-    property bool tierForced: false
-    property string devSummary: ""
-    property int devTotal: 0
-    property int devFaults: 0
+    property var battery: null               // { pct, state } alebo null (bez batérie)
+    property var usbDrives: []               // [{ path, label }] vymeniteľné disky (bezpečné odobratie)
 
-    // výsledok až keď skončí proces aj výstup (onExited môže prísť skôr než text)
     component Q: Process {
         id: q
         property var done: null
@@ -73,29 +71,29 @@ ShellRoot {
         stdout: StdioCollector { onStreamFinished: { q.out = this.text; q.part(); } }
         onExited: (c) => { q.code = c; q.part(); }
     }
-    Q { id: qWifi; command: ["sh", "-c", "nmcli -t -f WIFI radio; nmcli -t -f ACTIVE,SSID dev wifi 2>/dev/null | sed -n 's/^yes://p' | head -1; echo ---; nmcli -t -f TYPE,STATE,CONNECTION dev 2>/dev/null | sed -n 's/^ethernet:connected://p' | head -1"]
+    Q { id: qWifi; command: ["sh", "-c", "nmcli -t -f WIFI radio; nmcli -t -f ACTIVE,SSID dev wifi list --rescan no 2>/dev/null | sed -n 's/^yes://p' | head -1; echo ---; nmcli -t -f TYPE,STATE,CONNECTION dev 2>/dev/null | sed -n 's/^ethernet:connected://p' | head -1"]
         done: (o) => { const [a, b] = o.split("---\n"); const l = a.split("\n"); rq.wifi = l[0].trim() === "enabled"; rq.ssid = (l[1] || "").trim(); rq.wired = (b || "").trim(); } }
-    Q { id: qBt; command: ["noctalia", "msg", "bluetooth-status"]; done: (o, c) => { rq.btAvail = c === 0; rq.bt = c === 0 && o.toLowerCase().includes("on"); } }
-    Q { id: qDnd; command: ["noctalia", "msg", "notification-dnd-status"]; done: (o) => { const s = o.toLowerCase(); rq.dnd = s.includes("on") || s.includes("true"); } }
+    Q { id: qBt; command: ["noctalia", "msg", "bluetooth-status"]; done: (o, c) => { rq.btAvail = c === 0 && !/unavailable|no adapter/i.test(o); rq.bt = c === 0 && /\bon\b|true|enabled/i.test(o); } }
     Q { id: qNight; command: ["noctalia", "msg", "nightlight-status"]; done: (o, c) => { const s = o.toLowerCase(); rq.night = c === 0 && (s.includes("on") || s.includes("true")); } }
-    Q { id: qVol; command: ["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"]
-        done: (o) => { const m = o.match(/Volume: ([\d.]+)/); rq.volume = m ? Math.round(parseFloat(m[1]) * 100) : null; rq.muted = o.includes("MUTED"); } }
+    Q { id: qVol; command: ["sh", "-c", "wpctl get-volume @DEFAULT_AUDIO_SINK@; echo ---; wpctl get-volume @DEFAULT_AUDIO_SOURCE@"]
+        done: (o) => { const [a, b] = o.split("---\n"); const m = a.match(/Volume: ([\d.]+)/); rq.volume = m ? Math.round(parseFloat(m[1]) * 100) : null; rq.muted = a.includes("MUTED");
+                       rq.hasMic = /Volume:/.test(b || ""); rq.micMuted = (b || "").includes("MUTED"); } }
     Q { id: qBri; command: ["brightnessctl", "-m", "-c", "backlight"]; done: (o, c) => { const m = o.match(/,(\d+)%,/); rq.brightness = c === 0 && m ? parseInt(m[1]) : null; } }
-    Q { id: qProf; command: ["sh", "-c", "powerprofilesctl get 2>/dev/null; echo ---; powerprofilesctl list 2>/dev/null | sed -n 's/^[* ] *\\([a-z-]*\\):$/\\1/p'"]
-        done: (o) => { const [a, b] = o.split("---\n"); rq.profile = a.trim(); rq.profiles = (b || "").split("\n").filter(x => x).reverse(); } }
-    Q { id: qTier; command: ["sh", "-c", "sed -n 's/^tier = \"\\([a-z]*\\)\"/\\1/p' /run/latteos/mode.toml 2>/dev/null; echo ---; cat \"$1/tier\" 2>/dev/null; echo ---; cat \"$2/game-mode\" 2>/dev/null", "sh", rq.cfg, rq.stateDir]
-        done: (o) => { const p = o.split("---\n"); const forced = (p[1] || "").trim(); rq.tierForced = forced !== ""; rq.tier = forced || p[0].trim() || "softver"; rq.game = (p[2] || "").trim() === "1"; } }
-    Q { id: qDev; command: ["latte-devices", "list"]
-        done: (o) => { try { const d = JSON.parse(o); rq.devSummary = d.summary || ""; rq.devTotal = d.total || 0; rq.devFaults = (d.faults || []).length; } catch (e) {} } }
-    function refresh() { for (const p of [qWifi, qBt, qDnd, qNight, qVol, qBri, qProf, qTier]) if (!p.running) p.running = true; }
-    onOpenChanged: if (open) { refresh(); if (!qDev.running) qDev.running = true; }
+    Q { id: qProf; command: ["sh", "-c", "powerprofilesctl get 2>/dev/null; echo ---; powerprofilesctl list 2>/dev/null | sed -n 's/^[* ] *\\([a-z-]*\\):$/\\1/p'; echo ---; cat \"$1/game-mode\" 2>/dev/null", "sh", rq.stateDir]
+        done: (o) => { const p = o.split("---\n"); rq.profile = p[0].trim(); rq.profiles = (p[1] || "").split("\n").filter(x => x).reverse(); rq.game = (p[2] || "").trim() === "1"; } }
+    Q { id: qBat; command: ["sh", "-c", "for b in /sys/class/power_supply/BAT*; do [ -r \"$b/capacity\" ] && { cat \"$b/capacity\"; cat \"$b/status\"; break; }; done"]
+        done: (o) => { const m = o.match(/(\d+)\s+(\w+)/); rq.battery = m ? { pct: parseInt(m[1]), state: m[2] } : null; } }
+    Q { id: qUsb; command: ["lsblk", "-J", "-o", "PATH,RM,TRAN,TYPE,LABEL,MOUNTPOINT,MODEL"]
+        done: (o) => { try { const out = [], walk = (l) => { for (const d of l) { if (d.type === "disk" && (d.rm || d.tran === "usb")) out.push({ path: d.path, label: d.label || d.model || d.path });
+                                                                               if (d.children) walk(d.children); } };
+                             walk(JSON.parse(o).blockdevices || []); rq.usbDrives = out; } catch (e) {} } }
+    function refresh() { for (const p of [qWifi, qBt, qNight, qVol, qBri, qProf, qBat, qUsb]) if (!p.running) p.running = true; }
+    onOpenChanged: { if (open) refresh(); else { dmv.group = ""; dmv.tab = "zariadenia"; dmv.sel = null; } }
     Timer { interval: 3000; repeat: true; running: rq.open; onTriggered: rq.refresh() }
     Process { id: act; onExited: rq.refresh() }
     function run(argv) { act.running = false; act.command = argv; act.running = true; }
     Process { id: det }
     function detached(argv) { rq.open = false; det.command = argv; det.startDetached(); }
-
-    readonly property var tierNames: ({ plny: "Plný", standard: "Štandard", usporny: "Úsporný", minimalny: "Minimálny", softver: "Softvér", safe: "SAFE" })
     readonly property var profileNames: ({ "power-saver": "Úsporný", balanced: "Vyvážený", performance: "Výkon" })
 
     // GIF / obrázok priamo v ostrove na lište, súvislý s pätou okna L (Noctalia sama GIF nekreslí)
@@ -122,26 +120,75 @@ ShellRoot {
             foot: rq.foot; islands: rq.islands
             side: "right"
             open: rq.open
-            panelW: 420; panelH: 540; trunkH: 50
+            panelW: 660; panelH: 590; trunkH: 54
             sceneSpec: rq.sceneRight || rq.sceneAll; motion: rq.barMotion; dim: rq.dim; footGlyph: "adjustments"; image: tile.image; frameDir: tile.frameDir; frameCount: tile.frameCount; ohnisko: tile.ohnisko
             trunk: [
+                // ── pás: základné voľby hardvéru (nič nie je vybrané) ──
                 Row {
+                    visible: dmv.tab === "zariadenia" && dmv.group === ""
+                    anchors { left: parent.left; leftMargin: 12; verticalCenter: parent.verticalCenter }
+                    spacing: 6
+                    component Chip: Rectangle {
+                        id: ch
+                        property string glyph; property string label: ""; property bool on: false; property bool warn: false
+                        default property alias extra: ex.data
+                        signal clicked()
+                        width: cr.implicitWidth + 18; height: 34; radius: 11
+                        color: on ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.28) : (chm.containsMouse ? theme.hover : Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, 0.85))
+                        border { color: warn ? theme.error : theme.outline; width: 1 }
+                        Row { id: cr; x: 9; anchors.verticalCenter: parent.verticalCenter; spacing: 6
+                              Glyph { name: ch.glyph; size: 16; color: ch.warn ? theme.error : (ch.on ? theme.primary : theme.fg); anchors.verticalCenter: parent.verticalCenter }
+                              Text { visible: ch.label !== ""; text: ch.label; color: theme.fg; font { family: theme.fontUi; pixelSize: 12; weight: Font.DemiBold } anchors.verticalCenter: parent.verticalCenter }
+                              Row { id: ex; spacing: 6; anchors.verticalCenter: parent.verticalCenter } }
+                        MouseArea { id: chm; anchors.fill: parent; hoverEnabled: true; z: -1; onClicked: ch.clicked() }
+                    }
+                    component MiniSlider: Item {
+                        id: ms
+                        property real value: 0; property real from: 0; property real to: 100
+                        signal moved(real v)
+                        width: 84; height: 20
+                        readonly property real frac: Math.max(0, Math.min(1, ((mm.pressed ? mm.v : value) - from) / (to - from)))
+                        Rectangle { anchors.verticalCenter: parent.verticalCenter; width: parent.width; height: 5; radius: 3; color: theme.field }
+                        Rectangle { anchors.verticalCenter: parent.verticalCenter; width: Math.max(5, parent.width * ms.frac); height: 5; radius: 3; color: theme.primary }
+                        Rectangle { x: (parent.width - 12) * ms.frac; anchors.verticalCenter: parent.verticalCenter; width: 12; height: 12; radius: 6; color: theme.fg }
+                        MouseArea { id: mm; anchors { fill: parent; margins: -6 } property real v: 0
+                                    function at(x) { return Math.round(ms.from + Math.max(0, Math.min(1, x / width)) * (ms.to - ms.from)); }
+                                    onPressed: (m) => v = at(m.x); onPositionChanged: (m) => v = at(m.x); onReleased: ms.moved(v)
+                                    onWheel: (w) => ms.moved(Math.max(ms.from, Math.min(ms.to, ms.value + (w.angleDelta.y > 0 ? 5 : -5)))) }
+                    }
+                    Chip { glyph: rq.muted ? "volume-off" : "volume"; label: rq.volume === null ? "—" : rq.volume + ""; warn: rq.muted
+                           onClicked: rq.run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"])
+                           MiniSlider { value: rq.volume || 0; onMoved: (v) => { rq.volume = v; rq.run(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", v + "%"]); } } }
+                    Chip { visible: rq.hasMic; glyph: rq.micMuted ? "microphone-off" : "microphone"; warn: rq.micMuted
+                           onClicked: rq.run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"]) }
+                    Chip { glyph: rq.wired ? "network" : "wifi"; on: !!rq.ssid || !!rq.wired
+                           label: rq.wired ? "Kábel" : (rq.wifi === false ? "Wi-Fi vyp." : (rq.ssid || "Wi-Fi"))
+                           onClicked: dmv.tab = "siete" }
+                    Chip { visible: rq.btAvail; glyph: "bluetooth"; on: rq.bt === true; onClicked: rq.run(["noctalia", "msg", "bluetooth-toggle"]) }
+                    Chip { visible: rq.brightness !== null; glyph: "sun"
+                           MiniSlider { width: 64; from: 5; value: rq.brightness || 0; onMoved: (v) => { rq.brightness = v; rq.run(["brightnessctl", "-c", "backlight", "set", v + "%"]); } } }
+                    Chip { glyph: rq.battery ? (rq.battery.state === "Charging" ? "battery-charging" : "battery") : "bolt"; warn: !!rq.battery && rq.battery.pct < 15 && rq.battery.state !== "Charging"
+                           label: (rq.battery ? rq.battery.pct + " % · " : "") + (rq.game ? "Hra" : (rq.profileNames[rq.profile] || "Výkon"))
+                           onClicked: { const q = mapToItem(pmenu.parent, 0, 0);
+                                        pmenu.open(q.x, q.y - 200, rq.profiles.map(p => ({ glyph: "bolt", label: rq.profileNames[p] || p, checked: rq.profile === p, action: () => rq.run(["powerprofilesctl", "set", p]) }))
+                                                   .concat([{ separator: true }, { glyph: "device-gamepad", label: "Herný režim", checked: rq.game, action: () => rq.run(["hyprctl", "eval", "latte.game(" + !rq.game + ")"]) }]), "Režim výkonu"); } }
+                    Chip { glyph: "moon"; on: rq.night; onClicked: rq.run(["noctalia", "msg", "nightlight-toggle"]) }
+                    Chip { visible: rq.usbDrives.length > 0; glyph: "usb"; label: rq.usbDrives.length === 1 ? "Odobrať" : "Odobrať (" + rq.usbDrives.length + ")"
+                           onClicked: { const q = mapToItem(pmenu.parent, 0, 0);
+                                        pmenu.open(q.x, q.y - 40 * rq.usbDrives.length - 20, rq.usbDrives.map(d => ({ glyph: "usb", label: "Bezpečne odobrať " + d.label, action: () => dmv.safeRemove(d.path, d.label) })), "USB"); } }
+                },
+                // ── pás: vybraná kategória / zariadenie ──
+                Row {
+                    visible: !(dmv.tab === "zariadenia" && dmv.group === "")
                     anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
                     spacing: 10
-                    Rectangle {
-                        width: dm.implicitWidth + 44; height: 32; radius: 10
-                        color: dmm.containsMouse ? theme.hover : Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, 0.85)
-                        border { color: theme.outline; width: 1 }
-                        Glyph { x: 12; anchors.verticalCenter: parent.verticalCenter; name: "cpu"; size: 16; color: theme.primary }
-                        Text { id: dm; x: 34; anchors.verticalCenter: parent.verticalCenter; text: "Správca zariadení"; color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.DemiBold } }
-                        MouseArea { id: dmm; anchors.fill: parent; hoverEnabled: true; onClicked: rq.detached(["latte-app", "zariadenia"]) }
-                    }
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: rq.devFaults ? (rq.devFaults + (rq.devFaults === 1 ? " problém" : rq.devFaults < 5 ? " problémy" : " problémov")) : (rq.devTotal ? rq.devTotal + " zariadení · v poriadku" : "")
-                        color: rq.devFaults ? theme.error : theme.fgDim
-                        font { family: theme.fontUi; pixelSize: 12; weight: rq.devFaults ? Font.Bold : Font.Normal }
-                    }
+                    Glyph { anchors.verticalCenter: parent.verticalCenter; name: dmv.tab === "siete" ? "network" : (dmv.curGroup ? dmv.curGroup.glyph : "cpu"); size: 20; color: theme.primary }
+                    Column { anchors.verticalCenter: parent.verticalCenter
+                             Text { text: dmv.tab === "siete" ? "Siete" : ((dmv.curGroup ? dmv.curGroup.title : "") + (dmv.sel ? " › " + dmv.sel.item.name : ""))
+                                    color: theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.Bold } }
+                             Text { text: dmv.tab === "siete" ? (rq.wired ? "Kábel · " + rq.wired : (rq.ssid ? "Wi-Fi · " + rq.ssid : "nepripojené"))
+                                                              : (dmv.sel ? (dmv.sel.item.stateTitle || "funguje") + " · " + dmv.sel.item.sub : (dmv.curGroup ? dmv.count(dmv.curGroup.items.length) : ""))
+                                    color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } } }
                 }
             ]
 
@@ -149,156 +196,23 @@ ShellRoot {
                 id: box
                 anchors.fill: parent
                 focus: true
-                Keys.onEscapePressed: rq.open = false
+                Keys.onEscapePressed: { if (dmv.countdown > 0) dmv.revert(); else if (dmv.group !== "") dmv.group = ""; else rq.open = false; }
+                Keys.onReturnPressed: dmv.keep()
                 MouseArea { anchors.fill: parent }          // klik do panelu ho nezavrie
-
-                component Tile: Rectangle {
-                    id: t
-                    property string glyph; property string title; property string sub
-                    property bool on: false; property bool enabled: true
-                    signal clicked()
-                    width: (col.width - 10) / 2; height: 78; radius: 14
-                    color: on ? theme.primary : (tm.containsMouse && enabled ? theme.hover : theme.surfaceVariant)
-                    opacity: enabled ? 1 : 0.5
-                    Behavior on color { ColorAnimation { duration: theme.animMs } }
-                    Column {
-                        anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 12 }
-                        spacing: 3
-                        Glyph { name: t.glyph; size: 20; color: t.on ? theme.fgOnPrimary : theme.fg }
-                        Text { text: t.title; color: t.on ? theme.fgOnPrimary : theme.fg; font { family: theme.fontUi; pixelSize: 13; weight: Font.Bold } }
-                        Text { width: parent.width; text: t.sub; elide: Text.ElideRight; color: t.on ? theme.fgOnPrimary : theme.fgDim; font { family: theme.fontUi; pixelSize: 11 } }
-                    }
-                    MouseArea { id: tm; anchors.fill: parent; hoverEnabled: true; enabled: t.enabled; onClicked: t.clicked() }
+                SpravcaZariadeni {
+                    id: dmv
+                    theme: theme
+                    anchors { fill: parent; margins: 16; topMargin: 14 }
+                    active: rq.open
+                    onOpenWindow: (a) => rq.detached(a)
                 }
-                component Heading: Text { color: theme.fgDim; font { family: theme.fontUi; pixelSize: 11; weight: Font.Bold; letterSpacing: 0.6 } }
-                component Slider: Item {
-                    id: s
-                    property real from: 0; property real to: 100; property real value: 0; property bool enabled: true
-                    property string glyph
-                    signal moved(real v)
-                    signal glyphClicked()
-                    width: col.width; height: 32
-                    opacity: enabled ? 1 : 0.45
-                    Glyph { id: sg; anchors.verticalCenter: parent.verticalCenter; name: s.glyph; size: 18; color: theme.fg
-                            MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: s.glyphClicked() } }
-                    Item {
-                        id: track
-                        anchors { left: sg.right; leftMargin: 12; right: parent.right; verticalCenter: parent.verticalCenter }
-                        height: 24
-                        readonly property real frac: Math.max(0, Math.min(1, ((sm.pressed ? sm.v : s.value) - s.from) / (s.to - s.from)))
-                        Rectangle { anchors.verticalCenter: parent.verticalCenter; width: parent.width; height: 8; radius: 4; color: theme.field }
-                        Rectangle { anchors.verticalCenter: parent.verticalCenter; width: Math.max(8, parent.width * track.frac); height: 8; radius: 4; color: theme.primary }
-                        Rectangle { x: (parent.width - 18) * track.frac; anchors.verticalCenter: parent.verticalCenter; width: 18; height: 18; radius: 9
-                                    color: theme.fg; border { color: theme.primary; width: 2 } }
-                        MouseArea {
-                            id: sm
-                            anchors.fill: parent; enabled: s.enabled
-                            property real v: 0
-                            function at(x) { return Math.round(s.from + Math.max(0, Math.min(1, x / width)) * (s.to - s.from)); }
-                            onPressed: (m) => v = at(m.x)
-                            onPositionChanged: (m) => v = at(m.x)
-                            onReleased: s.moved(v)
-                            onWheel: (w) => s.moved(Math.max(s.from, Math.min(s.to, s.value + (w.angleDelta.y > 0 ? 5 : -5))))
-                        }
-                    }
+                Row {
+                    anchors { right: parent.right; top: parent.top; margins: 12 }
+                    spacing: 4
+                    IconButton { theme: theme; glyph: "external-link"; tip: "Otvoriť ako okno"; onClicked: rq.detached(["latte-app", "zariadenia"]) }
+                    IconButton { theme: theme; glyph: "x"; onClicked: rq.open = false }
                 }
-
-                Column {
-                    id: col
-                    anchors { fill: parent; margins: 18 }
-                    spacing: 12
-                    Row {
-                        width: parent.width
-                        Column {
-                            width: parent.width - 32
-                            Text { text: "Zariadenia"; color: theme.fg; font { family: theme.fontUi; pixelSize: 17; weight: Font.Bold } }
-                            Text { text: "Stupeň: " + (rq.tierNames[rq.tier] || rq.tier) + (rq.tierForced ? " (vynútený)" : " (auto)"); color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
-                        }
-                        IconButton { theme: theme; glyph: "x"; onClicked: rq.open = false }
-                    }
-                    Flow {
-                        width: parent.width; spacing: 10
-                        Tile {
-                            glyph: rq.wired ? "network" : "wifi"; title: rq.wired ? "Sieť" : "Wi-Fi"
-                            sub: rq.wired ? "Kábel · " + rq.wired : (rq.wifi === null ? "…" : rq.wifi ? (rq.ssid || "nepripojené") : "vypnuté")
-                            on: rq.wired ? true : rq.wifi === true
-                            onClicked: rq.wired ? rq.detached(["latte-app", "zariadenia", "siete"]) : rq.run(["noctalia", "msg", "wifi-toggle"])
-                        }
-                        Tile {
-                            glyph: "bluetooth"; title: "Bluetooth"; enabled: rq.btAvail
-                            sub: !rq.btAvail ? "nedostupné" : rq.bt ? "zapnuté" : "vypnuté"; on: rq.bt === true
-                            onClicked: rq.run(["noctalia", "msg", "bluetooth-toggle"])
-                        }
-                        Tile {
-                            glyph: "bell"; title: "Nerušiť"; sub: rq.dnd ? "zapnuté" : "vypnuté"; on: rq.dnd === true
-                            onClicked: rq.run(["noctalia", "msg", "notification-dnd-toggle"])
-                        }
-                        Tile {
-                            glyph: "moon"; title: "Nočné svetlo"; sub: rq.night ? "zapnuté" : "podľa rozvrhu"; on: rq.night
-                            onClicked: rq.run(["noctalia", "msg", "nightlight-toggle"])
-                        }
-                    }
-                    Heading { text: "HLASITOSŤ" + (rq.volume === null ? "  (bez zvukového zariadenia)" : "  " + rq.volume + " %" + (rq.muted ? " · stlmené" : "")) }
-                    Slider {
-                        glyph: "volume"; to: 100; value: rq.volume === null ? 0 : rq.volume; enabled: rq.volume !== null
-                        onMoved: (v) => { rq.volume = v; rq.run(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", v + "%"]); }
-                        onGlyphClicked: rq.run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"])
-                    }
-                    Heading { text: "JAS" + (rq.brightness === null ? "  (monitor bez ovládania jasu)" : "  " + rq.brightness + " %") }
-                    Slider {
-                        glyph: "sun"; from: 5; to: 100; value: rq.brightness === null ? 100 : rq.brightness; enabled: rq.brightness !== null
-                        onMoved: (v) => { rq.brightness = v; rq.run(["brightnessctl", "-c", "backlight", "set", v + "%"]); }
-                    }
-                    Heading { text: "HERNÝ REŽIM A VÝKON" }
-                    Row {
-                        width: parent.width; spacing: 10
-                        Rectangle {
-                            id: gm
-                            width: 44; height: 24; radius: 12; anchors.verticalCenter: parent.verticalCenter
-                            color: rq.game ? theme.primary : theme.field; border { color: theme.outline; width: rq.game ? 0 : 1 }
-                            Rectangle { x: rq.game ? 22 : 2; y: 2; width: 20; height: 20; radius: 10; color: rq.game ? theme.fgOnPrimary : theme.fgDim
-                                        Behavior on x { NumberAnimation { duration: theme.animMs } } }
-                            MouseArea { anchors.fill: parent; onClicked: { rq.game = !rq.game; rq.run(["hyprctl", "eval", "latte.game(" + rq.game + ")"]); } }
-                        }
-                        Text { width: parent.width - 54; anchors.verticalCenter: parent.verticalCenter; wrapMode: Text.Wrap
-                               text: rq.game ? "Herný režim zapnutý: bez efektov, medzier a animácií" : "Herný režim vypnutý"
-                               color: theme.fg; font { family: theme.fontUi; pixelSize: 12 } }
-                    }
-                    Row {
-                        spacing: 6
-                        visible: rq.profiles.length > 0
-                        Repeater {
-                            model: rq.profiles
-                            Rectangle {
-                                required property string modelData
-                                readonly property bool cur: rq.profile === modelData
-                                width: (col.width - 12) / 3; height: 32; radius: 10
-                                color: cur ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.25) : (pm.containsMouse ? theme.hover : theme.field)
-                                border { color: cur ? theme.primary : "transparent"; width: 1 }
-                                Text { anchors.centerIn: parent; text: rq.profileNames[modelData] || modelData; color: theme.fg; font { family: theme.fontUi; pixelSize: 12; weight: parent.cur ? Font.Bold : Font.Normal } }
-                                MouseArea { id: pm; anchors.fill: parent; hoverEnabled: true; onClicked: { rq.profile = modelData; rq.run(["powerprofilesctl", "set", modelData]); } }
-                            }
-                        }
-                    }
-                    Text { visible: rq.profiles.length === 0; text: "Profily výkonu nie sú dostupné (power-profiles-daemon)."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
-                    Rectangle { width: parent.width; height: 1; color: theme.line }
-                    Row {
-                        spacing: 8
-                        component Link: Rectangle {
-                            id: lk
-                            property string glyph; property string label
-                            signal clicked()
-                            width: lt.implicitWidth + 42; height: 32; radius: 10
-                            color: lkm.containsMouse ? theme.hover : theme.field
-                            Glyph { x: 12; anchors.verticalCenter: parent.verticalCenter; name: lk.glyph; size: 15; color: theme.primary }
-                            Text { id: lt; x: 33; anchors.verticalCenter: parent.verticalCenter; text: lk.label; color: theme.fg; font { family: theme.fontUi; pixelSize: 12 } }
-                            MouseArea { id: lkm; anchors.fill: parent; hoverEnabled: true; onClicked: lk.clicked() }
-                        }
-                        Link { glyph: "world"; label: "NET aplikácií"; onClicked: rq.detached(["latte-app", "aplikacie", "opravnenia"]) }
-                        Link { glyph: "volume"; label: "Zvuk"; onClicked: rq.detached(["latte-app", "zariadenia", "zvuk"]) }
-                        Link { glyph: "settings"; label: "Nastavenia"; onClicked: rq.detached(["latte-app", "nastavenia"]) }
-                    }
-                }
+                ContextMenu { id: pmenu; theme: theme }
             }
         }
     }

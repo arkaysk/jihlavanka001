@@ -13,6 +13,15 @@
   latte-devices audio default sink|source MENO   predvolený výstup / vstup
   latte-devices audio volume sink|app ID PCT     hlasitosť výstupu alebo aplikácie (0–150)
   latte-devices audio mute sink|app ID           prepnúť stlmenie
+  latte-devices audio karty                   JSON: zvukové karty s profilmi (stereo, 2.1, 5.1 = priradenie kanálov) a portami
+                                              (konektory: reproduktory, slúchadlá, mikrofón 1/2, linka = priradenie jackov)
+  latte-devices audio profil KARTA PROFIL     profil karty (pactl set-card-profile)
+  latte-devices audio port sink|source MENO PORT   konektor výstupu / vstupu
+  latte-devices bt                            JSON: Bluetooth (zapnuté, spárované a pripojené zariadenia, batéria)
+  latte-devices bt zapni|vypni|hladaj         napájanie adaptéra; hladaj = 8 s hľadania, vypíše nájdené zariadenia
+  latte-devices bt pripoj|odpoj|sparuj|zabudni MAC
+  latte-devices bezpecnost                    JSON: SSH server, firewall (zóny, predvolené pravidlá), tunely (SSH -L/-R/-D, WireGuard)
+  latte-devices firewall                      JSON: úplné pravidlá aktívnych zón (firewall-cmd; polkit sa môže opýtať na heslo)
 
 Zariadenie je v jednej skupine podľa toho, čo robí (USB klávesnica je Vstup, USB disk je Disk).
 Stav (podľa starej verzie, hwstatus.py): funguje · chýba firmvér · chýba balík · treba cudzí repozitár · nepodporované
@@ -460,6 +469,105 @@ def audio_state():
     return {"sinks": sinks, "sources": sources, "apps": apps}
 
 
+def audio_cards():
+    """Zvukové karty: profily (koľko kanálov a či aj vstup) a porty (konektory) s tým, ktorý je aktívny."""
+    rc, out = sh(["pactl", "list", "cards"], env=dict(os.environ, LC_ALL="C"))
+    cards, cur, sect = [], None, ""
+    for line in out.splitlines():
+        if re.match(r"^Card #\d+", line):
+            cur = {"name": "", "desc": "", "profiles": [], "active": "", "ports": []}; cards.append(cur); sect = ""; continue
+        if cur is None:
+            continue
+        t = line.strip()
+        ind = len(line) - len(line.lstrip("\t"))
+        if ind == 1:
+            sect = t.rstrip(":") if t.endswith(":") else ""
+            if t.startswith("Name:"): cur["name"] = t[5:].strip()
+            elif t.startswith("Active Profile:"): cur["active"] = t.split(":", 1)[1].strip()
+            continue
+        if sect == "Properties" and t.startswith('device.description = "'):
+            cur["desc"] = t.split('"')[1]
+        elif sect == "Profiles" and ind == 2:
+            m = re.match(r"^(\S+): (.*) \(sinks: (\d+), sources: (\d+), priority: \d+, available: (\w+)\)$", t)
+            if m and m.group(1) != "off":
+                cur["profiles"].append({"name": m.group(1), "desc": m.group(2), "out": int(m.group(3)), "in": int(m.group(4)), "available": m.group(5) == "yes"})
+        elif sect == "Ports" and ind == 2:
+            m = re.match(r"^(\S+): (.*) \(type: (\w+).*availab\w* ?(\w*)\)$", t)
+            if m:
+                cur["ports"].append({"name": m.group(1), "desc": m.group(2), "type": m.group(3), "dir": "in" if "input" in m.group(1) else "out",
+                                     "plugged": m.group(4) != "no" and "not available" not in t})
+    # aktívny port každého výstupu / vstupu
+    act = {}
+    for kind in ("sinks", "sources"):
+        for b in pactl_blocks(kind):
+            if b.get("Active Port"):
+                act[b.get("Name", "")] = {"port": b["Active Port"], "card": b["props"].get("alsa.card_name", ""), "kind": kind[:-1]}
+    return {"cards": [c for c in cards if c["name"]], "active": act}
+
+
+def bluetooth_state():
+    rc, o = sh(["bluetoothctl", "show"], timeout=4)
+    if rc != 0 or "Controller" not in o:
+        return {"available": False, "powered": False, "devices": []}
+    powered = "Powered: yes" in o
+    devs = []
+    rc, lst = sh(["bluetoothctl", "devices"], timeout=4)
+    for line in lst.splitlines():
+        m = re.match(r"^Device (\S+) (.*)$", line)
+        if not m:
+            continue
+        rc, info = sh(["bluetoothctl", "info", m.group(1)], timeout=4)
+        g = lambda k: (re.search(r"^\s*%s: (.*)$" % k, info, re.M) or [None, ""])[1]
+        bat = re.search(r"Battery Percentage: \S+ \((\d+)\)", info)
+        devs.append({"mac": m.group(1), "name": m.group(2), "paired": g("Paired") == "yes", "connected": g("Connected") == "yes",
+                     "trusted": g("Trusted") == "yes", "icon": g("Icon"), "battery": int(bat.group(1)) if bat else None})
+    return {"available": True, "powered": powered, "devices": sorted(devs, key=lambda d: (not d["connected"], not d["paired"], d["name"]))}
+
+
+def security_state():
+    """SSH server, firewall a tunely — karta Siete (bez práv správcu; úplné pravidlá: `firewall`)."""
+    act = lambda u: sh(["systemctl", "is-active", u], timeout=3)[1].strip()
+    ena = lambda u: sh(["systemctl", "is-enabled", u], timeout=3)[1].strip()
+    port = "22"
+    for line in read("/etc/ssh/sshd_config").splitlines():
+        m = re.match(r"^\s*Port\s+(\d+)", line)
+        if m: port = m.group(1)
+    fw_on = act("firewalld") == "active"
+    zones, default = [], ""
+    if fw_on:
+        default = sh(["firewall-cmd", "--get-default-zone"], timeout=4)[1].strip()
+        rc, z = sh(["firewall-cmd", "--get-active-zones"], timeout=4)
+        cur = None
+        for line in z.splitlines():
+            if not line.startswith(" "):
+                cur = {"name": line.split()[0], "interfaces": [], "services": [], "ports": [], "source": "predvolené"}; zones.append(cur)
+            elif cur and "interfaces:" in line:
+                cur["interfaces"] = line.split(":", 1)[1].split()
+        for zn in zones:                                   # predvolené pravidlá zóny (bez hesla); úplné: `firewall`
+            x = read("/usr/lib/firewalld/zones/%s.xml" % zn["name"])
+            zn["services"] = re.findall(r'<service name="([^"]+)"', x)
+            zn["ports"] = ["%s/%s" % p for p in re.findall(r'<port port="([^"]+)" protocol="([^"]+)"', x)]
+    tunnels = []
+    rc, ps = sh(["ps", "-eo", "pid=,args="], timeout=3)
+    for line in ps.splitlines():
+        pid, _, args = line.strip().partition(" ")
+        if re.match(r"^(\S*/)?ssh\s", args) and re.search(r"\s-[A-Za-z]*[LRD]\s*\S", args):
+            tunnels.append({"pid": int(pid), "cmd": args[:160], "kind": "SSH"})
+    return {"ssh": {"active": act("sshd") == "active", "enabled": ena("sshd") == "enabled", "port": port},
+            "firewall": {"active": fw_on, "default": default, "zones": zones}, "tunnels": tunnels}
+
+
+def firewall_full():
+    rc, o = sh(["firewall-cmd", "--list-all"], timeout=60)
+    if rc != 0:
+        return {"ok": False, "error": o.strip()[:200]}
+    d = {"ok": True}
+    for line in o.splitlines()[1:]:
+        k, _, v = line.strip().partition(":")
+        d[k.strip().replace(" ", "_").replace("-", "_")] = v.split()
+    return d
+
+
 def hypr_monitor(name, mode, scale):
     code = 'hl.monitor({ output = "%s", mode = "%s", position = "auto", scale = %s })' % (name, mode, float(scale))
     return sh(["hyprctl", "eval", code])[0]
@@ -495,9 +603,38 @@ def main(a):
         if len(a) == 5 and a[1] == "volume" and a[2] in ("sink", "app") and a[4].isdigit():
             pct = str(min(150, int(a[4]))) + "%"
             return sh(["pactl", "set-sink-volume" if a[2] == "sink" else "set-sink-input-volume", a[3], pct])[0]
-        if len(a) == 4 and a[1] == "mute" and a[2] in ("sink", "app"):
-            return sh(["pactl", "set-sink-mute" if a[2] == "sink" else "set-sink-input-mute", a[3], "toggle"])[0]
+        if len(a) == 4 and a[1] == "mute" and a[2] in ("sink", "app", "source"):
+            return sh(["pactl", {"sink": "set-sink-mute", "app": "set-sink-input-mute", "source": "set-source-mute"}[a[2]], a[3], "toggle"])[0]
+        if a[1:2] == ["karty"]:
+            print(json.dumps(audio_cards(), ensure_ascii=False))
+            return 0
+        if len(a) == 4 and a[1] == "profil":
+            return sh(["pactl", "set-card-profile", a[2], a[3]])[0]
+        if len(a) == 5 and a[1] == "port" and a[2] in ("sink", "source"):
+            return sh(["pactl", "set-%s-port" % a[2], a[3], a[4]])[0]
         return 2
+    if a[:1] == ["bt"]:
+        if len(a) == 1:
+            print(json.dumps(bluetooth_state(), ensure_ascii=False)); return 0
+        if len(a) == 2 and a[1] in ("zapni", "vypni"):
+            return sh(["bluetoothctl", "power", "on" if a[1] == "zapni" else "off"])[0]
+        if len(a) == 2 and a[1] == "hladaj":
+            sh(["bluetoothctl", "--timeout", "8", "scan", "on"], timeout=12)
+            print(json.dumps(bluetooth_state(), ensure_ascii=False)); return 0
+        if len(a) == 3 and re.match(r"^([0-9A-F]{2}:){5}[0-9A-F]{2}$", a[2], re.I):
+            mac = a[2]
+            if a[1] == "sparuj":
+                for c in (["pair", mac], ["trust", mac], ["connect", mac]):
+                    rc = sh(["bluetoothctl", "--timeout", "20"] + c, timeout=25)[0]
+                return rc
+            cmd = {"pripoj": "connect", "odpoj": "disconnect", "zabudni": "remove"}.get(a[1])
+            if cmd:
+                return sh(["bluetoothctl", cmd, mac], timeout=20)[0]
+        return 2
+    if a[:1] == ["bezpecnost"]:
+        print(json.dumps(security_state(), ensure_ascii=False)); return 0
+    if a[:1] == ["firewall"]:
+        print(json.dumps(firewall_full(), ensure_ascii=False)); return 0
     if len(a) >= 3 and a[0] == "display":
         name = a[2]
         if not re.match(r"^[\w.-]+$", name):
