@@ -24,12 +24,27 @@ local function show(frame)
   barWidget.setImage(C.bar(kind, frame), false, 44, 36)
 end
 
+-- Optimalizácia 26. 9.: predtým každé 3 s sh + playerctl + noctalia msg + 2× hyprctl + grep (6 procesov).
+-- Teraz: hudba a aktivita okien z trvalých streamov (zmena príde hneď), kurzor raz za 10 s, Nerušiť raz za 30 s.
+local streams, pollN = false, 0
+local function startStreams()
+  if streams then return end
+  streams = true
+  noctalia.runStream("playerctl --follow status", function(line)
+    playing = string.match(line or "", "^%s*(%a+)") == "Playing"
+    if playing then lastActive = os.time() end
+  end)
+  noctalia.runStream("latte-hypr-udalosti activewindowv2 openwindow closewindow workspacev2 windowtitlev2",
+                     function(_line) lastActive = os.time() end)
+end
 local function poll()
-  noctalia.runAsync({ "sh", "-c", "echo \"hudba=$(playerctl status 2>/dev/null | head -1)\"; echo \"dnd=$(noctalia msg notification-dnd-status 2>/dev/null)\"; "
-                      .. "echo \"kurzor=$(hyprctl cursorpos 2>/dev/null)|$(hyprctl activewindow -j 2>/dev/null | grep -m1 '\"title\"')\"" }, function(r)
+  startStreams()
+  pollN = pollN + 1
+  local dndToo = pollN % 3 == 1
+  noctalia.runAsync({ "sh", "-c", (dndToo and "echo \"dnd=$(noctalia msg notification-dnd-status 2>/dev/null)\"; " or "")
+                      .. "echo \"kurzor=$(hyprctl cursorpos 2>/dev/null)\"" }, function(r)
     local out = r.stdout or ""
-    playing = string.match(out, "hudba=(%a*)") == "Playing"
-    dnd = string.match(out, "dnd=(%a*)") == "on"
+    if dndToo then dnd = string.match(out, "dnd=(%a*)") == "on" end
     local seen = string.match(out, "kurzor=([^\n]*)") or ""
     if seen ~= lastSeen then lastSeen = seen; lastActive = os.time() end
     if playing then lastActive = os.time() end       -- pri hudbe ťuká, neodchádza
@@ -52,7 +67,7 @@ function update()
   barWidget.setVisible(true)
   tick = tick + 1
   local now = os.time()
-  if now - lastPoll >= 3 then lastPoll = now; poll() end
+  if now - lastPoll >= 10 then lastPoll = now; poll() end
   -- potreby: plynutie času, uloženie raz za minútu (panel a maskot.qml čítajú ten istý súbor)
   local fresh = C.load()
   if (fresh.posledne or 0) > (st.posledne or 0) then st = fresh end
