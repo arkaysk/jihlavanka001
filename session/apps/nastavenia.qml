@@ -10,6 +10,7 @@ import "data"
 ShellRoot {
     id: app
     LatteTheme { id: theme }
+    readonly property var th: theme             // pre vložené komponenty s vlastnou vlastnosťou theme (theme: theme by ukazovalo na seba)
     readonly property var latteTheme: theme      // pre vnorené prvky s vlastnou vlastnosťou „theme“ (IconButton)
 
     readonly property string home: Quickshell.env("HOME") || "/"
@@ -101,14 +102,14 @@ ShellRoot {
           pages: [
             { key: "vykon", label: "Výkon a grafika", glyph: "bolt", status: "ready" },
             { key: "hry", label: "Hry a herný režim", glyph: "device-gamepad", status: "ready" },
-            { key: "obrazovky", label: "Obrazovky", glyph: "device-desktop", status: "partial" },
-            { key: "zvuk", label: "Zvuk", glyph: "volume", status: "partial" },
-            { key: "siet", label: "Sieť", glyph: "wifi", status: "partial" },
-            { key: "bluetooth", label: "Bluetooth a periférie", glyph: "bluetooth", status: "partial" },
+            { key: "obrazovky", label: "Obrazovky", glyph: "device-desktop", status: "ready" },
+            { key: "zvuk", label: "Zvuk", glyph: "volume", status: "ready" },
+            { key: "siet", label: "Sieť", glyph: "wifi", status: "ready" },
+            { key: "bluetooth", label: "Bluetooth a periférie", glyph: "bluetooth", status: "ready" },
             { key: "vstup", label: "Myš, touchpad a ovládače", glyph: "mouse", status: "ready" },
             { key: "disky", label: "Úložné zariadenia", glyph: "usb", status: "partial" },
             { key: "tlac", label: "Tlač a skenovanie", glyph: "printer", status: "partial" },
-            { key: "napajanie", label: "Napájanie", glyph: "battery", status: "partial" },
+            { key: "napajanie", label: "Napájanie", glyph: "battery", status: "ready" },
             { key: "diagnostika", label: "Diagnostika a pády", glyph: "stethoscope", status: "partial" } ] },
         { key: "ucet", title: "Účet", glyph: "user", summary: user, owner: "Session Manager",
           pages: [
@@ -588,11 +589,6 @@ ShellRoot {
         aktualizacie: ["systém (Atomic: celý obraz naraz s návratom)", "aplikácie", "firmware (fwupd)", "„Aktualizovať všetko“"],
         spustanie: ["aplikácie pri prihlásení", "služby na pozadí", "Latte System Monitor: autorun položky s pôvodom"],
         sukromie: ["tlačidlo NET pre každú aplikáciu", "dôveryhodné / nedôveryhodné aplikácie", "kamera, mikrofón, poloha"],
-        obrazovky: ["rozlíšenie, frekvencia, mierka, otočenie", "potvrdenie do 15 s, inak návrat", "HDR a VRR na reálnom HW"],
-        zvuk: ["výstup a vstup", "hlasitosť aplikácií", "Bluetooth slúchadlá"],
-        siet: ["Wi-Fi a káblové pripojenia", "VPN", "zdieľanie pripojenia"],
-        bluetooth: ["párovanie", "ovládače a periférie"],
-        napajanie: ["profil výkonu", "uspávanie a vypnutie obrazovky", "batéria"],
     })
     function stateText(k) {
         const m = app.mode;
@@ -624,6 +620,7 @@ ShellRoot {
         if (k === "oznamenia") return (dnd ? "Nerušiť: zapnuté" : "Nerušiť: vypnuté") + "\nPoloha: " + ({ top_right: "vpravo hore", top_center: "hore v strede", top_left: "vľavo hore", bottom_right: "vpravo dole", bottom_left: "vľavo dole" })[notif.position || "top_right"];
         if (k === "klavesnica") return "Profil " + ({ windows: "Windows", linux: "Linux", mac: "macOS" })[ctrlProfile] + " · rozloženia sk, us (Alt+Shift)";
         if (dalsie.pages[k]) return dalsie.stateText(k);
+        if (managed[k] && managed[k][0] === "Správca zariadení") return "Priamo tu: ten istý Správca zariadení ako okno z lišty";
         if (plans[k]) return "Zatiaľ len plán";
         return "—";
     }
@@ -753,11 +750,11 @@ ShellRoot {
         instalacia: ["Aplikácie", "Objavovať: Flathub (bez hesla, v izolácii) a Fedora. „Bude to fungovať?“ pre stiahnuté súbory.", ["latte-app", "aplikacie", "objavovat"]],
         aktualizacie: ["Aplikácie", "Systém (dnf) aj Flatpak aplikácie na jednom mieste, „Aktualizovať všetko“.", ["latte-app", "aplikacie", "aktualizacie"]],
         sukromie: ["Aplikácie", "NET pre každú aplikáciu: internet áno/nie. Flatpak cez jeho izoláciu, ostatné aplikácie bežia bez siete (bubblewrap). Windows hry cez Proton prídu s hernou vrstvou.", ["latte-app", "aplikacie", "opravnenia"]],
-        obrazovky: ["Správca zariadení", "Rozlíšenie a mierka obrazovky s potvrdením do 15 s (inak sa zmena vráti). Uloží sa do ~/.config/latteos/monitors.lua.", ["latte-app", "zariadenia", "obrazovky"]],
-        zvuk: ["Správca zariadení", "Zvukové karty a predvolený výstup; hlasitosť je v Zariadeniach na lište.", ["latte-app", "zariadenia", "zvuk"]],
-        siet: ["Správca zariadení", "Sieťové karty a pripojenia (NetworkManager). Wi-Fi a VPN cez nmtui, neskôr priamo.", ["latte-app", "zariadenia", "siet"]],
-        bluetooth: ["Správca zariadení", "Bluetooth adaptéry; párovanie v riadiacom centre.", ["latte-app", "zariadenia", "bluetooth"]],
-        napajanie: ["Správca zariadení", "Batéria, adaptér a profil výkonu.", ["latte-app", "zariadenia", "napajanie"]],
+        obrazovky: ["Správca zariadení", "Rozlíšenie a mierka s potvrdením do 15 s (inak sa zmena vráti). Uloží sa do ~/.config/latteos/monitors.lua.", ["latte-app", "zariadenia", "obrazovky"]],
+        zvuk: ["Správca zariadení", "Výstup a vstup, hlasitosť, konektory (čo je zapojené do ktorého jacku), konfigurácia karty (stereo, 5.1…) a hlasitosť aplikácií.", ["latte-app", "zariadenia", "zvuk"]],
+        siet: ["Správca zariadení", "Pripojenia, Wi-Fi v okolí, VPN a tunely, SSH server, firewall (zóny, služby, porty, presmerovania) a adresy.", ["latte-app", "zariadenia", "siet"]],
+        bluetooth: ["Správca zariadení", "Zapnutie, hľadanie a párovanie zariadení, pripojenie a zabudnutie.", ["latte-app", "zariadenia", "bluetooth"]],
+        napajanie: ["Správca zariadení", "Batéria, adaptér a režim napájania (Úsporný · Vyvážený · Výkon) a herný režim.", ["latte-app", "zariadenia", "napajanie"]],
         disky: ["Správca zariadení", "Disky, USB kľúče a karty: stav SMART, oddiely, bezpečné odpojenie. Pripojené sa ukážu aj v Súboroch.", ["latte-app", "zariadenia", "disky"]],
         tlac: ["Správca zariadení", "Tlačiarne a skenery: stav, ovládač a rad úloh. Novú sieťovú tlačiareň Fedora zvyčajne nájde sama (IPP Everywhere).", ["latte-app", "zariadenia", "tlac"]],
         spustanie: ["Monitor", "Čo sa spúšťa po prihlásení: autostart, služby tvojho účtu, časovače. Vypnutie jedným klikom.", ["latte-app", "monitor", "autorun"]]
@@ -2216,8 +2213,19 @@ ShellRoot {
             spacing: 12
             readonly property var m: app.managed[app.section] || ["", "", []]
             Text { width: parent.width; wrapMode: Text.WordWrap; text: parent.m[1]; color: theme.fg; font { family: theme.fontUi; pixelSize: 14 } }
-            Button { label: "Otvoriť " + parent.m[0]; glyph: parent.m[0] === "Monitor" ? "activity" : (parent.m[0] === "Aplikácie" ? "apps" : "cpu"); primaryStyle: true; onClicked: app.run(parent.m[2]) }
-            Text { text: "Nastavenia ukazujú stav a odkaz; operácie vlastní " + parent.m[0] + " (jedna implementácia)."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+            readonly property bool dev: m[0] === "Správca zariadení"
+            // stránky hardvéru: ten istý komponent ako Správca zariadení (jedna implementácia, nie odkaz)
+            Loader {
+                active: parent.dev; visible: active; width: parent.width; height: item ? item.naturalHeight : 0
+                sourceComponent: SpravcaZariadeni {
+                    theme: app.th; compact: false; embedded: true
+                    only: app.managed[app.section][2][2]
+                    tab: app.section === "siet" ? "siete" : "zariadenia"
+                    onOpenWindow: (a) => app.run(a)
+                }
+            }
+            Button { label: "Otvoriť " + parent.m[0]; glyph: parent.m[0] === "Monitor" ? "activity" : (parent.m[0] === "Aplikácie" ? "apps" : "cpu"); primaryStyle: !parent.dev; onClicked: app.run(parent.m[2]) }
+            Text { visible: !parent.dev; text: "Nastavenia ukazujú stav a odkaz; operácie vlastní " + parent.m[0] + " (jedna implementácia)."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
         }
     }
     Component {

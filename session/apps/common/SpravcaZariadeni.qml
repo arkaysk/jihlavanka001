@@ -19,6 +19,8 @@ Item {
     property string tab: "zariadenia"           // zariadenia | siete
     property string group: ""                   // "" = dlaždice kategórií
     property string only: ""                    // iba jedna kategória (Nastavenia)
+    property bool embedded: false               // vložený do rolovanej stránky: bez vlastného rolovania, výška = obsah
+    readonly property real naturalHeight: tabs.height + (tabs.visible ? 10 : 0) + body.implicitHeight + 12
     property var sel: null                      // { group, item }
     property bool active: true                  // načítavať (okno otvorené)
     property string status: ""
@@ -56,6 +58,10 @@ Item {
     Q { id: qSec; command: ["latte-devices", "bezpecnost"]; done: (d) => dm.sec = d }
     property var fwFull: null
     Q { id: qFw; command: ["latte-devices", "firewall"]; done: (d) => { dm.fwFull = d; dm.status = d.ok ? "" : "Pravidlá sa nedajú zobraziť bez potvrdenia (polkit)"; } }
+    // režim napájania (Windows 11: Úspora / Vyvážený / Najlepší výkon) + herný režim LatteOS
+    property var power: ({ cur: "", list: [], game: false })
+    Q { id: qPower; command: ["latte-devices", "napajanie"]; done: (d) => dm.power = d }
+    readonly property var powerNames: ({ "power-saver": "Úsporný", balanced: "Vyvážený", performance: "Výkon" })
     property var live: []
     Q { id: qLive; command: ["latte-sysmon", "senzory"]
         done: (g) => {
@@ -76,6 +82,7 @@ Item {
         if (g === "zvuk") { need(qAudio); need(qCards); }
         if (g === "bluetooth") need(qBt);
         if (g === "siet") need(qNets);
+        if (g === "napajanie") need(qPower);
         if (sel && (sel.item.sensorPrefix || sel.group === "pocitac")) need(qLive);
         if (g === "kamery" || g === "zvuk") need(qUse);
     }
@@ -120,6 +127,8 @@ Item {
     }
     function keep() { if (!trial) return; tick.stop(); countdown = 0; run(["latte-devices", "display", "keep", trial.connector, trial.mode, String(trial.scale)], "Uložené"); trial = null; }
     function revert() { if (!trial) return; tick.stop(); countdown = 0; run(["latte-devices", "display", "try", trial.connector, trial.before, String(trial.beforeScale)], "Vrátené"); trial = null; }
+    // odchod zo stránky počas skúšky = návrat (proces komponentu by zanikol s ním)
+    Component.onDestruction: if (trial) Quickshell.execDetached(["latte-devices", "display", "try", trial.connector, trial.before, String(trial.beforeScale)])
     Timer { id: tick; interval: 1000; repeat: true; onTriggered: { dm.countdown--; if (dm.countdown <= 0) dm.revert(); } }
 
     // Wi-Fi s heslom
@@ -219,7 +228,7 @@ Item {
     Flickable {
         id: fl
         anchors { left: parent.left; right: parent.right; top: tabs.bottom; topMargin: tabs.visible ? 10 : 0; bottom: parent.bottom }
-        contentHeight: body.implicitHeight + 12; clip: true; boundsBehavior: Flickable.StopAtBounds
+        contentHeight: body.implicitHeight + 12; clip: true; boundsBehavior: Flickable.StopAtBounds; interactive: !dm.embedded
         ScrollHint { flick: fl; colors: dm.t }
         Column {
             id: body
@@ -420,6 +429,23 @@ Item {
                                Btn { label: modelData.connected ? "Odpojiť" : (modelData.paired ? "Pripojiť" : "Spárovať")
                                      onClicked: dm.run(["latte-devices", "bt", modelData.connected ? "odpoj" : (modelData.paired ? "pripoj" : "sparuj"), modelData.mac], modelData.name) }
                                Btn { visible: modelData.paired; label: "Zabudnúť"; onClicked: dm.run(["latte-devices", "bt", "zabudni", modelData.mac]) } } }
+                }
+
+                // ── napájanie: režim ──
+                Column {
+                    visible: dm.group === "napajanie"
+                    width: parent.width; spacing: 6
+                    H { text: "REŽIM NAPÁJANIA" }
+                    Flow {
+                        width: parent.width; spacing: 6
+                        Repeater { model: dm.power.list
+                            Btn { required property string modelData; label: dm.powerNames[modelData] || modelData; glyph: "bolt"
+                                  on: !dm.power.game && dm.power.cur === modelData
+                                  onClicked: dm.run(["powerprofilesctl", "set", modelData], "Režim: " + label) } }
+                        Btn { label: "Herný režim"; glyph: "device-gamepad"; on: dm.power.game
+                              onClicked: dm.run(["hyprctl", "eval", "latte.game(" + !dm.power.game + ")"], dm.power.game ? "Herný režim vypnutý" : "Herný režim zapnutý") }
+                    }
+                    Note { visible: dm.power.list.length === 0; text: "Profily výkonu nie sú dostupné (power-profiles-daemon)." }
                 }
 
                 // ── ostatné kategórie: nástroje ──

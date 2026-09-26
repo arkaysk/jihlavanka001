@@ -22,6 +22,7 @@
   latte-devices bt pripoj|odpoj|sparuj|zabudni MAC
   latte-devices bezpecnost                    JSON: SSH server, firewall (zóny, predvolené pravidlá), tunely (SSH -L/-R/-D, WireGuard)
   latte-devices firewall                      JSON: úplné pravidlá aktívnych zón (firewall-cmd; polkit sa môže opýtať na heslo)
+  latte-devices napajanie                     JSON: režim napájania (powerprofilesctl) a herný režim LatteOS
 
 Zariadenie je v jednej skupine podľa toho, čo robí (USB klávesnica je Vstup, USB disk je Disk).
 Stav (podľa starej verzie, hwstatus.py): funguje · chýba firmvér · chýba balík · treba cudzí repozitár · nepodporované
@@ -582,6 +583,14 @@ def saved():
     return out
 
 
+def power_state():
+    """Režim napájania ako vo Windows 11 (Úspora / Vyvážený / Výkon) a herný režim LatteOS."""
+    cur = sh(["powerprofilesctl", "get"])[1].strip()
+    avail = re.findall(r"^[* ] *([a-z-]+):$", sh(["powerprofilesctl", "list"])[1], re.M)
+    state = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
+    return {"cur": cur, "list": list(reversed(avail)), "game": read(os.path.join(state, "latteos", "game-mode")).strip() == "1"}
+
+
 def main(a):
     if a[:1] == ["siete"]:
         print(json.dumps(networks(), ensure_ascii=False))
@@ -635,6 +644,8 @@ def main(a):
         print(json.dumps(security_state(), ensure_ascii=False)); return 0
     if a[:1] == ["firewall"]:
         print(json.dumps(firewall_full(), ensure_ascii=False)); return 0
+    if a[:1] == ["napajanie"]:
+        print(json.dumps(power_state(), ensure_ascii=False)); return 0
     if len(a) >= 3 and a[0] == "display":
         name = a[2]
         if not re.match(r"^[\w.-]+$", name):
