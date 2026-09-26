@@ -107,6 +107,16 @@ v Nastaveniach a každá stránka má ako Windows bežné nastavenia a pod nimi 
   DLNA televízory a Chromecast potrebujú doplnok (pa-dlna / mkchromecast) — overíme doma na reálnom HW.
 - vo VM je sieť NAT, takže vidno iba bránu; doma sa ukáže všetko.
 
+**Inšpektor siete podľa tvojej predlohy z ESET** (aplikácia „Inšpektor siete“ a Správca zariadení › Siete):
+- polkruhový radar: dole tento počítač nad routerom, vnútorný pás = pripojené teraz, vonkajší = v minulosti
+  (posledných 60 dní), nerozpoznané zariadenie = „?“ v prerušovanom rámčeku, nové = červený výkričník;
+- klik na zariadenie = detail: **premenovať** (napr. „Televízor v detskej“), **druh** = ikona a účel (počítač,
+  telefón, TV, receiver, tlačiareň, NAS, inteligentná domácnosť, konzola, kamera, router), údaje (IP, MAC, výrobca,
+  model, služby, prvýkrát videné), akcie (web rozhranie, SSH, zdieľané súbory, kopírovať, zabudnúť);
+- pravý klik = ponuka s rýchlou zmenou druhu; prepínač Radar / Zoznam (tabuľka ako v ESET);
+- „☆ Označiť ako Moja sieť“: iba v nej sa hlásia nové zariadenia (sieť sa pozná podľa MAC routera, nie podľa adresy).
+- Nastavenia: vloženie App Managera a Monitora (posledných 5 odkazov) a časti „Rozšírené“ robím ako ďalšie.
+
 **F-Droid 2.0** (tvoj odkaz): poznačené do ROADMAP k Android vrstve ako obchod s voľnými aplikáciami.
 
 ### 26. 9. 2026 ráno: Správca zariadení podľa starej verzie + Nastavenia verzus Windows 11 ✅ · ⚠ 1 otázka
