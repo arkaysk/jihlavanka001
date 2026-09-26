@@ -23,6 +23,7 @@ ShellRoot {
     property string view: "detaily"      // detaily | zoznam | ikony (spoločné pre oba panely)
     property int iconSize: 72
     readonly property bool commander: mode === "commander"
+    property bool showTree: false             // strom priečinkov ako trvalý panel (Ctrl+F8, ako oddelený strom v TC)
     // ľavé ťahanie v režime Forklift: windows (ten istý disk = presun) | copy (vždy kopírovať) | ask (vždy ponuka, ako KDE)
     property string dragRule: "windows"
     FileView { path: (Quickshell.env("XDG_CONFIG_HOME") || (app.home + "/.config")) + "/latteos/subory-tahanie"; printErrors: false; watchChanges: true
@@ -335,6 +336,7 @@ ShellRoot {
                 if (st.showDetail !== undefined) app.showDetail = !!st.showDetail;
                 if (st.view) app.view = st.view;
                 if (st.iconSize) app.iconSize = st.iconSize;
+                app.showTree = !!st.showTree;
                 if (st.tabs && st.tabs.length === 2) { app.tabs = st.tabs; app.tabIdx = st.tabIdx || [0, 0]; }
                 if (st.left) paneA.go(st.left);
                 if (st.right) paneB.go(st.right);
@@ -354,7 +356,7 @@ ShellRoot {
         if (!app.stateLoaded) return;
         saver.command = ["sh", "-c", "mkdir -p \"$(dirname \"$1\")\" && printf '%s' \"$2\" > \"$1\"", "sh", app.stateFile,
                          JSON.stringify({ dual: app.dual, left: paneA.path, right: paneB.path, mode: app.mode, tabs: app.tabs, tabIdx: app.tabIdx,
-                                         showDetail: app.showDetail, view: app.view, iconSize: app.iconSize })];
+                                         showDetail: app.showDetail, view: app.view, iconSize: app.iconSize, showTree: app.showTree })];
         saver.running = true;
     }
     Process { id: saver }
@@ -981,7 +983,8 @@ ShellRoot {
                 else if (k === Qt.Key_F9 && alt) app.extractAll();
                 else if (k === Qt.Key_F2 && shift) app.compareDirs(false);
                 else if (k === Qt.Key_B && ctrl) app.branchView();
-                else if ((k === Qt.Key_F10 && alt) || (k === Qt.Key_F8 && ctrl)) app.tool("strom");
+                else if (k === Qt.Key_F10 && alt) app.tool("strom");
+                else if (k === Qt.Key_F8 && ctrl) { app.showTree = !app.showTree; app.saveState(); }
                 else if (k === Qt.Key_F5 && ctrl && shift) app.makeLink("symbolicky");
                 // ── F-klávesy ──
                 else if (k === Qt.Key_F3 && app.commander) { if (app.sel) { if (app.sel.isDir) p.openCurrent(); else app.lister(app.sel); } }
@@ -1039,7 +1042,8 @@ ShellRoot {
                 onSearchSubmitted: (t) => app.findAll(t)
                 onCloseRequested: Qt.quit()
 
-                IconButton { theme: theme; glyph: "arrow-up"; tip: "O úroveň vyššie (Backspace)"; onClicked: app.activePane.up() }
+                IconButton { theme: theme; glyph: "arrow-up"; tip: "O úroveň vyššie (Alt+↑)"; onClicked: app.activePane.up() }
+                IconButton { theme: theme; glyph: "list-tree"; tip: "Strom priečinkov (Ctrl+F8)"; onClicked: { app.showTree = !app.showTree; app.saveState(); } }
                 IconButton { id: cmdBtn; visible: app.commander; theme: theme; glyph: "menu-2"; tip: "Príkazy (premenovanie, hľadanie, porovnanie, archívy, súčty…)"
                              onClicked: { const q = cmdBtn.mapToItem(null, 0, cmdBtn.height + 4); app.commandsMenu(q.x, q.y); } }
                 IconButton { id: newBtn; theme: theme; glyph: "plus"; tip: "Nový priečinok alebo súbor"
@@ -1097,7 +1101,8 @@ ShellRoot {
                 anchors { left: side.right; right: parent.right; top: btnBar.bottom; bottom: cmdLine.top; margins: 10 }
                 spacing: 10
                 readonly property real detailW: 280
-                readonly property real paneW: (width - (app.showDetail ? detailW + spacing : 0) - (app.dual ? spacing : 0)) / (app.dual ? 2 : 1)
+                readonly property real treeW: 240
+                readonly property real paneW: (width - (app.showDetail ? detailW + spacing : 0) - (app.showTree ? treeW + spacing : 0) - (app.dual ? spacing : 0)) / (app.dual ? 2 : 1)
 
                 component TabBar: Row {
                     id: tb
@@ -1140,6 +1145,23 @@ ShellRoot {
                     Rectangle { width: 26; height: 26; radius: 8; color: pm.containsMouse ? theme.hover : "transparent"
                                 Glyph { anchors.centerIn: parent; name: "plus"; size: 13; color: theme.fgDim }
                                 MouseArea { id: pm; anchors.fill: parent; hoverEnabled: true; onClicked: app.newTab(tb.side) } }
+                }
+                StromPanel {
+                    visible: app.showTree
+                    width: body.treeW; height: body.height
+                    theme: theme
+                    path: app.activePane ? app.activePane.path : "/"
+                    onOpenDir: (p) => { app.activePane.go(p); root.forceActiveFocus(); }
+                    onDropRequested: (d, p, area) => app.activePane.acceptDrop(d, p, area)
+                    onContextRequested: (p, x, y) => ctx.open(x, y, [
+                        { glyph: "folder-open", label: "Otvoriť", action: () => app.activePane.go(p) },
+                        { glyph: "columns-2", label: "Otvoriť v druhom paneli", enabled: app.dual, action: () => app.otherPane.go(p) },
+                        { glyph: "plus", label: "Otvoriť v novej karte", action: () => { app.newTab(app.activeIndex); app.activePane.go(p); } },
+                        { separator: true },
+                        { glyph: "terminal-2", label: "Terminál tu", action: () => app.run(["foot", "--working-directory=" + p]) },
+                        { glyph: "copy", label: "Kopírovať cestu", action: () => app.run(["sh", "-c", 'printf "%s" "$1" | wl-copy', "sh", p], "Cesta skopírovaná") },
+                        { separator: true },
+                        { glyph: "x", label: "Skryť strom", hint: "Ctrl+F8", action: () => { app.showTree = false; app.saveState(); } }], p.split("/").pop() || "/")
                 }
                 Column {
                     width: body.paneW; height: body.height; spacing: 4

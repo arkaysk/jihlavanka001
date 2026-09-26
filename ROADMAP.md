@@ -391,7 +391,8 @@ flowchart TD
         **hotlist** priečinkov (Ctrl+D), priečinok do panela vľavo/vpravo (Ctrl+←/→), výmena panelov (Ctrl+U), riadok „..“
   - [x] Zobrazenia: stručné, úplné (stĺpce, triedenie kliknutím), miniatúry, **Rýchly náhľad** (Ctrl+Q), plochý pohľad (Ctrl+B)
   - [x] **Strom priečinkov** (Alt+F10 / Ctrl+F8, dialóg ako v TC; rozbaľovanie šípkami, hľadanie písaním)
-  - [ ] Strom ako trvalý panel vedľa zoznamu, vlastné stĺpce
+  - [x] Strom ako trvalý panel vedľa zoznamu (Ctrl+F8 / tlačidlo, sám sa rozbalí k aktívnemu priečinku, ťahanie na priečinok, ponuka)
+  - [ ] Vlastné stĺpce (napr. rozmery obrázka, dĺžka videa, atribúty)
   - [x] Výber: Insert/Medzerník, Ctrl/Shift+klik, Num+ / Num− s maskou, Num* obrátiť, Ctrl+A, **rýchle hľadanie** písaním a rýchly filter
   - [x] **Výber:** Alt+Num± podľa prípony, uložiť a obnoviť výber
   - [x] Porovnanie výberu s druhým panelom (Príkazy › Označiť, čo je aj / čo chýba v druhom paneli)
