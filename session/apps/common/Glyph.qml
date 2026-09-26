@@ -7,6 +7,16 @@ Text {
     property real size: 18
     readonly property var map: ({
         "logout": 0xEBA8,
+        "router": 0xEB18,
+        "device-tv": 0xEA8D,
+        "device-speaker": 0xEA8B,
+        "bulb": 0xEA51,
+        "devices": 0xEB87,
+        "cast": 0xEA56,
+        "radar": 0xF017,
+        "speakerphone": 0xED61,
+        "antenna": 0xF094,
+        "radar-2": 0xF016,
         "plug": 0xEBD9,
         "plug-connected": 0xF00A,
         "cpu-2": 0xF075,

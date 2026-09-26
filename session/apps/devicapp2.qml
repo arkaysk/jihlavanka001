@@ -6,7 +6,9 @@
 //   tlačidlo myši = späť. Pravý klik = ponuka. Hľadanie v hlavičke skočí na zariadenie (Enter).
 //   Ovládanie (zvuk, obrazovka, Wi-Fi…) sa vysúva sprava — je to ten istý komponent SpravcaZariadeni ako v okne L
 //   a v Nastaveniach, nič nie je napísané dvakrát. Dole prepínač Zariadenia / Siete, vpravo dole obnoviť.
-// Spúšťa sa: latte-app devicapp2 [siete | skupina[/zariadenie]][+]   (ikona na ploche; „+“ = hneď vysunúť ovládanie)
+// Siete: pripojenia, SSH, firewall a „Sieť okolo“ = inšpektor siete (latte-inspektor, ako ESET Network Inspector):
+// router v strede a okolo všetko, čo je v sieti (telefóny, televízory, tlačiarne, receivery…), nové zariadenia sú označené.
+// Spúšťa sa: latte-app devicapp2 [siete | okolie | skupina[/zariadenie]][+]   (ikona na ploche; „+“ = hneď vysunúť ovládanie)
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -32,6 +34,16 @@ ShellRoot {
     Q { id: qInv; command: ["latte-devices", "list"]; done: (d) => app.inv = d }
     Q { id: qNets; command: ["latte-devices", "siete"]; done: (d) => app.nets = d }
     Q { id: qSec; command: ["latte-devices", "bezpecnost"]; done: (d) => app.sec = d }
+    // inšpektor siete: posledný sken hneď, nový na požiadanie (uzol „Prehľadať znova“)
+    property var insp: ({ ok: false, devices: [], audio: [] })
+    Q { id: qInspLast; command: ["latte-inspektor", "posledny"]; running: true; done: (d) => app.insp = d }
+    Q { id: qInsp; command: ["latte-inspektor", "sken"]; done: (d) => { app.insp = d; app.status = "Sieť prehľadaná"; } }
+    readonly property var kindGlyph: ({ router: "router", tv: "device-tv", audio: "device-speaker", printer: "printer", nas: "server", iot: "bulb",
+                                        phone: "device-mobile", pc: "device-desktop", console: "device-gamepad", device: "devices" })
+    readonly property var kindName: ({ router: "router", tv: "televízor", audio: "zvuk", printer: "tlačiareň", nas: "úložisko", iot: "inteligentná domácnosť",
+                                       phone: "telefón / tablet", pc: "počítač", console: "konzola", device: "zariadenie" })
+    function devLabel(d) { const v = d.vendor && d.vendor.indexOf("súkromná") < 0 ? d.vendor : "";
+                           return d.name || v || (d.gateway ? "Router" : (d.kind !== "device" ? kindName[d.kind].charAt(0).toUpperCase() + kindName[d.kind].slice(1) : "Neznáme zariadenie")); }
     Process {
         running: true; command: ["sh", "-c", "hostname; grep -m1 'model name' /proc/cpuinfo | sed 's/.*: //'"]
         stdout: StdioCollector { onStreamFinished: { const l = this.text.split("\n"); app.host = l[0] || "Počítač";
@@ -43,13 +55,13 @@ ShellRoot {
     readonly property string arg: (Quickshell.env("LATTE_APP_ARGS") || "").trim()
     Component.onCompleted: {
         let a = arg; const open = a.endsWith("+"); if (open) a = a.slice(0, -1);
-        if (a === "siete") view = "siete"; else if (a) path = a.split("/").slice(0, 2);
+        if (a === "siete") view = "siete"; else if (a === "okolie") { view = "siete"; path = ["okolie"]; } else if (a) path = a.split("/").slice(0, 2);
         if (open) Qt.callLater(() => openDrawer(view === "siete" ? "siet" : (path[0] || ""), view, path[1] || ""));
     }
 
     // ── kde sme ────────────────────────────────────────────────────────────────────────────────────────
     property string view: "zariadenia"          // zariadenia | siete
-    property var path: []                       // [] · [skupina] · [skupina, zariadenie] · v Sieťach [] · ["wifi"]
+    property var path: []                       // [] · [skupina] · [skupina, zariadenie] · v Sieťach [] · ["wifi"] · ["okolie"]
     readonly property var grp: view === "zariadenia" && path.length ? (inv.groups || []).find(g => g.key === path[0]) || null : null
     readonly property var dev: path.length > 1 && grp ? grp.items.find(i => i.name === path[1]) || null : null
     function bad(it) { return !!it && !!it.state && it.state !== "ok" && it.state !== "off"; }
@@ -59,6 +71,7 @@ ShellRoot {
     property real g: 1                          // 0 → 1: uzly vyrastú zo stredu pri každom prechode
     NumberAnimation { id: grow; target: app; property: "g"; from: 0; to: 1; duration: 460; easing.type: Easing.OutCubic }
 
+    function human(n) { n = +n || 0; for (const u of ["B", "kB", "MB", "GB", "TB"]) { if (n < 1024) return (n >= 10 || u === "B" ? Math.round(n) : n.toFixed(1)) + " " + u; n /= 1024; } return n.toFixed(1) + " PB"; }
     function count(n) { return n + (n === 1 ? " zariadenie" : (n >= 2 && n <= 4 ? " zariadenia" : " zariadení")); }
     function copy(t) { Quickshell.execDetached(["wl-copy", t]); status = "Skopírované"; }
     function fix(it) {
@@ -73,6 +86,8 @@ ShellRoot {
     readonly property var hub: {
         if (view === "siete") {
             if (path[0] === "wifi") return { glyph: "wifi", title: "Wi-Fi v okolí", sub: (nets.wifi || []).length + " sietí" };
+            if (path[0] === "okolie") { const gw = (insp.devices || []).find(d => d.gateway);
+                                        return { glyph: "router", title: gw ? devLabel(gw) : "Sieť", sub: (gw ? gw.ip + " · " : "") + (insp.subnet || "") }; }
             const a = (nets.connections || []).filter(c => c.active);
             return { glyph: "world", title: a.length ? "Pripojené" : "Bez pripojenia", sub: a.map(c => c.name).join(" · ") || "žiadne aktívne pripojenie", bad: !a.length };
         }
@@ -83,6 +98,19 @@ ShellRoot {
     readonly property var sats: {
         const out = [];
         if (view === "siete") {
+            if (path[0] === "okolie") {
+                // ako ESET Network Inspector: router v strede, okolo všetko v sieti; tento počítač zvýraznený
+                if (insp.me) out.push({ glyph: "device-desktop", title: "Tento počítač", sub: insp.me.ip + " · ↓ " + human(insp.me.rx) + " ↑ " + human(insp.me.tx), kind: "action",
+                                        go: () => openDrawer("siet", "siete", "") });
+                for (const d of (insp.devices || []).filter(d => !d.gateway).slice(0, 10))
+                    out.push({ glyph: kindGlyph[d.kind] || "devices", title: (d.new ? "● " : "") + devLabel(d), sub: d.ip + " · " + (kindName[d.kind] || ""),
+                               bad: d.new, go: () => openDrawer("siet", "siete", ""),
+                               menu: [{ glyph: "world", label: "Otvoriť webové rozhranie", action: () => Quickshell.execDetached(["xdg-open", "http://" + d.ip]) },
+                                      { glyph: "copy", label: "Kopírovať IP adresu", action: () => copy(d.ip) }] });
+                out.push({ glyph: "radar", title: qInsp.running ? "Prehľadávam…" : "Prehľadať znova", sub: insp.time ? "naposledy " + new Date(insp.time * 1000).toLocaleTimeString(Qt.locale(), "HH:mm") : "ešte nikdy",
+                           kind: "action", go: () => { qInsp.last = ""; qInsp.running = true; } });
+                return out;
+            }
             if (path[0] === "wifi") {
                 for (const w of (nets.wifi || []).slice(0, 12))
                     out.push({ glyph: "wifi", title: w.ssid, sub: (w.security ? "zabezpečená · " : "otvorená · ") + w.signal + " %", kind: w.inUse ? "action" : "node",
@@ -95,6 +123,8 @@ ShellRoot {
                            go: () => openDrawer("siet", "siete", ""),
                            menu: [{ glyph: "plug", label: c.active ? "Odpojiť" : "Pripojiť", bold: true,
                                     action: () => Quickshell.execDetached(["latte-devices", "siet", c.active ? "odpoj" : "pripoj", c.name]) }] });
+            out.push({ glyph: "radar", title: "Sieť okolo", sub: insp.ok ? (insp.devices || []).length + " zariadení · inšpektor" : "prehľadať sieť", kind: "action",
+                       go: () => { if (!insp.ok && !qInsp.running) qInsp.running = true; go(["okolie"]); } });
             if ((nets.wifi || []).length) out.push({ glyph: "wifi", title: "Wi-Fi v okolí", sub: nets.wifi.length + " sietí", go: () => go(["wifi"]) });
             const ssh = sec.ssh || {};
             out.push({ glyph: "terminal", title: "SSH server", sub: ssh.active ? "beží na porte " + (ssh.port || 22) : "vypnutý", go: () => openDrawer("siet", "siete", "") });
@@ -132,7 +162,7 @@ ShellRoot {
     readonly property var absent: order.map(k => (inv.groups || []).find(x => x.key === k)).filter(x => x && !x.items.length)
     // reťaz (drobné spojené uzly vľavo hore): kde som a cesta späť
     readonly property var crumbs: {
-        if (view === "siete") return path.length ? [{ glyph: "world", p: [] }, { glyph: "wifi", p: ["wifi"] }] : [];
+        if (view === "siete") return path.length ? [{ glyph: "world", p: [] }, { glyph: path[0] === "okolie" ? "router" : "wifi", p: path }] : [];
         const c = [];
         if (path.length) c.push({ glyph: "device-desktop", p: [] });
         if (grp) c.push({ glyph: grp.glyph, p: [grp.key] });

@@ -13,6 +13,7 @@
   latte-devices audio default sink|source MENO   predvolený výstup / vstup
   latte-devices audio volume sink|app ID PCT     hlasitosť výstupu alebo aplikácie (0–150)
   latte-devices audio mute sink|app ID           prepnúť stlmenie
+  latte-devices audio presun APP VÝSTUP      prehrávať aplikáciu na inom výstupe (napr. Spotify na AirPlay receiveri)
   latte-devices audio karty                   JSON: zvukové karty s profilmi (stereo, 2.1, 5.1 = priradenie kanálov) a portami
                                               (konektory: reproduktory, slúchadlá, mikrofón 1/2, linka = priradenie jackov)
   latte-devices audio profil KARTA PROFIL     profil karty (pactl set-card-profile)
@@ -466,7 +467,10 @@ def audio_state():
                 "mute": b.get("Mute") == "yes", "default": b.get("Name") == dsrc.strip()}
                for b in pactl_blocks("sources") if not b.get("Name", "").endswith(".monitor")]
     apps = [{"id": b["id"], "name": b["props"].get("application.name") or b["props"].get("media.name", "?"),
-             "media": b["props"].get("media.name", ""), "volume": vol(b), "mute": b.get("Mute") == "yes"} for b in pactl_blocks("sink-inputs")]
+             "media": b["props"].get("media.name", ""), "volume": vol(b), "mute": b.get("Mute") == "yes", "sink": b.get("Sink", "")}
+            for b in pactl_blocks("sink-inputs")]
+    for x in sinks:                               # výstupy v sieti (AirPlay, Snapcast, iný počítač)
+        x["net"] = bool(re.match(r"^(raop|snapcast|tunnel|rtp|roc)", x["name"]))
     return {"sinks": sinks, "sources": sources, "apps": apps}
 
 
@@ -614,6 +618,8 @@ def main(a):
             return sh(["pactl", "set-sink-volume" if a[2] == "sink" else "set-sink-input-volume", a[3], pct])[0]
         if len(a) == 4 and a[1] == "mute" and a[2] in ("sink", "app", "source"):
             return sh(["pactl", {"sink": "set-sink-mute", "app": "set-sink-input-mute", "source": "set-source-mute"}[a[2]], a[3], "toggle"])[0]
+        if len(a) == 4 and a[1] == "presun" and a[2].isdigit():
+            return sh(["pactl", "move-sink-input", a[2], a[3]])[0]
         if a[1:2] == ["karty"]:
             print(json.dumps(audio_cards(), ensure_ascii=False))
             return 0

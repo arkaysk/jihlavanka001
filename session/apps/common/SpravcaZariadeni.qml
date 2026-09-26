@@ -60,6 +60,25 @@ Item {
     property var sec: ({ ssh: {}, firewall: { zones: [] }, tunnels: [] })
     Q { id: qSec; command: ["latte-devices", "bezpecnost"]; done: (d) => dm.sec = d }
     property var fwFull: null
+    // inšpektor siete (latte-inspektor): posledný sken hneď, nový na požiadanie (alebo prvýkrát sám)
+    property var insp: ({ ok: false, devices: [], audio: [], me: null })
+    Q { id: qInspLast; command: ["latte-inspektor", "posledny"]; done: (d) => { dm.insp = d; if (!d.ok && !qInsp.running) qInsp.running = true; } }
+    Q { id: qInsp; command: ["latte-inspektor", "sken"]; done: (d) => { dm.insp = d; dm.status = d.ok ? "Sieť prehľadaná: " + d.devices.length + " zariadení" : (d.error || ""); } }
+    readonly property var kindGlyph: ({ router: "router", tv: "device-tv", audio: "device-speaker", printer: "printer", nas: "server", iot: "bulb",
+                                        phone: "device-mobile", pc: "device-desktop", console: "device-gamepad", device: "devices" })
+    readonly property var kindName: ({ router: "router", tv: "televízor", audio: "zvuk", printer: "tlačiareň", nas: "úložisko", iot: "inteligentná domácnosť",
+                                       phone: "telefón / tablet", pc: "počítač", console: "konzola", device: "zariadenie" })
+    readonly property var svcName: ({ "_airplay._tcp": "AirPlay", "_raop._tcp": "AirPlay", "_googlecast._tcp": "Chromecast", "_spotify-connect._tcp": "Spotify",
+                                      "_ipp._tcp": "tlač", "_ipps._tcp": "tlač", "_printer._tcp": "tlač", "_smb._tcp": "SMB", "_ssh._tcp": "SSH",
+                                      "_http._tcp": "web", "_https._tcp": "web", "_sftp-ssh._tcp": "SFTP", "_snapcast._tcp": "Snapcast", "_hap._tcp": "HomeKit" })
+    function devServices(d) { const n = []; for (const x of d.services || []) { const v = svcName[x.type]; if (v && n.indexOf(v) < 0) n.push(v); }
+                              if ((d.upnp && d.upnp.types || []).some(t => t.indexOf("MediaRenderer") >= 0)) n.push("DLNA"); return n; }
+    // meno zariadenia v sieti: meno › výrobca › druh (náhodná MAC nie je výrobca)
+    function devLabel(d) { const v = d.vendor && d.vendor.indexOf("súkromná") < 0 ? d.vendor : "";
+                           return d.name || v || (d.gateway ? "Router" : (d.kind !== "device" ? kindName[d.kind].charAt(0).toUpperCase() + kindName[d.kind].slice(1) : "Neznáme zariadenie")); }
+    function hasSvc(d, t) { return (d.services || []).some(x => x.type === t); }
+    function human(n) { n = +n || 0; for (const u of ["B", "kB", "MB", "GB", "TB"]) { if (n < 1024) return (n >= 10 || u === "B" ? Math.round(n) : n.toFixed(1)) + " " + u; n /= 1024; } return n.toFixed(1) + " PB"; }
+    function netSinkFor(name) { return (audio.sinks || []).find(x => x.net && x.desc.toLowerCase().indexOf((name || "").toLowerCase()) >= 0) || null; }
     Q { id: qFw; command: ["latte-devices", "firewall"]; done: (d) => { dm.fwFull = d; dm.status = d.ok ? "" : "Pravidlá sa nedajú zobraziť bez potvrdenia (polkit)"; } }
     // režim napájania (Windows 11: Úspora / Vyvážený / Najlepší výkon) + herný režim LatteOS
     property var power: ({ cur: "", list: [], game: false })
@@ -81,7 +100,7 @@ Item {
     function refresh() {
         need(qList);
         const g = only || group;
-        if (tab === "siete") { need(qNets); need(qSec); return; }
+        if (tab === "siete") { need(qNets); need(qSec); need(qAudio); if (!insp.time && !qInsp.running) need(qInspLast); return; }
         if (g === "zvuk") { need(qAudio); need(qCards); }
         if (g === "bluetooth") need(qBt);
         if (g === "siet") need(qNets);
@@ -379,7 +398,13 @@ Item {
                         Row2 { required property var modelData; glyph: "player-play"; label: modelData.name; sub: modelData.media
                                Slider { width: 110; anchors.verticalCenter: parent.verticalCenter; to: 150; value: modelData.volume
                                         onMoved: (v) => dm.run(["latte-devices", "audio", "volume", "app", modelData.id, String(v)]) }
-                               Btn { glyph: modelData.mute ? "volume-off" : "volume"; label: ""; onClicked: dm.run(["latte-devices", "audio", "mute", "app", modelData.id]) } } }
+                               Btn { glyph: modelData.mute ? "volume-off" : "volume"; label: ""; onClicked: dm.run(["latte-devices", "audio", "mute", "app", modelData.id]) }
+                               // prehrávať na inom výstupe (napr. Spotify na AirPlay receiveri v obývačke)
+                               Btn { glyph: "cast"; label: ""; onClicked: { const q = mapToItem(dm, 0, height), a = modelData;
+                                     menu.open(q.x, q.y, dm.audio.sinks.map(k => ({ glyph: k.net ? "cast" : "device-speaker", label: k.desc, checked: k.id === a.sink,
+                                                                               action: () => dm.run(["latte-devices", "audio", "presun", a.id, k.name], a.name + " → " + k.desc) }))
+                                                         .concat([{ separator: true }, { glyph: "radar", label: "Nájsť výstupy v sieti…", action: () => { dm.tab = "siete"; } }]),
+                                               "Prehrávať " + a.name + " na"); } } } }
                 }
 
                 // ── OBRAZOVKY: rozlíšenie, mierka, potvrdenie ──
@@ -497,6 +522,62 @@ Item {
                                 Keys.onReturnPressed: (ev) => { ev.accepted = true; dm.wifiConnect(text); text = ""; }
                                 Keys.onEscapePressed: (ev) => { ev.accepted = true; dm.wifiSsid = ""; } }
                 }
+                // ── inšpektor siete (ako ESET Network Inspector): všetko v sieti okolo tohto počítača ──
+                H { text: "SIEŤ OKOLO · INŠPEKTOR" }
+                Row {
+                    spacing: 6
+                    Btn { label: qInsp.running ? "Prehľadávam…" : "Prehľadať sieť"; glyph: "radar"; primary: true; enabled: !qInsp.running
+                          onClicked: { qInsp.last = ""; qInsp.running = true; } }
+                    Text { anchors.verticalCenter: parent.verticalCenter; color: dm.t.fgDim; font { family: dm.t.fontUi; pixelSize: 11 }
+                           text: dm.insp.ok ? dm.insp.devices.length + " zariadení · " + dm.insp.subnet + " · " + new Date(dm.insp.time * 1000).toLocaleTimeString(Qt.locale(), "HH:mm") : "" }
+                }
+                Row2 {
+                    visible: !!dm.insp.me; glyph: "device-desktop"; picked: true
+                    label: dm.insp.me ? "Tento počítač · " + dm.insp.me.host + " · " + dm.insp.me.ip : ""
+                    sub: dm.insp.me ? "prijaté " + dm.human(dm.insp.me.rx) + " · odoslané " + dm.human(dm.insp.me.tx)
+                                      + (dm.insp.me.apps.length ? " · online: " + dm.insp.me.apps.slice(0, 4).map(a => a.app + " (" + a.spojenia + ")").join(", ") : "") : ""
+                }
+                Repeater { model: dm.insp.devices || []
+                    Row2 {
+                        required property var modelData
+                        readonly property var sv: dm.devServices(modelData)
+                        glyph: dm.kindGlyph[modelData.kind] || "devices"; picked: modelData.gateway
+                        label: (modelData.new ? "● NOVÉ · " : "") + dm.devLabel(modelData) + (modelData.gateway ? " · brána do internetu" : "")
+                        sub: modelData.ip + " · " + (dm.kindName[modelData.kind] || "") + (modelData.vendor && dm.devLabel(modelData) !== modelData.vendor ? " · " + modelData.vendor : "")
+                             + (modelData.model ? " · " + modelData.model : "") + (sv.length ? " · " + sv.join(", ") : "")
+                        Btn { label: "…"; onClicked: { const q = mapToItem(dm, 0, height), d = modelData;
+                              const web = d.gateway || dm.hasSvc(d, "_http._tcp") || dm.hasSvc(d, "_https._tcp");
+                              menu.open(q.x, q.y, [
+                                  { glyph: "world", label: "Otvoriť webové rozhranie", enabled: web, bold: web,
+                                    action: () => dm.openWindow(["xdg-open", (dm.hasSvc(d, "_https._tcp") ? "https://" : "http://") + d.ip]) },
+                                  { glyph: "terminal", label: "Pripojiť cez SSH", enabled: dm.hasSvc(d, "_ssh._tcp"), action: () => dm.openWindow(["foot", "-e", "ssh", d.ip]) },
+                                  { glyph: "folder", label: "Otvoriť zdieľané súbory", enabled: dm.hasSvc(d, "_smb._tcp"), action: () => dm.openWindow(["latte-app", "subory", "smb://" + d.ip]) },
+                                  { glyph: "printer", label: "Pridať tlačiareň", enabled: d.kind === "printer", action: () => dm.openWindow(["xdg-open", "http://localhost:631/admin"]) },
+                                  { separator: true },
+                                  { glyph: "copy", label: "Kopírovať IP adresu", action: () => Quickshell.execDetached(["wl-copy", d.ip]) },
+                                  { glyph: "copy", label: "Kopírovať MAC adresu", enabled: !!d.mac, action: () => Quickshell.execDetached(["wl-copy", d.mac]) }],
+                                  d.name || d.ip); } }
+                    } }
+                Note { visible: dm.insp.ok && dm.insp.devices.length <= 2
+                       text: "Okrem brány tu nič nie je — vo virtuálnom počítači (NAT) je to správne. Doma sa ukážu telefóny, televízory, tlačiarne, receivery…" }
+
+                // ── zvuk do siete: AirPlay/Snapcast priamo v PipeWire, Spotify Connect v Spotify, DLNA a Chromecast doinštalovať ──
+                H { text: "ZVUK DO SIETE" }
+                Row2 { glyph: "cast"; label: "Prijímače AirPlay ako zvukové výstupy"; picked: !!dm.insp.airplay
+                       sub: dm.insp.airplay ? "zapnuté · receivery a Apple TV sú v zozname výstupov (Zvuk › Aplikácie › ikona vysielania)" : "vypnuté"
+                       Btn { label: dm.insp.airplay ? "Vypnúť" : "Zapnúť"
+                             onClicked: { dm.run(["latte-inspektor", "airplay", dm.insp.airplay ? "vypni" : "zapni"], "AirPlay " + (dm.insp.airplay ? "vypnuté" : "zapnuté"));
+                                          dm.insp = Object.assign({}, dm.insp, { airplay: !dm.insp.airplay }); } } }
+                Repeater { model: dm.insp.audio || []
+                    Row2 { required property var modelData
+                           readonly property var sink: modelData.via === "airplay" || modelData.via === "snapcast" ? dm.netSinkFor(modelData.name) : null
+                           glyph: modelData.via === "spotify" ? "player-play" : "device-speaker"; label: modelData.name + " · " + modelData.ip; sub: modelData.how
+                           Btn { visible: !!sink; label: "Prehrávať sem"; primary: true
+                                 onClicked: dm.run(["latte-devices", "audio", "default", "sink", sink.name], "Zvuk ide do: " + modelData.name) }
+                           Btn { visible: !modelData.ready; label: "App Manager"; onClicked: dm.openWindow(["latte-app", "aplikacie", "objavovat"]) } } }
+                Note { visible: (dm.insp.audio || []).length === 0
+                       text: "V sieti zatiaľ nie je receiver, televízor ani reproduktor, ktorý by prijímal zvuk. Spotify vie hrať na zariadenia so Spotify Connect aj sám (ikona zariadení v Spotify)." }
+
                 H { text: "VPN A TUNELY" }
                 Repeater { model: dm.nets.connections.filter(c => c.vpn)
                     Row2 { required property var modelData; glyph: "lock"; label: modelData.name; sub: modelData.type + (modelData.active ? " · pripojené" : ""); picked: modelData.active
@@ -537,6 +618,7 @@ Item {
                                 "Presmerovanie: port:protokol:cieľový port[:adresa]") } }
                 H { text: "ADRESY" }
                 Note { text: dm.nets.addresses.join(" · ") || "žiadne" }
+
             }
             Note { visible: dm.status !== ""; text: dm.status; color: dm.t.primary }
             Note { visible: dm.problems.length > 0 && dm.tab === "zariadenia"; text: "! " + dm.problems.join(" · "); color: dm.t.error }
