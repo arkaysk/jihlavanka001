@@ -7,6 +7,8 @@ Text {
     property real size: 18
     readonly property var map: ({
         "logout": 0xEBA8,
+        "arrow-left": 0xEA19,
+        "arrow-right": 0xEA1F,
         "list-tree": 0xFAFA,
         "device-laptop": 0xEB64,
         "arrows-minimize": 0xEA29,

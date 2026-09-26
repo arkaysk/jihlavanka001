@@ -414,7 +414,8 @@ flowchart TD
   - [x] **Kontrolné súčty** (SHA-256/MD5 vytvoriť, overiť), **rozdeliť / spojiť** súbory (.001 … + .crc so SHA-256)
   - [x] **Kódovanie UUE/Base64** (zakódovať aj dekódovať)
   - [x] **Riadok príkazu** s históriou (↑/↓, Ctrl+Enter vloží meno, cd), terminál tu, lišta **vlastných tlačidiel** (~/.config/latteos/subory-tlacidla.json), ponuka Príkazy
-  - [ ] Úprava tlačidiel a klávesových skratiek v UI, vlastné menu
+  - [x] Úprava lišty tlačidiel myšou (pravý klik: premenovať, zmeniť príkaz, posunúť, odstrániť; + pridať vlastný príkaz alebo vstavaný nástroj)
+  - [ ] Úprava klávesových skratiek v UI, vlastné menu
   - [x] Sieť: FTP/SFTP, **SMB** (zdieľané priečinky Windows/NAS), **WebDAV** (dav/davs), cloud (rclone); ťahanie myšou medzi panelmi a do iných aplikácií
   - [x] **Kopírovať mená/cesty do schránky, zoznam súborov do textu**
   - [x] Tlač zoznamu (tabuľka v Heidelbergu → tlač / PDF)

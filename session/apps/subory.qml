@@ -874,8 +874,40 @@ ShellRoot {
         { label: "Premenovať", glyph: "pencil", cmd: ":premenuj" },
         { label: "Zbaliť", glyph: "file-zip", cmd: ":zbal" }
     ]
-    FileView { path: (Quickshell.env("XDG_CONFIG_HOME") || (app.home + "/.config")) + "/latteos/subory-tlacidla.json"; printErrors: false
+    FileView { id: buttonsFile; path: (Quickshell.env("XDG_CONFIG_HOME") || (app.home + "/.config")) + "/latteos/subory-tlacidla.json"; printErrors: false
                onLoaded: { try { const b = JSON.parse(text()); if (Array.isArray(b) && b.length) app.buttons = b; } catch (e) {} } }
+    readonly property var defaultButtons: [
+        { label: "Terminál", glyph: "terminal-2", cmd: "foot --working-directory=%P" }, { label: "Heidelberg", glyph: "pencil", cmd: "latte-app heidelberg %F" },
+        { label: "Porovnať", glyph: "columns-2", cmd: ":porovnaj" }, { label: "Synchronizovať", glyph: "refresh", cmd: ":sync" },
+        { label: "Hľadať", glyph: "search", cmd: ":hladaj" }, { label: "Premenovať", glyph: "pencil", cmd: ":premenuj" }, { label: "Zbaliť", glyph: "file-zip", cmd: ":zbal" }]
+    // úprava lišty tlačidiel myšou (ako v TC: pravý klik › Upraviť / Posunúť / Odstrániť / Pridať)
+    readonly property var builtinButtons: [["porovnaj", "Porovnať priečinky", "columns-2"], ["sync", "Synchronizovať", "refresh"], ["hladaj", "Hľadať", "search"],
+        ["premenuj", "Hromadné premenovanie", "pencil"], ["zbal", "Zbaliť", "file-zip"], ["archiv", "Otvoriť archív", "file-zip"],
+        ["strom", "Strom priečinkov", "list-tree"], ["atributy", "Vlastnosti a práva", "info-circle"], ["rozdel", "Rozdeliť súbor", "columns-2"]]
+    function saveButtons(b) { app.buttons = b; mkState.running = true; buttonsFile.setText(JSON.stringify(b, null, 1)); }
+    Process { id: mkState; command: ["mkdir", "-p", (Quickshell.env("XDG_CONFIG_HOME") || (app.home + "/.config")) + "/latteos"] }
+    function addButtonMenu(x, y, at) {
+        const put = (b) => { const l = app.buttons.slice(); l.splice(at < 0 ? l.length : at + 1, 0, b); app.saveButtons(l); };
+        ctx.open(x, y, [
+            { glyph: "terminal-2", label: "Vlastný príkaz…", keepOpen: true, action: () => ctx.replace([{ input: "", label: "Názov tlačidla", action: (n) => {
+                ctx.open(x, y, [{ input: "foot --working-directory=%P", label: "Príkaz", action: (c) => put({ label: n, glyph: "terminal-2", cmd: c }) }],
+                         "Príkaz · %P priečinok, %N meno, %F cesta k súboru"); } }], "Názov nového tlačidla") },
+            { glyph: "apps", label: "Vstavaný nástroj", sub: app.builtinButtons.map(t => ({ glyph: t[2], label: t[1], action: () => put({ label: t[1], glyph: t[2], cmd: ":" + t[0] }) })) },
+            { separator: true },
+            { glyph: "refresh", label: "Obnoviť predvolené tlačidlá", action: () => app.saveButtons(app.defaultButtons) }], "Pridať tlačidlo");
+    }
+    function buttonMenu(i, x, y) {
+        const b = app.buttons[i], l = () => app.buttons.slice();
+        ctx.open(x, y, [
+            { glyph: "pencil", label: "Premenovať…", keepOpen: true, action: () => ctx.replace([{ input: b.label, action: (t) => { const n = l(); n[i] = Object.assign({}, b, { label: t }); app.saveButtons(n); } }], "Názov tlačidla") },
+            { glyph: "terminal-2", label: "Zmeniť príkaz…", enabled: !b.cmd.startsWith(":"), keepOpen: true,
+              action: () => ctx.replace([{ input: b.cmd, action: (t) => { const n = l(); n[i] = Object.assign({}, b, { cmd: t }); app.saveButtons(n); } }], "Príkaz · %P priečinok, %N meno, %F cesta") },
+            { glyph: "arrow-left", label: "Posunúť vľavo", enabled: i > 0, action: () => { const n = l(); n.splice(i - 1, 0, n.splice(i, 1)[0]); app.saveButtons(n); } },
+            { glyph: "arrow-right", label: "Posunúť vpravo", enabled: i < app.buttons.length - 1, action: () => { const n = l(); n.splice(i + 1, 0, n.splice(i, 1)[0]); app.saveButtons(n); } },
+            { separator: true },
+            { glyph: "plus", label: "Pridať tlačidlo sem…", action: () => app.addButtonMenu(x, y, i) },
+            { glyph: "trash", label: "Odstrániť tlačidlo", danger: true, action: () => { const n = l(); n.splice(i, 1); app.saveButtons(n); } }], b.label);
+    }
     function pressButton(b) {
         if (b.cmd.startsWith(":")) { const t = b.cmd.slice(1); if (t === "porovnaj") app.compareDirs(false); else app.tool(t); return; }
         const e = app.sel, q = (x) => "'" + String(x).replace(/'/g, "'\\''") + "'";
@@ -1067,11 +1099,21 @@ ShellRoot {
                     model: app.buttons
                     Rectangle {
                         required property var modelData
+                        required property int index
                         width: bbl.implicitWidth + 36; height: 28; radius: 8; color: bbm.containsMouse ? theme.hover : theme.field
                         Glyph { x: 8; anchors.verticalCenter: parent.verticalCenter; name: modelData.glyph || "terminal-2"; size: 14; color: theme.primary }
                         Text { id: bbl; x: 28; anchors.verticalCenter: parent.verticalCenter; text: modelData.label; color: theme.fg; font { family: theme.fontUi; pixelSize: 11; weight: Font.DemiBold } }
-                        MouseArea { id: bbm; anchors.fill: parent; hoverEnabled: true; onClicked: { app.pressButton(modelData); root.forceActiveFocus(); } }
+                        MouseArea { id: bbm; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                    onClicked: (m) => { if (m.button === Qt.RightButton) { const q = mapToItem(null, m.x, m.y); app.buttonMenu(index, q.x, q.y); }
+                                                        else { app.pressButton(modelData); root.forceActiveFocus(); } } }
                     }
+                }
+                // prázdne miesto za tlačidlami: pravý klik = pridať
+                Rectangle {
+                    width: 30; height: 28; radius: 8; color: abm.containsMouse ? theme.hover : "transparent"
+                    Glyph { anchors.centerIn: parent; name: "plus"; size: 14; color: theme.fgDim }
+                    MouseArea { id: abm; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                onClicked: (m) => { const q = mapToItem(null, m.x, m.y); app.addButtonMenu(q.x, q.y, -1); } }
                 }
             }
             // riadok príkazu (TC)
