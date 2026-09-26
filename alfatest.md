@@ -109,8 +109,11 @@ Kapsa, Total Commander, cloudové priečinky (rclone).
 
 ## 3. Návrh
 
-1. **Zmazať odkazové stránky:** Zvuk, Sieť, Bluetooth, Obrazovky, Napájanie, Úložisko a Tlač dostanú priamo ovládanie
-   zo Správcu zariadení (spoločné komponenty). Robím to spolu s novým Správcom zariadení.
+1. ✅ **Zmazať odkazové stránky** (hotové 26. 9., commit fc6a4c6): Obrazovky, Zvuk, Sieť, Bluetooth, Napájanie, Úložné
+   zariadenia a Tlač majú priamo ovládanie. Je to ten istý komponent ako Správca zariadení (`common/SpravcaZariadeni.qml`),
+   takže zmena na jednom mieste platí všade. Napájanie dostalo navyše režim napájania (Úsporný · Vyvážený · Výkon)
+   a herný režim ako Windows 11. Ostáva 5 odkazov na App Manager a Monitor (Aplikácie, Inštalácia, Aktualizácie,
+   Súkromie a NET, Spúšťanie) — tie vyriešim pri zlučovaní duplicít (bod 2) podľa tvojej odpovede A/B.
 2. **Zlúčiť duplicity** podľa tabuľky 2.2.
 3. **Doplniť chýbajúce stránky** podľa dôležitosti:
    - Pre pokročilých;

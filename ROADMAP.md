@@ -287,6 +287,13 @@ flowchart TD
   sieť, disky, vstup, USB, kamery, Bluetooth, napájanie, počítač), obrazovky s potvrdením do 15 s a uložením pre Hyprland.
 - [x] Správca zariadení › Zvuk: predvolený výstup a vstup, hlasitosť, stlmenie, hlasitosť jednotlivých aplikácií (pactl;
   JSON výstup pactl 17 padá na nie-ASCII popisoch → textový výstup s LC_ALL=C).
+- [x] **Správca zariadení 2** (26. 9., podľa starej verzie): jeden komponent `common/SpravcaZariadeni.qml` pre okno L z rohu
+  lišty, samostatné okno aj stránky Nastavení. Karty **Zariadenia** (dlaždice podľa dôležitosti: Obrazovky, Grafika, Zvuk,
+  Sieť, Bluetooth, Napájanie, Disky, Vstup, Kamery, Tlač, USB, Počítač, Ostatné; ovládač, oprava, vlastnosti, pravý klik)
+  a **Siete** (pripojenia, Wi-Fi s heslom, VPN a SSH tunely, SSH server, firewall: zóny, služby, porty, presmerovania).
+  Softvér ovládača priamo pri zariadení: zvuk s konektormi (priradenie jackov) a konfiguráciou kanálov (stereo…5.1),
+  Bluetooth párovanie, režim napájania. Pruh dole v okne L: hlasitosť, mikrofón, Wi-Fi, Bluetooth, jas, batéria a režim,
+  nočné svetlo, bezpečné odpojenie USB. Roh lišty: sila Wi-Fi a batéria (iba ak sú).
 - [ ] Device Manager v Ruste nad `latte-hw`, udisks2, NetworkManager, PipeWire; Wi-Fi a VPN priamo; ovládače NVIDIA/AMD (H).
 - [x] **Monitor** (Process Manager, prototyp v Quickshelli + `latte-sysmon`): Ctrl+Shift+Esc, živý stav s grafmi, procesy podľa
   druhu (aplikácia/prostredie/pomocný/systém) s varovaním a potvrdením, **Po štarte** (XDG autostart, systemd, časovače, cron,

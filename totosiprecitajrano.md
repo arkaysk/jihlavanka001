@@ -79,6 +79,30 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 26. 9. 2026 ráno: Správca zariadení podľa starej verzie + Nastavenia verzus Windows 11 ✅ · ⚠ 1 otázka
+**Roh lišty:** zvyšky Noctalie (sieť, hlasitosť, batéria) sú preč. Dlaždica Správcu zariadení je širšia a ukazuje silu Wi-Fi
+a batériu — iba ak počítač batériu má a je pripojený cez Wi-Fi; sú to iba ukazovatele, klik otvorí okno.
+
+**Okno Správcu zariadení (L z rohu):**
+- hore dve karty **Zariadenia** a **Siete**;
+- Zariadenia: dlaždice hardvéru zoradené podľa dôležitosti (Obrazovky, Grafika, Zvuk, Sieť, Bluetooth, Napájanie, Disky,
+  Vstup, Kamery, Tlač, USB, Počítač, Ostatné); klik, dvojklik a pravý klik ako vo Windows (Vlastnosti, bezpečné
+  odobratie, aktualizovať ovládač, oprava cez App Manager, kopírovať údaje);
+- pri zariadení je aj softvér ovládača: **zvuk** = výstup, vstup, konektory (čo je zapojené do ktorého jacku),
+  konfigurácia kanálov (stereo, 2.1, 4.1, 5.1), hlasitosť aplikácií; **obrazovka** = rozlíšenie a mierka s potvrdením
+  do 15 s; **Wi-Fi** = siete v okolí; **Bluetooth** = zapnutie, hľadanie, párovanie; **napájanie** = režim a herný režim;
+- Siete: pripojenia, Wi-Fi s heslom, VPN a SSH tunely, SSH server, firewall (zóny, služby, porty, presmerovania), adresy;
+- **pruh dole** (ako v App Manageri, dá sa mu dať GIF): keď nič nie je vybrané, sú v ňom najdôležitejšie voľby hardvéru —
+  hlasitosť (klik = stlmiť), mikrofón, Wi-Fi / kábel, Bluetooth, jas (notebook), batéria a režim napájania s herným
+  režimom, nočné svetlo, bezpečné odpojenie USB (iba ak je pripojený). Čo počítač nemá, to sa neukáže.
+- samostatné okno (`latte-app zariadenia`) je ten istý komponent vo veľkom.
+
+**Nastavenia:** alfatest 2 (hore v alfatest.md) — porovnanie s Windows 11 vrátane Pre pokročilých. Bod 1 návrhu je hotový:
+Obrazovky, Zvuk, Sieť, Bluetooth, Napájanie, Úložné zariadenia a Tlač už nie sú odkazy, majú ovládanie priamo na stránke.
+
+**Otázka:** horná úroveň Nastavení — **A** ostať pri 6 oblastiach LatteOS, alebo **B** 11 kategórií ako Windows 11
++ Pre pokročilých? Podľa odpovede zlúčim duplicity a doplním chýbajúce stránky.
+
 ### 26. 9. 2026 v noci: pokračovanie podľa ROADMAP ✅ · ⚠ 5 otázok na konci
 **Okná a myš (Windows 11):**
 - podržanie myši nad □ ukáže malú ponuku rozložení (záplata hyprbars s časovačom; prejaví sa po prihlásení);
