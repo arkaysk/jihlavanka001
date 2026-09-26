@@ -23,6 +23,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+import Quickshell.Hyprland
 
 ShellRoot {
     id: mk
@@ -113,26 +114,32 @@ ShellRoot {
     onKindChanged: if (out) goHome()
     onActiveChanged: if (!active && out) arrive()
 
-    // okná aktuálnej plochy, celá obrazovka, kurzor
+    // okná aktuálnej plochy a celá obrazovka cez IPC Quickshellu (bez procesov; optimalizácia 26. 9.: predtým každé
+    // 2,5 s sh + 3× hyprctl), kurzor jedným hyprctl — pri výlete každý krok, doma raz za ~10 s
+    function readWins() {
+        const ws = Hyprland.focusedWorkspace;
+        if (!ws) return;
+        const all = Hyprland.toplevels.values.map(t => t.lastIpcObject).filter(c => c && c.workspace && c.size && c.at);
+        mk.wins = all.filter(c => c.workspace.id === ws.id && c.mapped !== false && !c.hidden && c.size[0] > 200 && c.at[1] > 60)
+                     .map(c => ({ a: c.address, x: c.at[0], y: c.at[1], w: c.size[0], h: c.size[1], fs: c.fullscreen }));
+        mk.fullscreen = all.some(c => c.workspace.id === ws.id && (c.fullscreen === 2 || c.fullscreen === true));
+        mk.followWindow();
+    }
+    Connections { target: Hyprland; function onRawEvent(e) { if (/^(openwindow|closewindow|movewindow|fullscreen|workspace|changefloatingmode)/.test(e.name)) winTimer.restart(); } }
+    Timer { id: winTimer; interval: 150; onTriggered: { Hyprland.refreshToplevels(); Qt.callLater(mk.readWins); } }
     Process {
-        id: winProc
-        command: ["sh", "-c", "hyprctl -j activeworkspace; echo @@; hyprctl -j clients; echo @@; hyprctl cursorpos"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const p = this.text.split("@@");
-                try {
-                    const ws = JSON.parse(p[0]), all = JSON.parse(p[1]);
-                    mk.wins = all.filter(c => c.workspace && c.workspace.id === ws.id && c.mapped && !c.hidden && c.size[0] > 200 && c.at[1] > 60)
-                                 .map(c => ({ a: c.address, x: c.at[0], y: c.at[1], w: c.size[0], h: c.size[1], fs: c.fullscreen }));
-                    mk.fullscreen = all.some(c => c.workspace && c.workspace.id === ws.id && (c.fullscreen === 2 || c.fullscreen === true));
-                } catch (e) {}
-                const m = (p[2] || "").match(/(-?\d+),\s*(-?\d+)/);
-                if (m) mk.cursor = Qt.point(parseInt(m[1]), parseInt(m[2]));
-                mk.followWindow();
-            }
+        id: curProc
+        command: ["hyprctl", "cursorpos"]
+        stdout: StdioCollector { onStreamFinished: { const m = this.text.match(/(-?\d+),\s*(-?\d+)/); if (m) mk.cursor = Qt.point(parseInt(m[1]), parseInt(m[2])); } }
+    }
+    property int tickN: 0
+    Timer {
+        interval: mk.out ? 700 : 2500; repeat: true; running: mk.active; triggeredOnStart: true
+        onTriggered: {
+            Hyprland.refreshToplevels(); mk.readWins();
+            if ((mk.out || ++mk.tickN % 4 === 0) && !curProc.running) curProc.running = true;
         }
     }
-    Timer { interval: mk.out ? 700 : 2500; repeat: true; running: mk.active; triggeredOnStart: true; onTriggered: if (!winProc.running) winProc.running = true }
     IdleMonitor { id: idle; timeout: 180; respectInhibitors: true }
 
     // ── kedy vybehne ───────────────────────────────────────────────────────────────────────
