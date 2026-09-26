@@ -401,7 +401,7 @@ Kľúčové zistenie: pri softvérovom kreslení stojí **každá snímka** komp
 - [ ] Python nástroje volané často (`latte-devices`, `latte-sysmon`, `latte-inspektor`): čas štartu, zbytočné importy,
   výsledky do vyrovnávacej pamäte; dlhodobo Rust (F4 pred Atomic).
 - [ ] Štart: `systemd-analyze`, čas od greetera po použiteľnú lištu; odložiť nepotrebné démony.
-- [ ] Nástroj `setup/test/vykon.sh`: zmeria CPU a PSS relácie za 30 s (pokoj / animácie / otvorené okná) a uloží
+- [x] Nástroj `setup/test/vykon.sh` (26. 9.): zmeria CPU a PSS relácie za 30 s (pokoj / animácie / otvorené okná) a uloží
   výsledok, aby sa dalo porovnávať medzi commitmi.
 
 ### A — Fedora Atomic *(až keď bude F0–F8 + H hotové)*
