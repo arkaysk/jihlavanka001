@@ -117,7 +117,8 @@ enabled = true
 
 [[bar.main.capsule_group]]
 id      = "devices"
-members = ["latte-sukromie", "latte-senzory", "network", "volume", "battery"]   # aplikácie na pozadí: App Manager › Na pozadí
+members = ["latte-sukromie", "latte-senzory"]   # iba keď niečo ukazujú: súkromie (mikrofón/kamera), senzory z Monitora
+# sieť, hlasitosť a batéria Noctalie sú preč (zadanie 26. 9.): Wi-Fi a batériu ukazuje rohová dlaždica Správcu zariadení
 enabled = true
 
 # ── Widgety ────────────────────────────────────────────────────────────────────
