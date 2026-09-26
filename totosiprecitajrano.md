@@ -79,6 +79,36 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 26. 9. 2026 dopoludnia: roh lišty, dva návrhy Správcu zariadení, inšpektor siete ✅
+**Tvoje rozhodnutia (uložené):** Nastavenia ostávajú rozdelené na oblasti (A); všetko nastavenie má byť priamo
+v Nastaveniach a každá stránka má ako Windows bežné nastavenia a pod nimi **Rozšírené**. Dashboard Noctalie zatiaľ ostáva.
+
+**Lišta** (prejaví sa po prihlásení):
+- roh Správcu zariadení nemá statickú ikonu — prázdna textúra ako App Manager, a iba keď treba: 🔥 prehrievanie,
+  kamera, mikrofón (červené), sila Wi-Fi, batéria; nedá sa na ne kliknúť, klik otvorí okno;
+- dashboard Noctalie je úzke tlačidlo medzi Súbormi a Správcom zariadení; samostatný indikátor súkromia je preč
+  (mikrofón a kamera sú teraz v rohu).
+
+**Dva návrhy Správcu zariadení na ploche** (ikony „Správca zariadení 2 · Uzly“ a „3 · Doska“):
+- **Uzly** podľa toho ricu z Redditu (Serpantinum od ilyamiro): v strede veľký kruh (počítač → kategória →
+  zariadenie), okolo spojené uzly; klik = dovnútra, reťaz vľavo hore = späť; ovládanie sa vysunie sprava;
+  dole prepínač Zariadenia / Siete;
+- **Doska** (môj návrh): počítač ako základná doska — procesor, pamäť, grafická karta v slote, disky, napájanie,
+  zvukový a sieťový čip; každá súčiastka má LED (zelená / červená bliká / zhasnutá). Zadný panel je živý: HDMI, USB,
+  LAN s blikajúcou LED a farebné audio jacky ako na skutočnom PC — svieti aktívny a klik naň prepne vstup/výstup.
+- ovládanie v oboch je ten istý komponent ako v okne L a v Nastaveniach. Vyber, ktorý sa ti páči (alebo kombináciu).
+
+**Inšpektor siete** (tvoj tip s ESET): Siete › „Sieť okolo · inšpektor“ a v Uzloch graf s routerom v strede:
+- nájde všetko v sieti bez hesla a bez ďalších balíkov (ARP, Bonjour/mDNS, UPnP): meno, výrobca, druh (TV, receiver,
+  tlačiareň, telefón, NAS…), služby (AirPlay, Chromecast, Spotify, SMB, SSH, web), **nové** zariadenia;
+- tento počítač: prijaté/odoslané dáta a ktoré aplikácie majú spojenia;
+- **zvuk do siete:** „Prijímače AirPlay ako výstupy“ (PipeWire to vie sám) a pri každej aplikácii v Zvuku ikona
+  vysielania „Prehrávať na…“ → napr. Spotify na receiver v obývačke. Spotify Connect ponúka aj Spotify samo.
+  DLNA televízory a Chromecast potrebujú doplnok (pa-dlna / mkchromecast) — overíme doma na reálnom HW.
+- vo VM je sieť NAT, takže vidno iba bránu; doma sa ukáže všetko.
+
+**F-Droid 2.0** (tvoj odkaz): poznačené do ROADMAP k Android vrstve ako obchod s voľnými aplikáciami.
+
 ### 26. 9. 2026 ráno: Správca zariadení podľa starej verzie + Nastavenia verzus Windows 11 ✅ · ⚠ 1 otázka
 **Roh lišty:** zvyšky Noctalie (sieť, hlasitosť, batéria) sú preč. Dlaždica Správcu zariadení je širšia a ukazuje silu Wi-Fi
 a batériu — iba ak počítač batériu má a je pripojený cez Wi-Fi; sú to iba ukazovatele, klik otvorí okno.

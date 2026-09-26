@@ -294,6 +294,19 @@ flowchart TD
   Softvér ovládača priamo pri zariadení: zvuk s konektormi (priradenie jackov) a konfiguráciou kanálov (stereo…5.1),
   Bluetooth párovanie, režim napájania. Pruh dole v okne L: hlasitosť, mikrofón, Wi-Fi, Bluetooth, jas, batéria a režim,
   nočné svetlo, bezpečné odpojenie USB. Roh lišty: sila Wi-Fi a batéria (iba ak sú).
+- [x] **Roh lišty** (26. 9.): bez statickej ikony, iba významové ukazovatele (prehrievanie, kamera, mikrofón, Wi-Fi,
+  batéria); dashboard Noctalie ako úzke tlačidlo (zatiaľ nerozhodnuté, či ostane).
+- [x] **Skúšobné návrhy na ploche:** devicapp2 „Uzly“ (spojené uzly okolo počítača, inšpirácia Serpantinum od ilyamiro)
+  a devicapp3 „Doska“ (základná doska s LED, živý zadný panel, klik na audio jack prepne vstup/výstup). Po výbere
+  jeden z nich nahradí vnútro okna L alebo samostatné okno.
+- [x] **Inšpektor siete** (`latte-inspektor`, 26. 9., podľa ESET Network Inspector): čo je v sieti (ARP, mDNS, SSDP),
+  výrobca, druh, služby, nové zariadenia, aplikácie tohto PC so spojeniami; zvuk do siete: AirPlay cez PipeWire
+  (module-raop-discover), „Prehrávať na…“ pre každú aplikáciu (Spotify → receiver).
+- [ ] Zvuk do DLNA televízorov a receiverov: **pa-dlna** (GPL-3.0, Python, funguje s pipewire-pulse); alternatíva
+  pulseaudio-dlna (neudržiavaný). Chromecast: **mkchromecast** (MIT, starší) alebo vlastný cast cez `catt`
+  (BSD-2). Overiť až na reálnom HW v domácej sieti.
+- [ ] Inšpektor: upozornenie na nové zariadenie v sieti (ako ESET), slabé heslo routera / otvorené porty (iba vlastná
+  sieť, so súhlasom), prenos dát podľa zariadenia (vyžaduje router s UPnP štatistikou alebo nftables počítadlá).
 - [ ] Device Manager v Ruste nad `latte-hw`, udisks2, NetworkManager, PipeWire; Wi-Fi a VPN priamo; ovládače NVIDIA/AMD (H).
 - [x] **Monitor** (Process Manager, prototyp v Quickshelli + `latte-sysmon`): Ctrl+Shift+Esc, živý stav s grafmi, procesy podľa
   druhu (aplikácia/prostredie/pomocný/systém) s varovaním a potvrdením, **Po štarte** (XDG autostart, systemd, časovače, cron,
@@ -364,6 +377,9 @@ flowchart TD
 - [ ] AMD: Mesa RADV.
 - [ ] gamescope herná relácia, MangoHud, HDR/VRR.
 - [ ] Lepton (Android hry), Qwen3-14B-sk.
+- [ ] Android vrstva: **F-Droid 2.0** (24. 9. 2026, nové rozhranie, pripravuje „Nearby“ = zdieľanie aplikácií medzi
+  zariadeniami bez servera) ako predvolený obchod s voľnými Android aplikáciami; App Manager by čítal index F-Droidu
+  (tip používateľa 26. 9.).
 - [ ] SAFE režim ostáva ako záchrana, napríklad pri zlom ovládači NVIDIA.
 
 ### A — Fedora Atomic *(až keď bude F0–F8 + H hotové)*
