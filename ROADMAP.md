@@ -385,7 +385,8 @@ flowchart TD
 - [ ] **Pet Circus** (zadanie 26. 9., „až nebude čo robiť“): program na vytvorenie vlastného maskota alebo úpravu existujúceho —
   šablóna (list s pomenovanými riadkami na priehľadnom pozadí) na ručné doplnenie spritov, načítanie listu
   (vyrez2.py), náhľad animácií, nastavenie povahy a export balíčka.
-- [ ] Softvérové sklo pre panely a popupy LatteOS (rozmazaný výrez tapety ako v starej vetve), GPU blur ostáva pre okná
+- [x] Softvérové sklo pre panely LatteOS (26. 9.): `latte-sklo` rozmaže tapetu raz pri zmene, `common/Sklo.qml` kreslí výrez pod panelom
+  (okná v tvare L z lišty; vypínač v Nastaveniach › Animácie a efekty). Panely Noctalie (Luau) ho dostanú vo forku. GPU blur ostáva pre okná.
 - [ ] **Súbory = plná funkčnosť Total Commandera** (zadanie 25. 9.: „nejde o to, čo používam, ale o plnú funkčnosť originálu“):
   - [x] Panely: dva panely, **karty** v každom (Ctrl+T, Ctrl+W, Ctrl+Tab, uzamknutá karta), menu diskov (Alt+F1/F2), história Späť/Dopredu,
         **hotlist** priečinkov (Ctrl+D), priečinok do panela vľavo/vpravo (Ctrl+←/→), výmena panelov (Ctrl+U), riadok „..“

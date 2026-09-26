@@ -68,6 +68,7 @@ ShellRoot {
     property string ctrlProfile: "windows"   // profil ovládania (latte/skratky.lua): windows | linux | mac
     property string numlockPref: ""          // "" = podľa typu počítača, on, off
     property string suboryTahanie: ""        // ľavé ťahanie v Súboroch: "" (ako Windows) | copy | ask
+    property bool skloPref: true             // softvérové sklo pod panelmi (common/Sklo.qml)
     property string mascotEscape: ""   // "off" = maskot neuteká
     property string cupQuick: ""       // prázdne = šálka ukazuje stupeň a režim okien, "off" = skryté
     property string deskIcons: ""      // prázdne = ikony na ploche s košom, "off" = bez ikon
@@ -226,6 +227,8 @@ ShellRoot {
                onLoaded: app.mascot = text().trim() || "homebrew"; onLoadFailed: app.mascot = "homebrew" }
     FileView { path: app.cfgHome + "/latteos/profil-ovladania"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.ctrlProfile = (["linux", "mac"].indexOf(text().trim()) >= 0) ? text().trim() : "windows"; onLoadFailed: app.ctrlProfile = "windows" }
+    FileView { path: app.cfgHome + "/latteos/sklo"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.skloPref = text().trim() !== "off"; onLoadFailed: app.skloPref = true }
     FileView { path: app.cfgHome + "/latteos/subory-tahanie"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.suboryTahanie = text().trim(); onLoadFailed: app.suboryTahanie = "" }
     FileView { path: app.cfgHome + "/latteos/numlock"; printErrors: false; watchChanges: true; onFileChanged: reload()
@@ -1764,6 +1767,9 @@ ShellRoot {
             Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
                    text: "Podľa témy: Latte = para, Mráz = para zo šálky na tapete, Jantár = bublinky, kovy = iskry, drahokamy = trblietky, kameň = prach. "
                          + "V hernom režime stojí. Stojí asi 2 % jedného jadra" + ((app.mode.tier === "softver" || app.mode.tier === "minimalny") ? " — vo VM so softvérovým kreslením ju odporúčame nechať vypnutú." : ".") }
+            Heading { text: "SKLO POD PANELMI" }
+            Toggle { on: app.skloPref; label: "Matné sklo v oknách z lišty (rozmazaná tapeta, funguje aj bez GPU)"
+                     onToggled: { app.skloPref = !app.skloPref; app.writePref("sklo", app.skloPref ? "" : "off", app.skloPref ? "Sklo zapnuté" : "Sklo vypnuté"); } }
             Heading { text: "EFEKTY OKIEN" }
             Button { label: "Stupeň výkonu"; glyph: "bolt"; primaryStyle: true; onClicked: app.go("vykon") }
             Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 13 }

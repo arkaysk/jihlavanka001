@@ -171,6 +171,8 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("latte-app plocha")
     -- App Manager: rýchle spustenie čaká skryté (otvára ho dlaždica aplikácií cez latte-spustac)
     hl.exec_cmd("latte-app spustac")
+    -- softvérové sklo pod panelmi: rozmazaná tapeta (raz, pri zmene tapety znova)
+    hl.exec_cmd("sh -c 'sleep 6; latte-sklo'")
     -- systémové ponuky ako vo Windows (Ctrl+Alt+Del, Win+X, Vypnúť, ponuka okna) čakajú skryté
     hl.exec_cmd("latte-app ponuka")
     -- Zariadenia: rýchle nastavenia v tvare L z ostrova zariadení (latte-rychle)

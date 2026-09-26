@@ -101,8 +101,11 @@ Item {
         x: lp.left0; width: lp.panelW
         y: lp.trunkY - lp.panelH * lp.panelP; height: lp.panelH * lp.panelP + lp.rad
         visible: lp.panelP > 0.01
-        radius: lp.panelRadius; color: lp.theme.surface      // obrys kreslí spoločný obrys L (nižšie)
+        radius: lp.panelRadius; color: glass.active ? "transparent" : lp.theme.surface      // obrys kreslí spoločný obrys L (nižšie)
         opacity: lp.panelP
+        // matné sklo (rozmazaná tapeta pod panelom, bez GPU); vrstva má počiatok v ľavom hornom rohu obrazovky
+        Sklo { id: glass; anchors.fill: parent; theme: lp.theme; screenX: panelBg.x; screenY: panelBg.y
+               radii: [lp.panelRadius, lp.panelRadius, 0, 0]; visible: lp.panelP > 0.01 }
     }
     // kmeň: textúra, zaoblený vonkajší dolný roh
     Item {
