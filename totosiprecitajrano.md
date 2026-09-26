@@ -79,6 +79,20 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 26. 9. 2026 ráno (po tvojom návrate): opravy z pozorovaní a recenzia ✅
+- **Uzly a Doska** sú preč (súbory, ikony na ploche aj v ponuke).
+- **GIF v koreni** (dlaždica na lište, keď okno nie je otvorené): vrstva s GIF-om bola v rovnakej úrovni ako lišta
+  a po prihlásení vznikla skôr, takže ju lišta prekryla. Teraz je vo vrstve nad lišou — funguje hneď, overené naživo.
+- **Maskoti** neboli zmiznutí, ale vypnutí (`mascot-mode = off` od včera 20:59; moje testy to neboli, tie píšu do
+  izolovanej kópie). Zapol som ich späť (Ostrov). V Nastaveniach › Lišta pribudol **režim maskota** (Vypnutý / Ostrov /
+  Výbehy / Chaos) a výber postavy vypnutého maskota zapne — predtým sa z vypnutia nedalo dostať (ponuka bola na
+  maskotovi, ktorý bol skrytý).
+- **Kapsa, pravý klik:** vo forku Noctalie fungoval pravý klik iba na tlačidlách, nie na riadkoch a kartách. Doplnil som
+  ho do jadra (platí pre všetky pluginy) a Kapsa má ponuku všade: položky, karta navrchu, výrez, hlavička, ostrov
+  na lište. **Prejaví sa po odhlásení a prihlásení** (nový binár Noctalie).
+- **secalfaanalyze.md:** P1 nftables je falošný poplach (overené naostro), P1 sandbox a P2 SSDP boli skutočné — opravené.
+  Pridaný dymový test `setup/test/dym.sh`. Návrhy sú na konci toho súboru.
+
 ### 26. 9. 2026 dopoludnia: roh lišty, dva návrhy Správcu zariadení, inšpektor siete ✅
 **Tvoje rozhodnutia (uložené):** Nastavenia ostávajú rozdelené na oblasti (A); všetko nastavenie má byť priamo
 v Nastaveniach a každá stránka má ako Windows bežné nastavenia a pod nimi **Rozšírené**. Dashboard Noctalie zatiaľ ostáva.
