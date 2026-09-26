@@ -14,7 +14,7 @@ user="$(id -un)"
 sudo() { if [ -n "${SUDO_ASKPASS:-}" ]; then command sudo -A "$@"; else command sudo "$@"; fi; }
 
 # kontrola pred prvým zásahom do systému (DSanalyze.md): chýbajúci súbor = poškodený checkout, nie polovičná inštalácia
-BINS="latte-session latte-safe latte-greeter latte-theme latte-app latte-ai latte-shellset latte-sysmon latte-apps latte-devices latte-backup latte-games latte-net latte-cloud latte-siet latte-otvor latte-kos latte-spustac latte-sandbox latte-kopia latte-tc latte-ostrovy latte-rychle latte-tapety latte-vyber latte-ponuka latte-prichytenie latte-snimka latte-emoji latte-nove-okno latte-nahravanie latte-maskoti latte-sklo latte-inspektor latte-terminal"
+BINS="latte-session latte-safe latte-greeter latte-theme latte-app latte-ai latte-shellset latte-sysmon latte-apps latte-devices latte-backup latte-games latte-net latte-cloud latte-siet latte-otvor latte-kos latte-spustac latte-sandbox latte-kopia latte-tc latte-ostrovy latte-rychle latte-tapety latte-vyber latte-ponuka latte-prichytenie latte-snimka latte-emoji latte-nove-okno latte-nahravanie latte-maskoti latte-sklo latte-inspektor latte-terminal latte-hypr-udalosti"
 missing=""
 for f in $BINS; do [ -f "$S/bin/$f" ] || missing="$missing $f"; done
 [ -z "$missing" ] || { echo "Chýbajú skripty v $S/bin:$missing — inštaláciu nezačínam (git status / git pull)."; exit 1; }
@@ -96,7 +96,7 @@ sudo install -d -m2775 -o root -g latte /var/lib/latteos/greeter /var/lib/latteo
 [ -f /var/lib/latteos/greeter/greeter.conf ] || sudo install -m664 -o root -g latte "$S/greeter/greeter.conf" /var/lib/latteos/greeter/greeter.conf
 
 echo "== App Manager: Flatpak a Flathub (inštalácia aplikácií pre používateľa bez roota)"
-rpm -q bubblewrap xdg-dbus-proxy >/dev/null || sudo dnf -y -q install bubblewrap xdg-dbus-proxy   # izolácia aplikácií (latte-sandbox odmietne bez nej)
+rpm -q bubblewrap xdg-dbus-proxy nmap-ncat >/dev/null || sudo dnf -y -q install bubblewrap xdg-dbus-proxy nmap-ncat   # izolácia aplikácií (latte-sandbox odmietne bez nej)
 rpm -q flatpak >/dev/null || sudo dnf -y -q install flatpak
 rpm -q rclone >/dev/null || sudo dnf -y -q install rclone        # Synchronizácia (cloudové priečinky)
 rpm -q breeze-icon-theme >/dev/null || sudo dnf -y -q install breeze-icon-theme   # ikony súborov (Kapsa, Súbory)

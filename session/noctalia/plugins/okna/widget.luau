@@ -26,7 +26,7 @@ local function render()
     ui.row({ height = 24, paddingH = 5, gap = 2, radius = 7, align = "center", justify = "center", fill = "surface/0.6",
              border = "outline", borderWidth = 1,
              tooltip = "Režim okien: " .. modes[m][2] .. " · klik: ďalší (Super+W)",
-             onClick = function() C.eval('require("latte.windows").cycle()'); noctalia.setUpdateInterval(300) end },
+             onClick = function() C.eval('require("latte.windows").cycle()') end },
            { ui.glyph({ name = modes[m][1], size = 13, color = "on_surface_variant" }),
              ui.glyph({ name = "chevron-right", size = 10, color = "on_surface_variant" }) }),
     ui.box({ width = 1, height = 20, fill = "outline" }),
@@ -48,7 +48,6 @@ local function render()
       onClick = function()
         if active and not min then C.eval('latte.win.minimize_addr("' .. addr .. '")')
         else C.eval('latte.win.activate("' .. addr .. '")') end
-        noctalia.setUpdateInterval(300)
       end,
       onHover = function(state) if state == "true" then setHover(addr) elseif hovered == addr then setHover(nil) end end,
     }, { inner }))
@@ -59,9 +58,29 @@ local function render()
   barWidget.render(ui.row({ gap = 3, align = "center", paddingH = 4, height = 32, radius = 16, fill = "surface_variant" }, kids))
 end
 
+-- okná sa obnovia pri udalosti Hyprlandu (latte-hypr-udalosti, jeden trvalý proces); update() je už iba záloha
+-- každých 20 s (optimalizácia 26. 9.: predtým sh + 2× hyprctl každých 1,5 s)
+local streaming, busy, again = false, false, false
+local refresh
+local function startStream()
+  if streaming then return end
+  streaming = true
+  noctalia.runStream("latte-hypr-udalosti openwindow closewindow activewindowv2 movewindowv2 windowtitlev2 workspacev2 changefloatingmode fullscreen minimized",
+                     function(_line) refresh() end)
+end
+
 function update()
-  noctalia.setUpdateInterval(1500)
+  noctalia.setUpdateInterval(20000)
+  startStream()
+  refresh()
+end
+
+refresh = function()
+  if busy then again = true; return end
+  busy = true
   noctalia.runAsync({ "sh", "-c", "hyprctl -j clients; echo '@@'; hyprctl -j activewindow" }, function(r)
+    busy = false
+    if again then again = false; refresh() end
     local a, b = string.match(r.stdout or "", "^(.-)@@(.*)$")
     local ok, list = pcall(noctalia.json.decode, a or "")
     local ok2, act = pcall(noctalia.json.decode, b or "")

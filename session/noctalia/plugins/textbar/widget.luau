@@ -70,11 +70,16 @@ render = function()
   }))
 end
 
-local tick = 0
+-- počet okien pri otvorení/zatvorení okna (latte-hypr-udalosti), update() je záloha každých 20 s
+-- (optimalizácia 26. 9.: predtým sh + hyprctl + grep každé 2 s)
+local streaming = false
 function update()
-  noctalia.setUpdateInterval(2000)           -- okná každé 2 s; „Bez AI“ z Nastavení každých 20 s
-  tick = tick + 1
-  if tick % 10 == 1 then load() end
+  noctalia.setUpdateInterval(20000)          -- „Bez AI“ z Nastavení a záloha počtu okien
+  if not streaming then
+    streaming = true
+    noctalia.runStream("latte-hypr-udalosti openwindow closewindow movewindowv2", function(_line) countWindows() end)
+  end
+  load()
   countWindows()
   render()
 end
