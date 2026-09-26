@@ -382,6 +382,28 @@ flowchart TD
   (tip používateľa 26. 9.).
 - [ ] SAFE režim ostáva ako záchrana, napríklad pri zlom ovládači NVIDIA.
 
+### O — Optimalizácia *(trvalá priorita od 26. 9. 2026: plynulejšie, bezpečnejšie, menej HW, bez straty funkcií)*
+Pravidlo: najprv merať (CPU a PSS pamäť procesov LatteOS na živej VM), potom meniť, potom znova zmerať.
+Kľúčové zistenie: pri softvérovom kreslení stojí **každá snímka** kompozitor takmer celé prekreslenie obrazovky
+(~7–10 % CPU za snímku/s, vlákna llvmpipe) bez ohľadu na veľkosť zmeny → šetrí sa počtom snímok, nie ich veľkosťou.
+- [x] Animácie lišty (26. 9.): GIF krokovaný najviac 8 snímok/s bez GPU (24 s GPU) pri zachovanom tempe; dlaždice
+  Noctalie 5 snímok/s bez GPU; dlaždica pod GIF-om stojí; pod zamknutou obrazovkou stojí všetko (hooks
+  `session_locked`/`session_unlocked` → `$XDG_RUNTIME_DIR/latteos/pokoj`); GIF stojí pri okne na celú obrazovku.
+  **Namerané:** Hyprland + Noctalia + spúšťač ~217 % → ~62 % CPU pri rovnakom vzhľade; pod zámkom ~7 %.
+- [ ] Pamäť: 9 procesov Quickshell má spolu ~318 MB PSS (spúšťač 89, okno L zariadení 67, ostatné 15–31). Zlúčiť malé
+  démony (plocha, ponuka, maskot, náhľad, výrez Kapsy, NET znak, pohoda) do jedného procesu (odhad −90 MB); obsah
+  veľkých okien L vytvárať až pri prvom otvorení a uvoľniť po dlhšej nečinnosti — merať čas otvorenia pred/po.
+- [ ] Polling → udalosti: maskot volá každé 2,5 s trojicu `hyprctl` (4 procesy) — prejsť na Quickshell.Hyprland IPC;
+  prejsť všetky `Timer` + `Process` a `runAsync` v pluginoch (spúšťanie procesov je pri pomalom CPU drahé).
+- [ ] Kompozitor: zistiť, prečo sledovanie poškodenia (damage tracking) pri sw-gl takmer nešetrí (celé prekreslenie
+  aj pri zmene 100×43 px); ak ide o kopírovanie celého snímku do výstupu, je to hranica softvérového kreslenia.
+- [ ] Noctalia: jedna zmena widgetu prekreslí celý povrch lišty — overiť a prípadne kresliť iba zmenený ostrov.
+- [ ] Python nástroje volané často (`latte-devices`, `latte-sysmon`, `latte-inspektor`): čas štartu, zbytočné importy,
+  výsledky do vyrovnávacej pamäte; dlhodobo Rust (F4 pred Atomic).
+- [ ] Štart: `systemd-analyze`, čas od greetera po použiteľnú lištu; odložiť nepotrebné démony.
+- [ ] Nástroj `setup/test/vykon.sh`: zmeria CPU a PSS relácie za 30 s (pokoj / animácie / otvorené okná) a uloží
+  výsledok, aby sa dalo porovnávať medzi commitmi.
+
 ### A — Fedora Atomic *(až keď bude F0–F8 + H hotové)*
 - [ ] Obraz LatteOS cez bootc / rpm-ostree podľa vzoru Bazzite (`resources/upstream/bazzite`).
 - [ ] „Vrátiť včerajší systém“ v App Manageri. SAFE ponuka dostane rollback rpm-ostree.
