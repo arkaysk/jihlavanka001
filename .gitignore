@@ -8,6 +8,7 @@ __pycache__/
 resources/upstream/
 resources/docs/
 resources/fetch.log
+offline/
 
 # Rust build
 /target/
