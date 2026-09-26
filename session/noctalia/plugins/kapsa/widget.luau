@@ -90,3 +90,5 @@ function update()
 end
 
 function onClick() noctalia.togglePanel("latteos/kapsa:panel") end
+-- pravý klik na ostrov Kapsy: otvorí Kapsu (ponuky položiek sú v nej); predtým nereagoval vôbec
+function onRightClick() noctalia.togglePanel("latteos/kapsa:panel") end
