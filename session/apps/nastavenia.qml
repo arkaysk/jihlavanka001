@@ -33,6 +33,15 @@ ShellRoot {
         run(["sh", "-c", "mkdir -p \"$(dirname \"$1\")\" && shift && printf '%s\\n' \"# LatteOS › Nastavenia › Pre pokročilých (platí po odhlásení)\" \"$@\" > \"$0\"",
              app.envFile, app.envFile].concat(lines), "Premenné prostredia uložené — platia po odhlásení");
     }
+    property string kapsaHist: ""          // "off" = história schránky vypnutá
+    property string kapsaMax: ""
+    property int kapsaCount: -1
+    FileView { path: app.cfgHome + "/latteos/kapsa-historia"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.kapsaHist = text().trim(); onLoadFailed: app.kapsaHist = "" }
+    FileView { path: app.cfgHome + "/latteos/kapsa-max"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.kapsaMax = text().trim(); onLoadFailed: app.kapsaMax = "" }
+    Process { id: kapsaCnt; command: ["sh", "-c", "cliphist list 2>/dev/null | wc -l"]
+              stdout: StdioCollector { onStreamFinished: app.kapsaCount = parseInt(this.text) || 0 } }
     property string zoomPick: "1"          // Prístupnosť › Lupa (Win+Plus/Mínus mení aj mimo Nastavení)
     property string pozadieTab: ""       // "" = moja knižnica, "online" = katalógy tapiet (bývalá stránka Tapety online)
     property bool ulRozsirene: false     // Úložisko: rozbaliť Rozšírené (disky a oddiely) — pri príchode z „disky“             // pre vložené komponenty s vlastnou vlastnosťou theme (theme: theme by ukazovalo na seba)
@@ -161,6 +170,7 @@ ShellRoot {
             { key: "klavesnica", label: "Klávesnica a skratky", glyph: "keyboard", status: "ready" },
             { key: "bezpecnost", label: "Bezpečnosť", glyph: "shield-lock", status: "ready" },
             { key: "zdielanie", label: "Zdieľanie", glyph: "share", status: "partial" },
+            { key: "schranka", label: "Schránka (Kapsa)", glyph: "clipboard", status: "ready" },
             { key: "pokrocile", label: "Pre pokročilých", glyph: "terminal-2", status: "ready" },
             { key: "o", label: "O LatteOS", glyph: "info-circle", status: "ready" } ] }
     ]
@@ -596,6 +606,7 @@ ShellRoot {
             spustanie: "Aplikácie a služby, ktoré sa spúšťajú samé.",
             ai: "Kam sa pýta režim AI v Text Bare: malý model na tomto PC, tvoj domáci server (napr. LM Studio), alebo veľké AI v cloude.",
             subory: "Súbory (Data Manager) otvoríš tlačidlom nižšie alebo Super+E. Priečinky sa dajú farebne označiť pravým klikom.",
+            schranka: "Ako Windows › Systém › Schránka: história skopírovaných vecí (Win + V), jej veľkosť a vymazanie.",
             pokrocile: "Ako Windows 11 › Systém › Pre pokročilých: predvolený terminál, premenné prostredia, virtuálna pamäť a zdroje aplikácií.",
             ulozisko: "Pripojené disky a voľné miesto. Upratovanie a veľké súbory pribudnú v Data Manageri.",
             vykon: "Stupeň určuje efekty (sklo, tiene, žiara, animácie). Automaticky ho volí štart systému podľa hardvéru.",
@@ -825,7 +836,7 @@ ShellRoot {
         return ({ domov: pDomov, ai: pAi, subory: pSubory, ulozisko: pUlozisko, vykon: pVykon, diagnostika: pDiag,
                   prihlasovanie: pGreeter, motiv: pMotiv, pozadie: pozadieTab === "online" ? pTapetyOnline : pPozadie, tapetyonline: pTapetyOnline, okna: pOkna, lista: pLista, efekty: pEfekty,
                   start: pStart, cas: pCas, o: pO, klavesnica: pKlavesy, oznamenia: pOznamenia, pristupnost: pPristupnost,
-                  uzamknutie: pUzamknutie, pokrocile: pPokrocile, mojucet: pUcet, jazyk: pJazyk, zalohy: pZalohy, pouzivatelia: pPouzivatelia, synchronizacia: pCloud })[k] || pPlan;
+                  uzamknutie: pUzamknutie, pokrocile: pPokrocile, schranka: pSchranka, mojucet: pUcet, jazyk: pJazyk, zalohy: pZalohy, pouzivatelia: pPouzivatelia, synchronizacia: pCloud })[k] || pPlan;
     }
 
     // ── stránky ──────────────────────────────────────────────────────────────────
@@ -1016,6 +1027,38 @@ ShellRoot {
                     sourceComponent: SpravcaZariadeni { theme: app.th; compact: false; embedded: true; only: "disky"; onOpenWindow: (a) => app.run(a) }
                 }
             }
+        }
+    }
+    Component {
+        id: pSchranka
+        Column {
+            spacing: 12
+            Component.onCompleted: kapsaCnt.running = true
+            Heading { text: "HISTÓRIA SCHRÁNKY" }
+            Segments {
+                options: [["", "Zapnutá (Win + V)"], ["off", "Vypnutá"]]
+                value: app.kapsaHist
+                onPicked: (v) => { app.kapsaHist = v; app.writePref("kapsa-historia", v, v === "off" ? "História schránky vypnutá — nové kopírovanie sa neukladá" : "História schránky zapnutá"); }
+            }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Kapsa si pamätá texty aj obrázky, ktoré skopíruješ (Ctrl + C). Otvára sa klávesmi Win + V alebo z ostrova Kapsy na lište; klik na položku ju vloží späť do schránky." }
+            Heading { text: "NAJVIAC POLOŽIEK"; topPadding: 6 }
+            Segments {
+                enabled: app.kapsaHist !== "off"; opacity: enabled ? 1 : 0.5
+                options: [["50", "50"], ["", "200"], ["750", "750"], ["2000", "2000"]]
+                value: app.kapsaMax
+                onPicked: (v) => { app.kapsaMax = v; app.writePref("kapsa-max", v, "Kapsa si pamätá najviac " + (v || "200") + " položiek (staršie sa zmažú pri ďalšom kopírovaní)"); }
+            }
+            Heading { text: "VYMAZAŤ ÚDAJE SCHRÁNKY"; topPadding: 6 }
+            Row {
+                spacing: 12
+                Button { label: "Vymazať históriu"; glyph: "trash"
+                         onClicked: { app.run(["cliphist", "wipe"], "História schránky vymazaná"); app.kapsaCount = 0; } }
+                Text { anchors.verticalCenter: parent.verticalCenter; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                       text: app.kapsaCount < 0 ? "" : "V histórii je " + app.kapsaCount + " položiek" }
+            }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Zmena zapnutia a počtu platí hneď pre ďalšie kopírovanie. Heslá zo správcu hesiel radšej vkladaj priamo (automatické vypĺňanie), nie cez schránku." }
         }
     }
     Component {

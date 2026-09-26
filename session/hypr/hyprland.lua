@@ -152,8 +152,8 @@ hl.on("hyprland.start", function()
         .. "HYPRLAND_INSTANCE_SIGNATURE LATTE_MODE LATTE_RENDERER LATTE_TIER; systemctl --user start latte-session.target'")
     hl.exec_cmd("noctalia")
     -- história schránky pre Kapsu (text aj obrázky)
-    hl.exec_cmd("wl-paste --type text --watch cliphist store")
-    hl.exec_cmd("wl-paste --type image --watch cliphist store")
+    hl.exec_cmd("wl-paste --type text --watch latte-kapsa-store")       -- zapnutie a veľkosť histórie: Nastavenia › Schránka
+    hl.exec_cmd("wl-paste --type image --watch latte-kapsa-store")
     -- živá tapeta (Nastavenia › Animácie a efekty), ak je zapnutá
     do
         local f = io.open(cfgdir .. "/live-wallpaper", "r")
