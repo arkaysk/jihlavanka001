@@ -7,6 +7,10 @@ Text {
     property real size: 18
     readonly property var map: ({
         "logout": 0xEBA8,
+        "wifi-0": 0xEBA3,
+        "wifi-1": 0xEBA4,
+        "wifi-2": 0xEBA5,
+        "flame": 0xEC2C,
         "category": 0xF1F6,
         "router": 0xEB18,
         "device-tv": 0xEA8D,

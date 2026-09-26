@@ -59,6 +59,15 @@ ShellRoot {
     property bool game: false
     property var battery: null               // { pct, state } alebo null (bez batérie)
     property var usbDrives: []               // [{ path, label }] vymeniteľné disky (bezpečné odobratie)
+    // ukazovatele stavu (rovnaké ako v rohu lišty, tu klikateľné): súkromie, prehrievanie, sila Wi-Fi
+    property var micUsers: []
+    property var camUsers: []
+    property var hot: null                   // { c, name } senzor blízko kritickej teploty
+    property int signal: -1                  // sila Wi-Fi 0–100, -1 = nie je Wi-Fi
+    // s upozorneniami je pás plný: hlasitosť bez posuvníka, Wi-Fi iba sila, batéria iba percentá
+    readonly property int warnCount: (hot ? 1 : 0) + (camUsers.length ? 1 : 0) + (micUsers.length ? 1 : 0)
+    readonly property bool tight: warnCount > 0
+    readonly property string testIndik: Quickshell.env("LATTE_TEST_INDIK") || ""   // „wifi:batéria:nabíja:mikrofón:kamera:teplota“ (test bez HW)
 
     component Q: Process {
         id: q
@@ -87,7 +96,28 @@ ShellRoot {
         done: (o) => { try { const out = [], walk = (l) => { for (const d of l) { if (d.type === "disk" && (d.rm || d.tran === "usb")) out.push({ path: d.path, label: d.label || d.model || d.path });
                                                                                if (d.children) walk(d.children); } };
                              walk(JSON.parse(o).blockdevices || []); rq.usbDrives = out; } catch (e) {} } }
-    function refresh() { for (const p of [qWifi, qBt, qNight, qVol, qBri, qProf, qBat, qUsb]) if (!p.running) p.running = true; }
+    Q { id: qPriv; command: ["latte-sysmon", "sukromie"]
+        done: (o) => { const m = [], c = []; for (const l of o.split("\n")) { const f = l.split("\t"); if (f.length > 1) (f[0] === "camera" ? c : m).push(f[1]); }
+                       rq.micUsers = m; rq.camUsers = c; } }
+    Q { id: qHot; command: ["sh", "-c", 'nmcli -t -f ACTIVE,SIGNAL dev wifi list --rescan no 2>/dev/null | sed -n "s/^yes://p" | head -1; echo @; '
+                            + 'for f in /sys/class/hwmon/hwmon*/temp*_input; do [ -r "$f" ] || continue; v=$(cat "$f" 2>/dev/null) || continue; '
+                            + 'c=$(cat "${f%_input}_crit" 2>/dev/null || echo 95000); [ "$c" -gt 20000 ] 2>/dev/null || c=95000; '
+                            + '[ "$v" -ge $((c - 5000)) ] 2>/dev/null && echo "$((v / 1000)) $(cat "${f%/*}/name")"; done | sort -rn | head -1']
+        done: (o) => { const [w, h] = o.split("@"); const n = parseInt((w || "").trim()); rq.signal = isNaN(n) ? -1 : n;
+                       const m = (h || "").match(/(\d+)\s+(\S+)/);
+                       rq.hot = m ? { c: parseInt(m[1]), name: ({ coretemp: "procesor", k10temp: "procesor", amdgpu: "grafika", nouveau: "grafika", nvme: "disk" })[m[2]] || m[2] } : null; } }
+    function applyTest() {
+        const t = testIndik.split(":");
+        signal = t[0] ? parseInt(t[0]) : -1; if (t[0]) { ssid = "Doma-5G"; wired = ""; }
+        battery = t[1] ? { pct: parseInt(t[1]), state: t[2] === "1" ? "Charging" : "Discharging" } : null;
+        micUsers = t[3] === "1" ? ["Discord"] : []; camUsers = t[4] === "1" ? ["OBS Studio"] : [];
+        hot = t[5] ? { c: parseInt(t[5]), name: "procesor" } : null;
+    }
+    function refresh() {
+        // pri teste bez HW sa Wi-Fi, batéria, súkromie a teplota nečítajú (inak by skutočné hodnoty prepísali testovacie)
+        for (const p of testIndik ? [qBt, qNight, qVol, qBri, qProf, qUsb] : [qWifi, qBt, qNight, qVol, qBri, qProf, qBat, qUsb, qPriv, qHot]) if (!p.running) p.running = true;
+        if (testIndik) applyTest();
+    }
     onOpenChanged: { if (open) refresh(); else { dmv.group = ""; dmv.tab = "zariadenia"; dmv.sel = null; } }
     Timer { interval: 3000; repeat: true; running: rq.open; onTriggered: rq.refresh() }
     Process { id: act; onExited: rq.refresh() }
@@ -156,19 +186,32 @@ ShellRoot {
                                     onPressed: (m) => v = at(m.x); onPositionChanged: (m) => v = at(m.x); onReleased: ms.moved(v)
                                     onWheel: (w) => ms.moved(Math.max(ms.from, Math.min(ms.to, ms.value + (w.angleDelta.y > 0 ? 5 : -5)))) }
                     }
+                    // ── upozornenia najprv (zadanie 26. 9.: v rohu iba ukazovatele, tu klikateľné) ──
+                    Chip { visible: !!rq.hot; glyph: "flame"; warn: true; label: rq.hot ? rq.hot.c + " °C" : ""
+                           onClicked: rq.detached(["latte-app", "monitor", "senzory"]) }
+                    Chip { visible: rq.camUsers.length > 0; glyph: "camera"; warn: true; label: rq.camUsers.length > 1 ? rq.camUsers.length + "" : (rq.camUsers[0] || "").slice(0, 12)
+                           onClicked: dmv.group = "kamery" }
+                    Chip { visible: rq.micUsers.length > 0; glyph: "microphone"; warn: true; label: rq.micUsers.length > 1 ? rq.micUsers.length + "" : (rq.micUsers[0] || "").slice(0, 12)
+                           onClicked: { const q = mapToItem(pmenu.parent, 0, 0);
+                                        pmenu.open(q.x, q.y - 120, [{ glyph: "microphone-off", label: rq.micMuted ? "Zapnúť mikrofón" : "Stlmiť mikrofón", bold: true,
+                                                                      action: () => rq.run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"]) },
+                                                                    { glyph: "adjustments", label: "Nastavenia zvuku", action: () => { dmv.group = "zvuk"; } },
+                                                                    { glyph: "activity", label: "Ukázať v Monitore", action: () => rq.detached(["latte-app", "monitor", "procesy"]) }],
+                                                   "Mikrofón používa: " + rq.micUsers.join(", ")); } }
                     Chip { glyph: rq.muted ? "volume-off" : "volume"; label: rq.volume === null ? "—" : rq.volume + ""; warn: rq.muted
                            onClicked: rq.run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"])
-                           MiniSlider { value: rq.volume || 0; onMoved: (v) => { rq.volume = v; rq.run(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", v + "%"]); } } }
-                    Chip { visible: rq.hasMic; glyph: rq.micMuted ? "microphone-off" : "microphone"; warn: rq.micMuted
+                           MiniSlider { visible: !rq.tight; value: rq.volume || 0; onMoved: (v) => { rq.volume = v; rq.run(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", v + "%"]); } } }
+                    Chip { visible: rq.hasMic && rq.micUsers.length === 0; glyph: rq.micMuted ? "microphone-off" : "microphone"; warn: rq.micMuted
                            onClicked: rq.run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"]) }
-                    Chip { glyph: rq.wired ? "network" : "wifi"; on: !!rq.ssid || !!rq.wired
-                           label: rq.wired ? "Kábel" : (rq.wifi === false ? "Wi-Fi vyp." : (rq.ssid || "Wi-Fi"))
+                    Chip { glyph: rq.wired ? "network" : (rq.signal < 0 ? "wifi" : (rq.signal >= 70 ? "wifi" : (rq.signal >= 45 ? "wifi-2" : (rq.signal >= 20 ? "wifi-1" : "wifi-0"))))
+                           on: !!rq.ssid || !!rq.wired
+                           label: rq.wired ? "Kábel" : (rq.wifi === false ? "Wi-Fi vyp." : (rq.ssid ? (rq.tight && rq.signal >= 0 ? rq.signal + " %" : rq.ssid + (rq.signal >= 0 ? " · " + rq.signal + " %" : "")) : "Wi-Fi"))
                            onClicked: dmv.tab = "siete" }
                     Chip { visible: rq.btAvail; glyph: "bluetooth"; on: rq.bt === true; onClicked: rq.run(["noctalia", "msg", "bluetooth-toggle"]) }
                     Chip { visible: rq.brightness !== null; glyph: "sun"
                            MiniSlider { width: 64; from: 5; value: rq.brightness || 0; onMoved: (v) => { rq.brightness = v; rq.run(["brightnessctl", "-c", "backlight", "set", v + "%"]); } } }
                     Chip { glyph: rq.battery ? (rq.battery.state === "Charging" ? "battery-charging" : "battery") : "bolt"; warn: !!rq.battery && rq.battery.pct < 15 && rq.battery.state !== "Charging"
-                           label: (rq.battery ? rq.battery.pct + " % · " : "") + (rq.game ? "Hra" : (rq.profileNames[rq.profile] || "Výkon"))
+                           label: rq.tight && rq.battery ? rq.battery.pct + " %" : (rq.battery ? rq.battery.pct + " % · " : "") + (rq.game ? "Hra" : (rq.profileNames[rq.profile] || "Výkon"))
                            onClicked: { const q = mapToItem(pmenu.parent, 0, 0);
                                         pmenu.open(q.x, q.y - 200, rq.profiles.map(p => ({ glyph: "bolt", label: rq.profileNames[p] || p, checked: rq.profile === p, action: () => rq.run(["powerprofilesctl", "set", p]) }))
                                                    .concat([{ separator: true }, { glyph: "device-gamepad", label: "Herný režim", checked: rq.game, action: () => rq.run(["hyprctl", "eval", "latte.game(" + !rq.game + ")"]) }]), "Režim výkonu"); } }
