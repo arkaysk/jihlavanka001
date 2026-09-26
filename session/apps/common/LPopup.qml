@@ -30,6 +30,7 @@ Item {
     readonly property bool framed: sceneSpec.startsWith("file:")
     readonly property color frameColor: framed ? theme.primary : theme.outline
     readonly property real frameWidth: framed ? 1.5 : 1
+    property int frame: -1                  // snímok zo spoločného GifZdroj
     property var image: null                // spoločný AnimatedImage pre GIF textúru (päta, kmeň aj dlaždica na lište)
     property string frameDir: ""            // snímky GIF ako PNG (z TileOverlay)
     property int frameCount: 0
@@ -115,7 +116,7 @@ Item {
         Scena {
             id: trunkScene
             anchors.fill: parent
-            colors: lp.theme; spec: lp.sceneSpec; motion: lp.motion; time: lp.t; mirror: lp.isRight; image: lp.image; frameDir: lp.frameDir; frameCount: lp.frameCount
+            colors: lp.theme; spec: lp.sceneSpec; motion: lp.motion; time: lp.t; mirror: lp.isRight; image: lp.image; frame: lp.frame; frameDir: lp.frameDir; frameCount: lp.frameCount
             ohnisko: lp.ohnisko; anchorX: lp.footOx + lp.foot.w / 2; anchorY: lp.sceneH - lp.foot.h / 2
             // vonkajší dolný roh kmeňa; horné rohy iba kým nie je panel (potom ich kreslí panel)
             readonly property real ro: lp.panelP > 0.01 ? 0 : Math.min(lp.rOuter, height)
@@ -134,7 +135,7 @@ Item {
         visible: lp.p > 0.01
         Scena {
             anchors.fill: parent
-            colors: lp.theme; spec: lp.sceneSpec; motion: lp.motion; time: lp.t; mirror: lp.isRight; image: lp.image; frameDir: lp.frameDir; frameCount: lp.frameCount
+            colors: lp.theme; spec: lp.sceneSpec; motion: lp.motion; time: lp.t; mirror: lp.isRight; image: lp.image; frame: lp.frame; frameDir: lp.frameDir; frameCount: lp.frameCount
             ohnisko: lp.ohnisko; anchorX: lp.footOx + lp.foot.w / 2; anchorY: lp.sceneH - lp.foot.h / 2
             // spodok päty = tvar ostrova; vonkajší horný roh pokračuje oblúkom obrysu, kým je kmeň nízky
             readonly property real ro: Math.max(0, lp.rOuter - (lp.tbE - lp.trunkY))

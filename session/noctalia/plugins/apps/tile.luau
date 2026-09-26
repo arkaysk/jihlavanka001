@@ -12,6 +12,9 @@ local BARS = 7                   -- stĺpce textúry na každej strane ikony
 local t0 = 0                     -- čas animácie v s
 local hovered = false
 local anim, scene, still = "kurzor", "para", false
+local pokoj = false               -- $XDG_RUNTIME_DIR/latteos/pokoj (zamknutá obrazovka)
+local runDir = noctalia.getenv("XDG_RUNTIME_DIR") or "/tmp"
+local cheapTier = true           -- bez GPU: 5 obr/s namiesto 10 (každá snímka stojí kompozitor celé prekreslenie)
 
 local function trim(s) return (string.gsub(s or "", "^%s*(.-)%s*$", "%1")) end
 local function readPref(name, default)
@@ -25,11 +28,18 @@ local function loadPrefs()
   if forced ~= "" then tier = forced end
   local game = trim(noctalia.readFile(stateHome .. "/latteos/game-mode") or "0") == "1"
   local cheap = tier == "softver" or tier == "minimalny" or tier == "safe" or game
+  cheapTier = tier == "softver" or tier == "minimalny" or tier == "safe"
+  pokoj = noctalia.readFile(runDir .. "/latteos/pokoj") ~= nil
   anim = readPref("bar-anim", cheap and "kurzor" or "vzdy")
   scene = readPref("bar-scene", "para")
 end
 
-local function moving() return anim == "vzdy" or (anim == "kurzor" and hovered) end
+-- GIF / obrázok kreslí nad dlaždicou vrstva TileOverlay (Quickshell) — dlaždica pod ním sa nemusí hýbať
+local function moving()
+  if string.sub(scene, 1, 5) == "file:" then return false end
+  if pokoj then return false end            -- obrazovka zamknutá (hook session_locked): pod zámkom sa nič nehýbe
+  return anim == "vzdy" or (anim == "kurzor" and hovered)
+end
 
 -- para: stĺpce ako para nad šálkou, pomaly dýchajú (fáza posunutá po stĺpcoch)
 local function para(side)
@@ -73,17 +83,17 @@ local function render()
   elseif kind == "glow" then fill = string.format("primary/%.2f", 0.08 + 0.14 * (0.5 + 0.5 * math.sin(t0 * 2 * math.pi / 8)) + (hovered and 0.06 or 0)) end
   barWidget.render(ui.row({ width = W, height = H, gap = 2, align = "center", justify = "center", radius = 12,
                             fill = fill,
-                            onHover = function(state) hovered = state == "true"; noctalia.setUpdateInterval(moving() and 100 or 30000); render() end,
+                            onHover = function(state) hovered = state == "true"; noctalia.setUpdateInterval(moving() and (cheapTier and 200 or 100) or 30000); render() end,
                             tooltip = "Aplikácie · klik: rýchle spustenie, 📌 plný App Manager" }, row))
 end
 
 function update()
   loadPrefs()
   if moving() then
-    t0 = t0 + 0.1
-    noctalia.setUpdateInterval(100)          -- 10 obr/s
+    t0 = t0 + (cheapTier and 0.2 or 0.1)
+    noctalia.setUpdateInterval(cheapTier and 200 or 100)   -- 5 obr/s bez GPU, 10 obr/s s GPU
   else
-    noctalia.setUpdateInterval(30000)        -- statický snímok, prefs raz za 30 s
+    noctalia.setUpdateInterval(pokoj and 2000 or 30000)   -- statický snímok; pri zámku kontrola každé 2 s (rýchly návrat)
   end
   render()
 end

@@ -1625,7 +1625,7 @@ ShellRoot {
                         width: 660; height: 50
                         Scena { anchors.fill: parent; colors: app.latteTheme; spec: app.barScene; time: lPrev.t; motion: app.barAnim === "vypnuty" ? "vypnute" : "vzdy"
                                 canvasW: 660; canvasH: 103; radii: [16, 16, 16, 0]
-                                image: prevGif.image; frameDir: prevGif.frameDir; frameCount: prevGif.frameCount; ohnisko: prevGif.ohnisko; anchorX: 50; anchorY: 103 - 21.5 }
+                                image: prevGif.image; frame: prevGif.frame; frameDir: prevGif.frameDir; frameCount: prevGif.frameCount; ohnisko: prevGif.ohnisko; anchorX: 50; anchorY: 103 - 21.5 }
                         Rectangle { anchors.fill: parent; radius: 16; gradient: Gradient { orientation: Gradient.Horizontal
                             GradientStop { position: 0; color: Qt.rgba(app.latteTheme.surface.r, app.latteTheme.surface.g, app.latteTheme.surface.b, 0.05) }
                             GradientStop { position: 1; color: Qt.rgba(app.latteTheme.surface.r, app.latteTheme.surface.g, app.latteTheme.surface.b, app.barDim) } } }
@@ -1636,7 +1636,7 @@ ShellRoot {
                         y: 50; width: 100; height: 53
                         Scena { anchors.fill: parent; colors: app.latteTheme; spec: app.barScene; time: lPrev.t; motion: app.barAnim === "vypnuty" ? "vypnute" : "vzdy"
                                 oy: 50; canvasW: 660; canvasH: 103; radii: [0, 0, 16, 16]
-                                image: prevGif.image; frameDir: prevGif.frameDir; frameCount: prevGif.frameCount; ohnisko: prevGif.ohnisko; anchorX: 50; anchorY: 103 - 21.5 }
+                                image: prevGif.image; frame: prevGif.frame; frameDir: prevGif.frameDir; frameCount: prevGif.frameCount; ohnisko: prevGif.ohnisko; anchorX: 50; anchorY: 103 - 21.5 }
                         Rectangle { x: 35; y: 10 + 6.5; width: 30; height: 30; radius: 10; visible: !app.barScene.startsWith("file:")
                                     color: Qt.rgba(app.latteTheme.surfaceVariant.r, app.latteTheme.surfaceVariant.g, app.latteTheme.surfaceVariant.b, 0.85)
                                     Glyph { anchors.centerIn: parent; name: "apps"; size: 18; color: app.latteTheme.primary } }

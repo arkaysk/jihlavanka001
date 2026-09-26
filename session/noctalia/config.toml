@@ -219,6 +219,13 @@ transition_duration = 600
 [wallpaper.default]
 path = "/usr/share/backgrounds/latteos/latteos-wallpaper2.jpg"
 
+# pokoj (optimalizácia 26. 9.): kým je obrazovka zamknutá, animácie lišty a GIF stoja — pod zámkom ich nikto nevidí,
+# a pri softvérovom kreslení stojí každá snímka kompozitor celé prekreslenie. Príznak číta GifZdroj (inotify) a dlaždice.
+[hooks]
+started          = 'rm -f "$XDG_RUNTIME_DIR/latteos/pokoj"'
+session_locked   = 'mkdir -p "$XDG_RUNTIME_DIR/latteos" && touch "$XDG_RUNTIME_DIR/latteos/pokoj"'
+session_unlocked = 'rm -f "$XDG_RUNTIME_DIR/latteos/pokoj"'
+
 # pluginy LatteOS (/usr/share/latteos/noctalia/plugins/<plugin>/plugin.toml)
 [plugins]
 enabled     = ["latteos/system", "latteos/textbar", "latteos/devices", "latteos/time", "latteos/apps", "latteos/cat", "latteos/overview", "latteos/kapsa", "latteos/ai", "latteos/snap", "latteos/games", "latteos/okna"]

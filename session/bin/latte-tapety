@@ -23,7 +23,7 @@
   latte-tapety online motionbgs|wallhaven|bing|minimal [--hladaj Q] [--kategoria K] [--strana N]
                       [--rozlisenie hd|4k|2k|ultrawide] [--triedenie toplist|date_added|random]   JSON: katalóg
   latte-tapety stiahni URL NÁZOV                    stiahne do ~/.local/share/latteos/tapety (riadky „P 42“, na konci „OK cesta“)
-  latte-tapety snimky GIF                           JSON {dir, count}: snímky animácie ako PNG (pre textúry okien L)
+  latte-tapety snimky GIF                           JSON {dir, count, focus, delay}: snímky animácie ako PNG (pre textúry okien L)
   latte-tapety farby SÚBOR                          snímka videa → statická tapeta Noctalie (farby témy z tapety)
   latte-tapety rezim crop|fit|stretch|repeat|center|span   prispôsobenie obrázka (ako Windows: Vyplniť, Prispôsobiť,
                                                     Roztiahnuť, Dlaždica, Centrovať, Cez viac obrazoviek)
@@ -755,7 +755,24 @@ def main(a):
         except (OSError, ValueError):
             focus = motion_focus(sorted(glob.glob(os.path.join(d, "*.png"))))
             json.dump(focus, open(fj, "w"))
-        print(json.dumps({"dir": d, "count": n, "focus": focus})); return 0
+        # priemerné oneskorenie snímky v ms: textúra potom môže hrať menej snímok za sekundu rovnakou rýchlosťou
+        dj = os.path.join(d, "oneskorenie")
+        try:
+            delay = int(open(dj).read())
+        except (OSError, ValueError):
+            delay = 100
+            try:
+                from PIL import Image
+                with Image.open(src) as im:
+                    ds = []
+                    for i in range(min(getattr(im, "n_frames", 1), 400)):
+                        im.seek(i)
+                        ds.append(im.info.get("duration") or 100)
+                    delay = max(20, int(sum(ds) / len(ds)))
+            except Exception:
+                pass
+            open(dj, "w").write(str(delay))
+        print(json.dumps({"dir": d, "count": n, "focus": focus, "delay": delay})); return 0
     if cmd == "farby" and a:
         print(colors(a[0])); return 0
     print(__doc__); return 2

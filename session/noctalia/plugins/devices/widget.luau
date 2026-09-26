@@ -22,6 +22,9 @@ local BARS = 7                   -- stĺpce textúry na každej strane ikony
 local t0 = 0                     -- čas animácie v s
 local hovered = false
 local anim, scene, still = "kurzor", "para", false
+local pokoj = false               -- $XDG_RUNTIME_DIR/latteos/pokoj (zamknutá obrazovka)
+local runDir = noctalia.getenv("XDG_RUNTIME_DIR") or "/tmp"
+local cheapTier = true           -- bez GPU: 5 obr/s namiesto 10 (každá snímka stojí kompozitor celé prekreslenie)
 
 local function trim(s) return (string.gsub(s or "", "^%s*(.-)%s*$", "%1")) end
 local function readPref(name, default)
@@ -35,11 +38,18 @@ local function loadPrefs()
   if forced ~= "" then tier = forced end
   local game = trim(noctalia.readFile(stateHome .. "/latteos/game-mode") or "0") == "1"
   local cheap = tier == "softver" or tier == "minimalny" or tier == "safe" or game
+  cheapTier = tier == "softver" or tier == "minimalny" or tier == "safe"
+  pokoj = noctalia.readFile(runDir .. "/latteos/pokoj") ~= nil
   anim = readPref("bar-anim", cheap and "kurzor" or "vzdy")
   scene = readPref("bar-scene-vpravo", readPref("bar-scene", "para"))
 end
 
-local function moving() return anim == "vzdy" or (anim == "kurzor" and hovered) end
+-- GIF / obrázok kreslí nad dlaždicou vrstva TileOverlay (Quickshell) — dlaždica pod ním sa nemusí hýbať
+local function moving()
+  if string.sub(scene, 1, 5) == "file:" then return false end
+  if pokoj then return false end            -- obrazovka zamknutá (hook session_locked): pod zámkom sa nič nehýbe
+  return anim == "vzdy" or (anim == "kurzor" and hovered)
+end
 
 -- para: stĺpce ako para nad šálkou, pomaly dýchajú (fáza posunutá po stĺpcoch)
 local function para(side)
@@ -109,7 +119,7 @@ local function render()
   local W = W0 + extra
   barWidget.render(ui.row({ width = W, height = H, gap = 2, align = "center", justify = "center", radius = 12,
                             fill = fill,
-                            onHover = function(state) hovered = state == "true"; noctalia.setUpdateInterval(moving() and 100 or 3000); render() end,
+                            onHover = function(state) hovered = state == "true"; noctalia.setUpdateInterval(moving() and (cheapTier and 200 or 100) or 3000); render() end,
                             tooltip = tip() }, row))
 end
 
@@ -162,12 +172,12 @@ function update()
   end
   -- súkromie každé 3 s (bez pohybu interval 3 s, pri pohybe 100 ms → každý 30. krok)
   privT = privT + 1
-  if not moving() or privT >= 30 then privT = 0; pollPrivacy() end
+  if not moving() or privT >= (cheapTier and 15 or 30) then privT = 0; pollPrivacy() end   -- každé ~3 s
   polled = polled + 1
-  if polled >= (moving() and 300 or 10) or polled < 0 then polled = 0; poll() end
+  if polled >= (moving() and (cheapTier and 150 or 300) or 10) or polled < 0 then polled = 0; poll() end   -- každých ~30 s
   if moving() then
-    t0 = t0 + 0.1
-    noctalia.setUpdateInterval(100)          -- 10 obr/s
+    t0 = t0 + (cheapTier and 0.2 or 0.1)
+    noctalia.setUpdateInterval(cheapTier and 200 or 100)   -- 5 obr/s bez GPU, 10 obr/s s GPU
   else
     noctalia.setUpdateInterval(3000)         -- statický snímok; súkromie každé 3 s, ostatné každých 30 s
   end

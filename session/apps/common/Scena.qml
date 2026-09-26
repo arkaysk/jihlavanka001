@@ -23,6 +23,8 @@ Item {
     property bool mirror: false             // pravý roh: zrkadlová geometria
     property var radii: [0, 0, 0, 0]        // orezanie výseku: tl, tr, br, bl
     property var image: null                // spoločný AnimatedImage (inak si výsek vytvorí vlastný)
+    property int frame: -1                  // číslo snímku zo spoločného zdroja (GifZdroj.frame); -1 = podľa AnimatedImage
+    onFrameChanged: if (kind === "file") cv.requestPaint()
     property string frameDir: ""            // snímky GIF ako PNG (latte-tapety snimky): Canvas kreslí aktuálny snímok
     property int frameCount: 0
     // ohnisko pohybu GIF (podiel šírky/výšky, z latte-tapety snimky) a bod plátna, kam má padnúť (stred ostrova na lište):
@@ -108,7 +110,7 @@ Item {
                 } else { dx0 = (W - iw * k) / 2; dy0 = (H - ih * k) / 2; }
                 const dw = iw * k, dh = ih * k;
                 // Canvas si obrázok položky pamätá ako prvý snímok → animácia ide zo snímok PNG podľa currentFrame
-                const u = sc.frameDir && sc.frameCount ? frameUrl(Math.min(sc.frameCount - 1, Math.max(0, im.currentFrame))) : "";
+                const u = sc.frameDir && sc.frameCount ? frameUrl(Math.min(sc.frameCount - 1, Math.max(0, sc.frame >= 0 ? sc.frame : im.currentFrame))) : "";
                 if (u && isImageLoaded(u)) c.drawImage(u, dx0 - ox, dy0 - oy, dw, dh);
                 else c.drawImage(im, dx0 - ox, dy0 - oy, dw, dh);
                 return;

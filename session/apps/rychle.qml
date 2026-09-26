@@ -151,7 +151,7 @@ ShellRoot {
             side: "right"
             open: rq.open
             panelW: 660; panelH: 590; trunkH: 54
-            sceneSpec: rq.sceneRight || rq.sceneAll; motion: rq.barMotion; dim: rq.dim; footGlyph: "adjustments"; image: tile.image; frameDir: tile.frameDir; frameCount: tile.frameCount; ohnisko: tile.ohnisko
+            sceneSpec: rq.sceneRight || rq.sceneAll; motion: rq.barMotion; dim: rq.dim; footGlyph: "adjustments"; image: tile.image; frame: tile.frame; frameDir: tile.frameDir; frameCount: tile.frameCount; ohnisko: tile.ohnisko
             trunk: [
                 // ── pás: základné voľby hardvéru (nič nie je vybrané) ──
                 Row {

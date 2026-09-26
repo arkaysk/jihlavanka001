@@ -29,6 +29,7 @@ Scope {
     readonly property alias image: zdroj.image
     readonly property alias frameDir: zdroj.frameDir
     readonly property alias frameCount: zdroj.frameCount
+    readonly property alias frame: zdroj.frame
     readonly property alias ohnisko: zdroj.ohnisko
     property bool game: false
     FileView { path: (Quickshell.env("XDG_STATE_HOME") || ((Quickshell.env("HOME") || "") + "/.local/state")) + "/latteos/game-mode"
@@ -50,7 +51,7 @@ Scope {
         color: "transparent"
         Scena {
             anchors.fill: parent
-            colors: to.theme; spec: to.spec; image: zdroj.image; mirror: to.mirror; frameDir: to.frameDir; frameCount: to.frameCount
+            colors: to.theme; spec: to.spec; image: zdroj.image; frame: zdroj.frame; mirror: to.mirror; frameDir: to.frameDir; frameCount: to.frameCount
             radii: [to.footRadius, to.footRadius, to.footRadius, to.footRadius]
             ox: to.ox; oy: to.oy; canvasW: to.canvasW; canvasH: to.canvasH
             ohnisko: to.ohnisko; anchorX: to.ox + to.foot.w / 2; anchorY: to.canvasH - to.foot.h / 2
