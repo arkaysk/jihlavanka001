@@ -55,7 +55,10 @@ ShellRoot {
         command: ["sh", "-c", "ls -A \"$1\" 2>/dev/null | wc -l", "sh", pl.trashDir]
         stdout: StdioCollector { onStreamFinished: pl.trashCount = parseInt(this.text) || 0 }
     }
-    Timer { interval: 4000; repeat: true; running: true; triggeredOnStart: true; onTriggered: if (!trashProc.running) trashProc.running = true }
+    // počet vecí v Koši sleduje FolderListModel (inotify) — predtým každé 4 s sh + ls + wc (optimalizácia 26. 9.)
+    FolderListModel { id: trashModel; folder: "file://" + pl.trashDir; showDirs: true; showHidden: true; showDotAndDotDot: false
+                      onCountChanged: pl.trashCount = count; onStatusChanged: if (status === FolderListModel.Ready) pl.trashCount = count }
+    Component.onCompleted: trashProc.running = true
     Process { id: run; onExited: files.refresh() }
     function sh(cmd, args) { run.command = ["sh", "-c", cmd, "sh"].concat(args || []); run.running = true; }
     function open(p) { sh(p === pl.trashDir ? 'latte-app subory "$1" >/dev/null 2>&1 &' : (p.endsWith(".desktop") ? 'gio launch "$1" >/dev/null 2>&1 &' : 'xdg-open "$1" >/dev/null 2>&1 &'), [p]); }

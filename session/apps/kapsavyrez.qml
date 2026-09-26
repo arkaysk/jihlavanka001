@@ -9,6 +9,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+import Quickshell.Hyprland
 import "common"
 
 ShellRoot {
@@ -19,7 +20,7 @@ ShellRoot {
     property var pos: null                 // { x, y, w, h } výrezu v súradniciach monitora
     property string path: ""               // odložený súbor
     property string mime: ""
-    property bool hidden: false
+    property bool hidden
     property bool hovering: false
     readonly property int rise: 36         // o koľko ikona presahuje nad výrez
 
@@ -54,13 +55,13 @@ ShellRoot {
     }
     function clear() { sh('rm -f "$1/kapsa-vec"', [kv.state]); }
 
-    // celá obrazovka / herný režim → skryť
-    Process {
-        id: fsProbe
-        command: ["sh", "-c", "hyprctl -j activewindow | grep -q '\"fullscreen\": 2' && echo 1 || echo 0; cat \"$1/game-mode\" 2>/dev/null", "sh", kv.state]
-        stdout: StdioCollector { onStreamFinished: { const l = this.text.split("\n"); kv.hidden = l[0] === "1" || (l[1] || "").trim() === "1"; } }
-    }
-    Timer { interval: 2000; repeat: true; running: true; triggeredOnStart: true; onTriggered: if (!fsProbe.running) fsProbe.running = true }
+    // celá obrazovka / herný režim → skryť (optimalizácia 26. 9.: udalosti Hyprlandu a inotify namiesto sh + hyprctl
+    // + grep + cat každé 2 s)
+    property bool game: false
+    FileView { path: kv.state + "/game-mode"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: kv.game = text().trim() === "1"; onLoadFailed: kv.game = false }
+    CelaObrazovka { id: cela }
+    hidden: game || cela.active
 
     readonly property string iconName: {
         if (mime === "inode/directory") return "folder";

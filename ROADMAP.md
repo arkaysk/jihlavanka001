@@ -393,8 +393,10 @@ Kľúčové zistenie: pri softvérovom kreslení stojí **každá snímka** komp
 - [ ] Pamäť: 9 procesov Quickshell má spolu ~318 MB PSS (spúšťač 89, okno L zariadení 67, ostatné 15–31). Zlúčiť malé
   démony (plocha, ponuka, maskot, náhľad, výrez Kapsy, NET znak, pohoda) do jedného procesu (odhad −90 MB); obsah
   veľkých okien L vytvárať až pri prvom otvorení a uvoľniť po dlhšej nečinnosti — merať čas otvorenia pred/po.
-- [ ] Polling → udalosti: maskot volá každé 2,5 s trojicu `hyprctl` (4 procesy) — prejsť na Quickshell.Hyprland IPC;
-  prejsť všetky `Timer` + `Process` a `runAsync` v pluginoch (spúšťanie procesov je pri pomalom CPU drahé).
+- [x] Polling → udalosti v démonoch Quickshellu (26. 9.): maskot, výrez Kapsy, NET znak, Kôš na ploche a pohoda
+  zisťujú okná, celú obrazovku a súbory z IPC Hyprlandu a inotify (`common/CelaObrazovka.qml` rozlišuje celú
+  obrazovku od maximalizácie). Predtým ~5 spustených procesov za sekundu, teraz ~0,2/s.
+- [ ] To isté v pluginoch Noctalie (`runAsync` v `update()`): hodiny, zvonček, dlaždice, senzory — prejsť a zmerať.
 - [ ] Kompozitor: zistiť, prečo sledovanie poškodenia (damage tracking) pri sw-gl takmer nešetrí (celé prekreslenie
   aj pri zmene 100×43 px); ak ide o kopírovanie celého snímku do výstupu, je to hranica softvérového kreslenia.
 - [ ] Noctalia: jedna zmena widgetu prekreslí celý povrch lišty — overiť a prípadne kresliť iba zmenený ostrov.

@@ -6,7 +6,6 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 
 Item {
     id: gz
@@ -41,7 +40,8 @@ Item {
         cache: false; asynchronous: true
     }
     // okno na celú obrazovku (film, hra) zakrýva lištu → GIF stojí (udalosť z IPC Hyprlandu, žiadny polling)
-    readonly property bool fullscreen: !!Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.hasFullscreen
+    CelaObrazovka { id: cela }
+    readonly property bool fullscreen: cela.active                    // maximalizované okno GIF nezastaví
     // pokoj: obrazovka je zamknutá (hook Noctalie session_locked) → GIF stojí
     property bool pokoj: false
     FileView { path: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/latteos/pokoj"; printErrors: false; watchChanges: true

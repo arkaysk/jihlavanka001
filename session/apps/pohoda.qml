@@ -18,6 +18,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 import Quickshell.Wayland
 
 ShellRoot {
@@ -104,7 +105,20 @@ ShellRoot {
             }
         }
     }
-    Timer { interval: ph.step * 1000; repeat: true; running: ph.loaded; onTriggered: if (!probe.running) probe.running = true }
+    // aktívne okno z IPC Quickshellu (bez procesu hyprctl každých 5 s; optimalizácia 26. 9.); lastIpcObject obnoví
+    // refreshToplevels pri zmene okna, čas sa pripisuje každých step sekúnd
+    Connections { target: Hyprland; function onRawEvent(e) { if (/^(activewindowv2|closewindow|windowtitlev2)$/.test(e.name)) Hyprland.refreshToplevels(); } }
+    Timer {
+        interval: ph.step * 1000; repeat: true; running: ph.loaded
+        onTriggered: {
+            const t = Hyprland.activeToplevel, w = t ? t.lastIpcObject : null;
+            ph.cls = w && w["class"] ? w["class"] : (t ? (t.wayland ? t.wayland.appId : "") : "");
+            ph.title = t ? t.title : "";
+            ph.pid = w && w.pid ? w.pid : 0;
+            ph.address = w && w.address ? w.address : (t ? "0x" + t.address : "");
+            ph.tick();
+        }
+    }
 
     function tick() {
         const d0 = today();

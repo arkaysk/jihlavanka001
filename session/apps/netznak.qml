@@ -57,7 +57,9 @@ ShellRoot {
             }
         }
     }
-    Timer { interval: 1000; repeat: true; running: true; triggeredOnStart: true; onTriggered: if (!q.running) q.running = true }
+    // udalosti Hyprlandu nižšie pokrývajú zmenu okna; polling je iba záloha na zmenu veľkosti okna — častý (1 s) iba vtedy,
+    // keď je znak vidieť (optimalizácia 26. 9.: predtým každú sekundu sh + 2× hyprctl)
+    Timer { interval: nz.shown ? 1000 : 5000; repeat: true; running: true; triggeredOnStart: true; onTriggered: if (!q.running) q.running = true }
     Connections {
         target: Hyprland
         function onRawEvent(ev) {
@@ -79,7 +81,7 @@ ShellRoot {
         probe.command = ["latte-net", "used", String(win.pid)];
         probe.running = true;
     }
-    Timer { interval: 3000; repeat: true; running: nz.win !== null && !nz.netUsed && !nz.isLatte; onTriggered: nz.checkNet() }
+    Timer { interval: 5000; repeat: true; running: nz.win !== null && !nz.netUsed && !nz.isLatte; onTriggered: nz.checkNet() }
 
     Process {
         id: status
