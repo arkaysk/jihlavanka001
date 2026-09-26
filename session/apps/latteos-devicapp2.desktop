@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Správca zariadení 2 · Uzly
+GenericName=Device Manager (návrh)
+Comment=Skúšobný návrh: zariadenia ako spojené uzly okolo počítača
+Exec=latte-app devicapp2
+Icon=network-workgroup
+Categories=Settings;HardwareSettings;
+Keywords=zariadenia;device manager;uzly;devicapp2;

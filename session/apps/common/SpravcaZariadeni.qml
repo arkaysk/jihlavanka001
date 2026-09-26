@@ -22,6 +22,7 @@ Item {
     property bool embedded: false               // vložený do rolovanej stránky: bez vlastného rolovania, výška = obsah
     readonly property real naturalHeight: tabs.height + (tabs.visible ? 10 : 0) + body.implicitHeight + 12
     property var sel: null                      // { group, item }
+    property string wantItem: ""                // vybrať toto zariadenie hneď po načítaní (hostiteľ otvára konkrétne zariadenie)
     property bool active: true                  // načítavať (okno otvorené)
     property string status: ""
     signal openWindow(var args)                 // otvoriť iné okno (hostiteľ zavrie popup)
@@ -44,7 +45,9 @@ Item {
         stdout: StdioCollector { onStreamFinished: { if (q.done) { try { q.done(JSON.parse(this.text)); } catch (e) {} } } }
     }
     Q { id: qList; command: ["latte-devices", "list"]
-        done: (d) => { dm.groups = d.groups; dm.faults = d.faults || []; dm.summary = d.summary || ""; dm.total = d.total || 0; dm.problems = d.problems || []; dm.refreshSel(); } }
+        done: (d) => { dm.groups = d.groups; dm.faults = d.faults || []; dm.summary = d.summary || ""; dm.total = d.total || 0; dm.problems = d.problems || []; dm.refreshSel();
+                      if (dm.wantItem) { const g = dm.groups.find(x => x.key === (dm.only || dm.group)), it = g ? g.items.find(i => i.name === dm.wantItem) : null;
+                                         dm.wantItem = ""; if (it) dm.pick(g, it); } } }
     property var audio: ({ sinks: [], sources: [], apps: [] })
     Q { id: qAudio; command: ["latte-devices", "audio"]; done: (d) => dm.audio = d }
     property var cards: ({ cards: [], active: {} })

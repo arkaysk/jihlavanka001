@@ -7,6 +7,10 @@ Text {
     property real size: 18
     readonly property var map: ({
         "logout": 0xEBA8,
+        "plug": 0xEBD9,
+        "plug-connected": 0xF00A,
+        "cpu-2": 0xF075,
+        "device-sd-card": 0xF384,
         "volume-off": 0xF1C3,
         "microphone-off": 0xED16,
         "battery-charging": 0xEA33,

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Správca zariadení 3 · Doska
+GenericName=Device Manager (návrh)
+Comment=Skúšobný návrh: počítač ako základná doska so živým zadným panelom
+Exec=latte-app devicapp3
+Icon=cpu
+Categories=Settings;HardwareSettings;
+Keywords=zariadenia;device manager;doska;devicapp3;
