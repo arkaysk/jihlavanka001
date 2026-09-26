@@ -128,6 +128,7 @@ Item {
                 const p = ins.t.primary, cx = radar.cx, cy = radar.cy;
                 // pásy: minulosť (vonku), teraz (vnútri), tento počítač (stred)
                 for (const [r, a] of [[radar.rad + 26, 0.05], [radar.rad * 0.72 + 30, 0.07], [radar.rNow * 0.55, 0.12]]) {
+                    if (!(r > 0)) continue;                  // ešte bez rozmeru (skrytá stránka)
                     c.beginPath(); c.moveTo(cx - r, cy); c.arc(cx, cy, r, Math.PI, 2 * Math.PI); c.closePath();
                     c.fillStyle = Qt.rgba(p.r, p.g, p.b, a); c.fill();
                 }

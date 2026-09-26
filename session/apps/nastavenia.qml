@@ -86,13 +86,13 @@ ShellRoot {
     readonly property var areas: [
         { key: "softver", title: "Softvér", glyph: "apps", summary: "AI: " + (ai.ok === "1" ? (ai.model || "pripravené") : "nenastavené"), owner: "App Manager",
           pages: [
-            { key: "aplikacie", label: "Aplikácie", glyph: "apps", status: "partial" },
+            { key: "aplikacie", label: "Aplikácie", glyph: "apps", status: "ready" },
             { key: "predvolene", label: "Predvolené aplikácie", glyph: "star", status: "ready" },
-            { key: "instalacia", label: "Inštalácia aplikácií", glyph: "download", status: "partial" },
-            { key: "aktualizacie", label: "Aktualizácie", glyph: "refresh", status: "partial" },
+            { key: "instalacia", label: "Inštalácia aplikácií", glyph: "download", status: "ready" },
+            { key: "aktualizacie", label: "Aktualizácie", glyph: "refresh", status: "ready" },
             { key: "ai", label: "AI", glyph: "sparkles", status: "ready" },
-            { key: "spustanie", label: "Spúšťanie a na pozadí", glyph: "player-play", status: "partial" },
-            { key: "sukromie", label: "Súkromie a NET", glyph: "world", status: "partial" } ] },
+            { key: "spustanie", label: "Spúšťanie a na pozadí", glyph: "player-play", status: "ready" },
+            { key: "sukromie", label: "Súkromie a NET", glyph: "world", status: "ready" } ] },
         { key: "data", title: "Dáta", glyph: "folder", summary: "Súbory · farebné štítky", owner: "Data Manager",
           pages: [
             { key: "subory", label: "Súbory a priečinky", glyph: "folder", status: "ready" },
@@ -553,7 +553,7 @@ ShellRoot {
     function intro(k) {
         return ({
             domov: "Stav systému na jednom mieste. Klik na kartu otvorí jej nastavenia.",
-            aplikacie: "App Manager spravuje aplikácie; tu je rýchly vstup.",
+            aplikacie: "Nainštalované aplikácie priamo tu: spustiť, oprávnenia, Setup Plan, odinštalovať.",
             obrazovky: "Obrazovky spravuje Správca zariadení.", zvuk: "Zvuk spravuje Správca zariadení.", siet: "Sieť spravuje Správca zariadení.",
             bluetooth: "Bluetooth spravuje Správca zariadení.", napajanie: "Napájanie spravuje Správca zariadení.",
             instalacia: "Inštalácia jedným klikom a kontrola stiahnutých súborov.",
@@ -624,6 +624,8 @@ ShellRoot {
         if (k === "klavesnica") return "Profil " + ({ windows: "Windows", linux: "Linux", mac: "macOS" })[ctrlProfile] + " · rozloženia sk, us (Alt+Shift)";
         if (dalsie.pages[k]) return dalsie.stateText(k);
         if (managed[k] && managed[k][0] === "Správca zariadení") return "Priamo tu: ten istý Správca zariadení ako okno z lišty";
+        if (managed[k] && managed[k][0] === "Aplikácie") return "Priamo tu: ten istý App Manager ako okno Aplikácie";
+        if (managed[k] && managed[k][0] === "Monitor") return "Priamo tu: ten istý zoznam ako Monitor › Po štarte";
         if (plans[k]) return "Zatiaľ len plán";
         return "—";
     }
@@ -2225,6 +2227,7 @@ ShellRoot {
             readonly property var m: app.managed[app.section] || ["", "", []]
             Text { width: parent.width; wrapMode: Text.WordWrap; text: parent.m[1]; color: theme.fg; font { family: theme.fontUi; pixelSize: 14 } }
             readonly property bool dev: m[0] === "Správca zariadení"
+            readonly property bool emb: dev || m[0] === "Aplikácie" || m[0] === "Monitor"      // obsah priamo na stránke
             // stránky hardvéru: ten istý komponent ako Správca zariadení (jedna implementácia, nie odkaz)
             Loader {
                 active: parent.dev; visible: active; width: parent.width; height: item ? item.naturalHeight : 0
@@ -2235,8 +2238,22 @@ ShellRoot {
                     onOpenWindow: (a) => app.run(a)
                 }
             }
-            Button { label: "Otvoriť " + parent.m[0]; glyph: parent.m[0] === "Monitor" ? "activity" : (parent.m[0] === "Aplikácie" ? "apps" : "cpu"); primaryStyle: !parent.dev; onClicked: app.run(parent.m[2]) }
-            Text { visible: !parent.dev; text: "Nastavenia ukazujú stav a odkaz; operácie vlastní " + parent.m[0] + " (jedna implementácia)."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
+            // Softvér: ten istý App Manager (common/AppManager.qml) priamo na stránke, s vlastným rolovaním
+            Loader {
+                active: parent.m[0] === "Aplikácie"; visible: active
+                width: parent.width; height: Math.max(560, content.height - 150)
+                sourceComponent: AppManager {
+                    theme: app.th; embedded: true
+                    args: [app.managed[app.section][2][2]]
+                }
+            }
+            Loader {
+                active: parent.m[0] === "Monitor"; visible: active
+                width: parent.width; height: Math.max(560, content.height - 150)
+                sourceComponent: MonitorView { theme: app.th; embedded: true; args: app.managed[app.section][2][2] }
+            }
+            Button { label: "Otvoriť " + parent.m[0]; glyph: parent.m[0] === "Monitor" ? "activity" : (parent.m[0] === "Aplikácie" ? "apps" : "cpu"); primaryStyle: !parent.emb; onClicked: app.run(parent.m[2]) }
+            Text { visible: !parent.emb; text: "Nastavenia ukazujú stav a odkaz; operácie vlastní " + parent.m[0] + " (jedna implementácia)."; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 } }
         }
     }
     Component {

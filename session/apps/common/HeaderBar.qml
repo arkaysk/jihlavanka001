@@ -17,6 +17,7 @@ Rectangle {
     property bool netVisible: true         // aplikácia môže NET úplne skryť (napr. editor bez siete)
     property bool netUsed: false           // NET sa ukáže, až keď aplikácia naozaj otvorí sieťové spojenie
     property bool netOn: true
+    property bool windowControls: true     // false = vložené v inej aplikácii (Nastavenia): bez okenných tlačidiel a ťahania okna
     property string appId: ""
     Process { id: netStatus; running: hb.appId !== ""; command: ["latte-net", "status", hb.appId]
               stdout: StdioCollector { onStreamFinished: hb.netOn = this.text.trim() !== "off" } }
@@ -33,6 +34,7 @@ Rectangle {
     // prázdne miesto hlavičky: ťahanie presunie okno (xdg_toplevel.move ako GTK/KDE), dvojklik = zväčšiť.
     // Leží pod ostatnými prvkami, tlačidlá a hľadanie majú prednosť. Super + myš je iba doplnok.
     MouseArea {
+        enabled: hb.windowControls
         z: -1; anchors.fill: parent; acceptedButtons: Qt.LeftButton | Qt.RightButton
         property point start
         onPressed: (m) => start = Qt.point(m.x, m.y)
@@ -175,6 +177,7 @@ Rectangle {
         }
         // okenné tlačidlá ako v lište kompozitora (latte/bars.lua): minimalizovať, zväčšiť, zavrieť
         Row {
+            visible: hb.windowControls
             anchors.verticalCenter: parent.verticalCenter
             spacing: 8
             component WinBtn: Rectangle {
