@@ -7,6 +7,7 @@ Text {
     property real size: 18
     readonly property var map: ({
         "logout": 0xEBA8,
+        "category": 0xF1F6,
         "router": 0xEB18,
         "device-tv": 0xEA8D,
         "device-speaker": 0xEA8B,

@@ -5,6 +5,10 @@ okolo tohto počítača, čo ktoré zariadenie ponúka a kam sa dá poslať zvuk
   latte-inspektor sken            JSON: tento počítač (adresa, prenos, aplikácie so spojeniami), brána, zariadenia v sieti
                                   (IP, MAC, výrobca, meno, druh, služby, prvýkrát videné / nové) a ciele zvuku
   latte-inspektor posledny        JSON posledného skenu z vyrovnávacej pamäte (okamžite, bez skenovania)
+  latte-inspektor oznac KĽÚČ MENO DRUH   identifikovať zariadenie: vlastné meno a druh (ikona/účel); prázdne = automaticky
+                                  druhy: router tv audio printer nas iot phone pc console camera device
+  latte-inspektor zabudni KĽÚČ    odstrániť zariadenie z histórie (aj jeho meno)
+  latte-inspektor moja-siet ano|nie   označiť túto sieť (podľa MAC brány) ako „Moja sieť“ — iba tam sa hlásia nové zariadenia
   latte-inspektor airplay zapni|vypni   prijímače AirPlay (a iné RAOP) v sieti sa ukážu ako bežné zvukové výstupy
                                   (PipeWire module-raop-discover); stav: latte-inspektor airplay
 
@@ -23,6 +27,8 @@ import xml.etree.ElementTree as ET
 
 CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "latteos")
 HIST = os.path.join(CACHE, "inspektor.json")
+USER = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "latteos", "siet-zariadenia.json")
+KINDS = ("router", "tv", "audio", "printer", "nas", "iot", "phone", "pc", "console", "camera", "device")
 LAST = os.path.join(CACHE, "inspektor-posledny.json")
 SERVICES = {
     "_airplay._tcp": ("AirPlay", "audio"), "_raop._tcp": ("AirPlay zvuk", "audio"), "_googlecast._tcp": ("Chromecast", "cast"),
@@ -33,7 +39,7 @@ SERVICES = {
     "_http._tcp": ("Webové rozhranie", "web"), "_https._tcp": ("Webové rozhranie", "web"), "_home-assistant._tcp": ("Home Assistant", "home"),
     "_hap._tcp": ("HomeKit", "home"), "_matter._tcp": ("Matter", "home"), "_amzn-wplay._tcp": ("Amazon Alexa", "audio"),
     "_sonos._tcp": ("Sonos", "audio"), "_daap._tcp": ("iTunes knižnica", "files"), "_companion-link._tcp": ("Apple zariadenie", "pc"),
-    "_device-info._tcp": ("", ""), "_adisk._tcp": ("Time Machine", "files"), "_steam._udp": ("Steam", "pc"),
+    "_device-info._tcp": ("", ""), "_rtsp._tcp": ("Kamera (RTSP)", "camera"), "_adisk._tcp": ("Time Machine", "files"), "_steam._udp": ("Steam", "pc"),
 }
 
 
@@ -79,8 +85,13 @@ def local():
     rx = int(open("/sys/class/net/%s/statistics/rx_bytes" % dev).read())
     tx = int(open("/sys/class/net/%s/statistics/tx_bytes" % dev).read())
     wifi = os.path.isdir("/sys/class/net/%s/wireless" % dev)
+    netname = ""
+    for line in sh(["nmcli", "-t", "-f", "NAME,DEVICE", "connection", "show", "--active"])[1].splitlines():
+        f = re.split(r"(?<!\\):", line)
+        if len(f) >= 2 and f[1] == dev:
+            netname = f[0].replace("\\:", ":")
     return {"iface": dev, "ip": ip, "prefix": prefix, "mac": mac, "gateway": gw, "rx": rx, "tx": tx, "wifi": wifi,
-            "host": socket.gethostname()}
+            "host": socket.gethostname(), "netname": netname}
 
 
 def apps_online():
@@ -337,6 +348,8 @@ def kind(d):
         return "pc"
     if re.search(r"nintendo|sony interactive|microsoft|valve", v):
         return "console"
+    if "_rtsp" in t or re.search(r"hikvision|dahua|reolink|axis comm|ezviz|wyze", v):
+        return "camera"
     return "device"
 
 
@@ -393,16 +406,52 @@ def scan():
             key = key + "|" + ip
         used.add(key)
         h = hist.get(key, {"first": now})
-        h["last"], h["ip"], h["name"] = now, ip, d["name"] or h.get("name", "")
+        h.update({"last": now, "ip": ip, "mac": d["mac"], "name": d["name"] or h.get("name", ""), "kind": d["kind"],
+                  "vendor": d["vendor"], "model": d["model"], "net": netid(me)})
         hist[key] = h
-        d["first"] = h["first"]
+        d["key"], d["first"], d["last"], d["online"] = key, h["first"], now, True
         d["new"] = not first_scan and now - h["first"] < 7 * 86400
         devs.append(d)
+    # pripojené v minulosti (v tejto sieti, posledných 60 dní)
+    for key, h in hist.items():
+        if key in used or h.get("net", netid(me)) != netid(me) or now - h.get("last", 0) > 60 * 86400:
+            continue
+        devs.append({"key": key, "ip": h.get("ip", ""), "mac": h.get("mac", ""), "vendor": h.get("vendor", ""), "name": h.get("name", ""),
+                     "model": h.get("model", ""), "services": [], "upnp": {}, "gateway": False, "kind": h.get("kind", "device"),
+                     "first": h.get("first", 0), "last": h.get("last", 0), "online": False, "new": False})
     save(HIST, hist)
     me["apps"] = apps_online()
-    res = {"ok": True, "me": me, "subnet": str(net), "devices": devs, "audio": audio_targets(devs), "time": now,
-           "airplay": airplay_state()}
+    res = {"ok": True, "me": me, "subnet": str(net), "devices": devs, "audio": audio_targets([d for d in devs if d["online"]]), "time": now,
+           "airplay": airplay_state(), "net": netid(me)}
     save(LAST, res)
+    return with_user(res)
+
+
+def netid(me):
+    """Sieť sa pozná podľa MAC brány (rovnaká adresa 192.168.1.0/24 je doma aj v kaviarni)."""
+    for n in json.loads(sh(["ip", "-j", "-4", "neigh", "show", me["gateway"]])[1] or "[]"):
+        if n.get("lladdr"):
+            return n["lladdr"].lower()
+    return me.get("gateway", "")
+
+
+def with_user(res):
+    """Vlastné mená a druhy (identifikované zariadenia) a „Moja sieť“ z ~/.config/latteos/siet-zariadenia.json."""
+    u = load(USER, {})
+    names = u.get("zariadenia", {})
+    res["mine"] = res.get("net", "") in u.get("moje-siete", [])
+    since = u.get("moje-siete-od", {}).get(res.get("net", ""), 0)      # nové = objavené až po označení „Moja sieť“
+    for d in res.get("devices", []):
+        o = names.get(d.get("key", ""), {})
+        d["auto"] = {"name": d.get("name", ""), "kind": d.get("kind", "device")}
+        if o.get("name"):
+            d["name"] = o["name"]
+        if o.get("kind") in KINDS:
+            d["kind"] = o["kind"]
+        d["identified"] = bool(o)
+        d["unknown"] = not o and not d.get("name") and d.get("kind") == "device"
+        d["new"] = bool(res["mine"] and since and d.get("first", 0) > since + 60 and not d.get("gateway")
+                        and time.time() - d.get("first", 0) < 7 * 86400 and not o)
     return res
 
 
@@ -426,7 +475,35 @@ def main(a):
     if a[:1] == ["sken"]:
         print(json.dumps(scan(), ensure_ascii=False)); return 0
     if a[:1] == ["posledny"]:
-        print(json.dumps(load(LAST, {"ok": False, "devices": [], "audio": []}), ensure_ascii=False)); return 0
+        print(json.dumps(with_user(load(LAST, {"ok": False, "devices": [], "audio": []})), ensure_ascii=False)); return 0
+    if a[:1] == ["oznac"] and len(a) == 4:
+        u = load(USER, {})
+        z = u.setdefault("zariadenia", {})
+        if not a[2] and not a[3]:
+            z.pop(a[1], None)
+        else:
+            z[a[1]] = {k: v for k, v in (("name", a[2].strip()[:48]), ("kind", a[3] if a[3] in KINDS else "")) if v}
+        save(USER, u); return 0
+    if a[:1] == ["zabudni"] and len(a) == 2:
+        h = load(HIST, {}); h.pop(a[1], None); save(HIST, h)
+        u = load(USER, {}); u.get("zariadenia", {}).pop(a[1], None); save(USER, u)
+        last = load(LAST, {})
+        if last.get("devices"):
+            last["devices"] = [d for d in last["devices"] if d.get("key") != a[1]]; save(LAST, last)
+        return 0
+    if a[:1] == ["moja-siet"] and len(a) == 2 and a[1] in ("ano", "nie"):
+        last = load(LAST, {})
+        if not last.get("net"):
+            print("latte-inspektor: najprv prehľadaj sieť", file=sys.stderr); return 1
+        u = load(USER, {})
+        m = set(u.get("moje-siete", []))
+        (m.add if a[1] == "ano" else m.discard)(last["net"])
+        od = u.setdefault("moje-siete-od", {})
+        if a[1] == "ano":
+            od.setdefault(last["net"], int(time.time()))
+        else:
+            od.pop(last["net"], None)
+        u["moje-siete"] = sorted(m); save(USER, u); return 0
     if a[:1] == ["airplay"]:
         if len(a) == 1:
             print(json.dumps({"on": airplay_state()})); return 0
