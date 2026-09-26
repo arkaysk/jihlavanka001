@@ -512,6 +512,37 @@ Item {
             Row { spacing: 8
                 Btn { glyph: "accessible"; label: "Mierka rozhrania"; onClicked: dd.app.go("pristupnost") }
                 Btn { glyph: "device-desktop"; label: "Mierka obrazovky"; onClicked: dd.app.go("obrazovky") } }
+
+            // písma v systéme (Windows: Prispôsobenie › Písma): prehľad s ukážkou, inštalácia zo súboru pre tvoj účet
+            Heading { topPadding: 10; text: "PÍSMA V SYSTÉME · " + dd.font.families.length }
+            Rectangle {
+                width: parent.width; height: 36; radius: 10; color: dd.t.field
+                TextInput { id: fq; anchors { fill: parent; leftMargin: 12; rightMargin: 12 } verticalAlignment: TextInput.AlignVCenter; clip: true
+                            color: dd.t.fg; font { family: dd.t.fontUi; pixelSize: 13 } selectByMouse: true
+                            Text { visible: !fq.text && !fq.activeFocus; anchors.verticalCenter: parent.verticalCenter; text: "Hľadať písmo…"; color: dd.t.fgDim; font: fq.font } }
+            }
+            Flow {
+                width: parent.width; spacing: 6
+                Repeater {
+                    model: dd.font.families.filter(f => !fq.text || f.toLowerCase().indexOf(fq.text.toLowerCase()) >= 0).slice(0, 40)
+                    Rectangle {
+                        required property string modelData
+                        width: fl.implicitWidth + 24; height: 34; radius: 9; color: dd.t.field
+                        Text { id: fl; anchors.centerIn: parent; text: parent.modelData; color: dd.t.fg; font { family: parent.modelData; pixelSize: 14 } }
+                    }
+                }
+            }
+            Note { visible: dd.font.families.length > 40 && !fq.text; text: "Zobrazených prvých 40 — napíš časť názvu." }
+            Row { spacing: 8
+                Btn { glyph: "download"; label: "Nainštalovať písmo zo súboru…"
+                      onClicked: { app.run(["sh", "-c", "f=$(latte-vyber --nazov 'Písmo (.ttf, .otf)' --typ vsetko) || exit 0; [ -n \"$f\" ] || exit 0; "
+                                        + "case \"$f\" in *.[tT][tT][fF]|*.[oO][tT][fF]|*.[tT][tT][cC]) d=\"$HOME/.local/share/fonts\"; mkdir -p \"$d\" && cp \"$f\" \"$d/\" && fc-cache -f \"$d\" "
+                                        + "&& notify-send -a LatteOS 'Písmo nainštalované' \"$(basename \"$f\")\";; *) notify-send -a LatteOS 'Toto nie je písmo' 'Očakávam .ttf alebo .otf';; esac"],
+                                       "Vyber súbor s písmom"); fontRe.restart(); } }
+                Btn { glyph: "folder"; label: "Priečinok mojich písiem"
+                      onClicked: app.run(["sh", "-c", "mkdir -p \"$HOME/.local/share/fonts\" && latte-app subory \"$HOME/.local/share/fonts\""]) } }
+            Timer { id: fontRe; interval: 15000; onTriggered: fontProc.running = true }   // po výbere súboru znova načítať zoznam
+            Note { text: "Písmo nainštalované sem platí iba pre tvoj účet. Stačí ho aj pretiahnuť do priečinka mojich písiem." }
         }
     }
 }

@@ -33,6 +33,7 @@ ShellRoot {
         run(["sh", "-c", "mkdir -p \"$(dirname \"$1\")\" && shift && printf '%s\\n' \"# LatteOS › Nastavenia › Pre pokročilých (platí po odhlásení)\" \"$@\" > \"$0\"",
              app.envFile, app.envFile].concat(lines), "Premenné prostredia uložené — platia po odhlásení");
     }
+    property string zoomPick: "1"          // Prístupnosť › Lupa (Win+Plus/Mínus mení aj mimo Nastavení)
     property string pozadieTab: ""       // "" = moja knižnica, "online" = katalógy tapiet (bývalá stránka Tapety online)
     property bool ulRozsirene: false     // Úložisko: rozbaliť Rozšírené (disky a oddiely) — pri príchode z „disky“             // pre vložené komponenty s vlastnou vlastnosťou theme (theme: theme by ukazovalo na seba)
     readonly property var latteTheme: theme      // pre vnorené prvky s vlastnou vlastnosťou „theme“ (IconButton)
@@ -2273,6 +2274,14 @@ ShellRoot {
                 value: app.cursorSize
                 onPicked: (v) => { app.writePref("cursor-size", v === "24" ? "" : v, "Kurzor " + v + " px"); app.cursorSize = v; app.run(["hyprctl", "setcursor", "default", v]); }
             }
+            Heading { text: "LUPA" }
+            Segments {
+                options: [["1", "Vypnutá"], ["1.5", "150 %"], ["2", "200 %"], ["3", "300 %"], ["4", "400 %"]]
+                value: app.zoomPick
+                onPicked: (v) => { app.zoomPick = v; app.run(["hyprctl", "eval", "latte.keys.zoomTo(" + v + ")"], v === "1" ? "Lupa vypnutá" : "Lupa " + Math.round(parseFloat(v) * 100) + " %"); }
+            }
+            Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
+                   text: "Ako vo Windows: Win + Plus zväčší okolie kurzora, Win + Mínus zmenší, Win + Esc lupu vypne. Obraz ide za kurzorom." }
             Text { width: parent.width; wrapMode: Text.WordWrap; color: theme.fgDim; font { family: theme.fontUi; pixelSize: 12 }
                    text: "Veľkosť písma v aplikáciách a čítačku obrazovky pripravujeme. Zmeny lišty a panelov platia hneď, kurzor v nových oknách po prihlásení." }
         }

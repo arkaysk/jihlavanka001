@@ -129,6 +129,11 @@ function latte.okno.zavriet(a) hl.dispatch(hl.dsp.window.close({ window = "addre
 
 -- lupa (Win+Plus / Win+Mínus / Win+Esc): zväčšenie okolo kurzora (Hyprland cursor:zoom_factor)
 local zoom = 1
+-- priamo nastaviť zväčšenie (Nastavenia › Prístupnosť › Lupa)
+function latte.keys.zoomTo(f)
+    zoom = math.max(1, math.min(8, tonumber(f) or 1))
+    hl.config({ cursor = { zoom_factor = zoom } })
+end
 function latte.keys.zoom(step)
     zoom = step == 0 and 1 or math.max(1, math.min(8, zoom * (step > 0 and 1.25 or 0.8)))
     if zoom < 1.05 then zoom = 1 end
