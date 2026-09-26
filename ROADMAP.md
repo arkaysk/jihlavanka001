@@ -379,7 +379,12 @@ flowchart TD
 - [ ] Plynulé animácie všetkých panelov a vyskakovacích okien pri stupni s GPU (vzor: video „Hyprland as fluid as it gets“) — otestovať na reálnom HW
 - [x] Kolekcia maskotov (12 postáv) s režimami OFF / SLOT / WORLD / CHAOS, výbehy po lište a oknách (maskot.qml), potreby ako tamagoči, panel
 - [x] Balíčky maskotov (PNG snímky + pet.json): 10 vyrezaných z koncepčných listov používateľa, Latte/Mokka/Tieň dokreslené; profily správania podľa povahy
-- [ ] Vlastné a komunitné balíčky v ~/.local/share/latteos/maskoti (iba dáta) + galéria
+- [x] Vlastné a komunitné balíčky v ~/.local/share/latteos/maskoti (iba dáta: PNG + pet.json s kontrolou, `latte-maskoti`
+  pridaj / odober / export do .zip), v paneli maskota Pridať balíček, Zdieľať, Odobrať (26. 9.). Online galéria čaká na server.
+- [x] Foxy Maid, Robot a Kávový drak z listov používateľa (26. 9.): pomenované animácie (pet.json › anim), zábery zblízka.
+- [ ] **Pet Circus** (zadanie 26. 9., „až nebude čo robiť“): program na vytvorenie vlastného maskota alebo úpravu existujúceho —
+  šablóna (list s pomenovanými riadkami na priehľadnom pozadí) na ručné doplnenie spritov, načítanie listu
+  (vyrez2.py), náhľad animácií, nastavenie povahy a export balíčka.
 - [ ] Softvérové sklo pre panely a popupy LatteOS (rozmazaný výrez tapety ako v starej vetve), GPU blur ostáva pre okná
 - [ ] **Súbory = plná funkčnosť Total Commandera** (zadanie 25. 9.: „nejde o to, čo používam, ale o plnú funkčnosť originálu“):
   - [x] Panely: dva panely, **karty** v každom (Ctrl+T, Ctrl+W, Ctrl+Tab, uzamknutá karta), menu diskov (Alt+F1/F2), história Späť/Dopredu,

@@ -30,6 +30,9 @@ ShellRoot {
     readonly property string cfg: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/latteos"
     readonly property string runFile: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/latteos/maskot-von"
     readonly property string packs: "/usr/share/latteos/maskoti/"
+    // vlastné a komunitné balíčky (latte-maskoti pridaj): ~/.local/share/latteos/maskoti/<id>/ — iba PNG a pet.json
+    readonly property string userPacks: (Quickshell.env("XDG_DATA_HOME") || (home + "/.local/share")) + "/latteos/maskoti/"
+    property string base: packs
     readonly property bool gpu: ["softver", "minimalny", "safe"].indexOf(Quickshell.env("LATTE_TIER") || "softver") < 0
     readonly property int fps: gpu ? 24 : 6
     readonly property real dt: 1 / fps
@@ -70,7 +73,7 @@ ShellRoot {
     property real stareScale: 0.3
 
     function trim(s) { return (s || "").trim(); }
-    function img(f) { return "file://" + packs + kind + "/" + f + ".png"; }
+    function img(f) { return "file://" + base + kind + "/" + f + ".png"; }
     function has(f) { return (meta.frames || []).indexOf(f) >= 0; }
     function anim(n) { return n && meta.anim && meta.anim[n] ? meta.anim[n] : null; }
     // krok „póza s animáciou“: bez secs trvá raz celá (slučka ~ podľa secs)
@@ -87,7 +90,10 @@ ShellRoot {
     FileView { path: mk.cfg + "/mascot"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: { const k = mk.trim(text()); mk.kind = mk.legacy[k] || k || "homebrew"; } onLoadFailed: mk.kind = "homebrew" }
     FileView { path: mk.packs + mk.kind + "/pet.json"; printErrors: false
-               onLoaded: { try { mk.meta = JSON.parse(text()); } catch (e) {} } }
+               onLoaded: { try { mk.meta = JSON.parse(text()); mk.base = mk.packs; } catch (e) {} }
+               onLoadFailed: userPet.reload() }
+    FileView { id: userPet; path: mk.userPacks + mk.kind + "/pet.json"; printErrors: false; preload: false
+               onLoaded: { try { mk.meta = JSON.parse(text()); mk.base = mk.userPacks; } catch (e) {} } }
     FileView { path: mk.cfg + "/mascot-mode"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: mk.mode = mk.trim(text()) || "world"; onLoadFailed: mk.mode = "world" }
     FileView { path: mk.cfg + "/mascot-home"; printErrors: false

@@ -21,7 +21,7 @@ local st = C.load()
 local lastSave = os.time()
 
 local function show(frame)
-  barWidget.setImage(C.dir .. kind .. "-" .. frame .. ".png", false, 44, 36)
+  barWidget.setImage(C.bar(kind, frame), false, 44, 36)
 end
 
 local function poll()

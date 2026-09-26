@@ -43,7 +43,7 @@ function render()
                                   fill = (k == kind) and "primary/0.18" or "surface_variant",
                                   tooltip = C.names[k] .. " — " .. C.about[k],
                                   onClick = function() C.setKind(k); if C.mode() == "off" then C.setMode("world") end; render() end }, {
-      ui.image({ path = C.dir .. k .. "-sedi.png", width = 44, height = 36, fit = "contain" }),
+      ui.image({ path = C.bar(k, "sedi"), width = 44, height = 36, fit = "contain" }),
       ui.label({ text = C.names[k], fontSize = 9, maxWidth = 60, maxLines = 1 }),
     }))
     if #row == 5 then table.insert(grid, ui.row({ gap = 6 }, row)); row = {} end
@@ -55,7 +55,7 @@ function render()
                       chaos = "Behá voľne po celej ploche a naháňa kurzor." })[mode]
   panel.render(ui.column({ flexGrow = 1, gap = 12, align = "stretch" }, {
     ui.row({ gap = 12, align = "center" }, {
-      ui.image({ path = C.dir .. kind .. "-" .. ((mf == "smutny") and "smutny" or "sedi") .. ".png", width = 88, height = 72, fit = "contain" }),
+      ui.image({ path = C.bar(kind, (mf == "smutny") and "smutny" or "sedi"), width = 88, height = 72, fit = "contain" }),
       ui.column({ gap = 2, flexGrow = 1 }, {
         ui.label({ text = C.names[kind], fontSize = 18, fontWeight = "bold" }),
         ui.label({ text = (mt ~= "" and mt or C.about[kind]), fontSize = 12, color = "on_surface_variant", maxWidth = 250, maxLines = 2 }),
@@ -82,8 +82,17 @@ function render()
     ui.label({ text = descMode, fontSize = 11, color = "on_surface_variant", maxWidth = 380, maxLines = 2 }),
     ui.label({ text = "POSTAVA", fontSize = 10, fontWeight = "bold", color = "on_surface_variant" }),
     ui.column({ gap = 6 }, grid),
+    ui.row({ gap = 6 }, {
+      ui.button({ text = "Pridať balíček…", glyph = "plus", variant = "ghost", tooltip = "Vlastný alebo komunitný maskot (.zip: PNG snímky + pet.json)",
+                  onClick = function() noctalia.runAsync({ "latte-maskoti", "pridaj-vyber" }, function(r)
+                    local id = C.trim(r.stdout or ""); C.loadUser(); if id ~= "" then C.setKind(id) end; render() end) end }),
+      ui.button({ text = "Zdieľať…", glyph = "share", variant = "ghost", tooltip = "Uloží postavu ako .zip do Dokumentov",
+                  onClick = function() local k = C.kind(); noctalia.runAsync({ "sh", "-c", 'd="$(xdg-user-dir DOCUMENTS)"; latte-maskoti export "$1" "$d/Maskot $1.zip" && notify-send -a LatteOS "Maskot uložený" "$d/Maskot $1.zip"', "sh", k }) end }),
+      (C.user[kind] and ui.button({ text = "Odobrať", glyph = "trash", variant = "ghost",
+                  onClick = function() noctalia.runAsync({ "latte-maskoti", "odober", kind }, function() C.setKind("homebrew"); C.loadUser(); render() end) end })) or nil,
+    }),
     ui.label({ text = "Maskot je iba obrázok: nemá prístup k súborom ani sieti.", fontSize = 10, color = "on_surface_variant" }),
   }))
 end
 
-function onOpen(_ctx) st = C.load(); C.decay(st, false); render() end
+function onOpen(_ctx) C.loadUser(); st = C.load(); C.decay(st, false); render() end

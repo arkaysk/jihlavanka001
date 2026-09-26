@@ -14,6 +14,11 @@ M.stateFile = M.stateDir .. "/maskot.json"
 M.runFile = (noctalia.getenv("XDG_RUNTIME_DIR") or "/tmp") .. "/latteos/maskot-von"
 M.dir = "/usr/share/latteos/noctalia/plugins/cat/mascots/"
 M.packs = "/usr/share/latteos/maskoti/"          -- plné snímky pre výbehy (maskot.qml)
+-- vlastné a komunitné balíčky (latte-maskoti pridaj): index ~/.local/share/latteos/maskoti/index.json, lišta v maskoti-lista/
+local data = noctalia.getenv("XDG_DATA_HOME") or (home .. "/.local/share")
+M.userIndex = data .. "/latteos/maskoti/index.json"
+M.userBar = data .. "/latteos/maskoti-lista/"
+M.user = {}
 -- hlavní maskoti (zadanie 25. 9.) a ďalší
 M.order = { "homebrew", "drak", "ktulu", "robot", "maid", "kapybara", "latte", "mokka", "tien", "liska", "myval", "svetluska", "cdrak" }
 M.names = { homebrew = "Homebrew", drak = "Kávový drak", ktulu = "Ktulu", robot = "Robot turista", maid = "Foxy Maid", kapybara = "Kapybara",
@@ -29,6 +34,26 @@ M.modes = { "off", "slot", "world", "chaos" }
 M.modeNames = { off = "Vypnutý", slot = "Ostrov", world = "Výbehy", chaos = "Chaos" }
 
 function M.trim(s) return (string.gsub(s or "", "^%s*(.-)%s*$", "%1")) end
+-- vlastné postavy do zoznamu (za vstavané); volá sa pri otvorení panela a pri štarte widgetu
+function M.loadUser()
+  local ok, list = pcall(noctalia.json.decode, noctalia.readFile(M.userIndex) or "[]")
+  for id in pairs(M.user) do
+    for i = #M.order, 1, -1 do if M.order[i] == id then table.remove(M.order, i) end end
+    M.names[id] = nil; M.about[id] = nil; M.flyers[id] = nil
+  end
+  M.user = {}
+  if not ok or type(list) ~= "table" then return end
+  for _, e in ipairs(list) do
+    if type(e) == "table" and type(e.id) == "string" and not M.names[e.id] then
+      M.user[e.id] = true
+      table.insert(M.order, e.id)
+      M.names[e.id] = tostring(e.name or e.id); M.about[e.id] = tostring(e.about or "vlastný maskot")
+      if e.flyer then M.flyers[e.id] = true end
+    end
+  end
+end
+-- obrázok lišty pre postavu (vlastné majú snímky v ~/.local/share)
+function M.bar(k, frame) return (M.user[k] and M.userBar or M.dir) .. k .. "-" .. frame .. ".png" end
 function M.kind()
   local k = M.trim(noctalia.readFile(M.cfg .. "/mascot") or "")
   k = M.legacy[k] or k
@@ -93,4 +118,5 @@ function M.mood(st)
   return "", ""
 end
 
+M.loadUser()
 return M
