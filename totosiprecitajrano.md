@@ -79,6 +79,51 @@ Dátum, čas a poloha (mestá SK, CZ a okolie).
 
 ## Denník
 
+### 26. 9. 2026 v noci: pokračovanie podľa ROADMAP ✅ · ⚠ 5 otázok na konci
+**Okná a myš (Windows 11):**
+- podržanie myši nad □ ukáže malú ponuku rozložení (záplata hyprbars s časovačom; prejaví sa po prihlásení);
+- pri ťahaní súboru sa priečinok po chvíli sám otvorí (Súbory, cieľ v druhom paneli, v strome alebo zvonku).
+
+**Súbory (Total Commander):**
+- Lister prehrá zvuk priamo v okne (Medzerník, ←/→) a pri videu ukáže snímku a údaje (kodek, rozlíšenie, dĺžka);
+- obmedzenie rýchlosti kopírovania (F5/F6: 5–100 MB/s);
+- porovnanie výberu s druhým panelom (Príkazy › Označiť, čo je aj / čo chýba v druhom paneli);
+- zmena vlastníka (Alt+Enter, so správcom v termináli);
+- tlač zoznamu (tabuľka v Heidelbergu → Tlačiť / PDF);
+- servery **SMB** (zdieľané priečinky Windows a NAS) a **WebDAV** (Nextcloud) popri FTP/SFTP;
+- **strom priečinkov ako trvalý panel** (Ctrl+F8 alebo tlačidlo v hlavičke), sám sa rozbalí k aktívnemu priečinku;
+- lišta tlačidiel sa upravuje myšou (pravý klik: premenovať, príkaz, posunúť, odstrániť, + pridať).
+
+**Maskoti z tvojich listov:**
+- **Foxy Maid:** vyjde a odíde dverami, zametá, oprašuje a leští okná, dá si kávu a selfie, z okna zlezie na padáku,
+  srdiečka pri kurzore, zazerá, keď na ňu dlho mieriš, urazí sa po pravom kliku; pri nečinnosti vykukne spoza pravého
+  okraja obrazovky;
+- **Robot:** vznáša sa, na diaľku boost, skenuje a fotí okná, spí na nabíjačke, zblízka ťa odfotí;
+- **Kávový drak:** vzlietne, letí, pristane, stráži, chrlí oheň, sedí v šálke, pri kurzore sa zľakne a odletí;
+- šachovnicu v listoch aj červené lemy dráčika vyrezávač odstráni (`resources/art/maskoti/vyrez2.py`);
+- **vlastné a komunitné balíčky:** v paneli maskota Pridať balíček (.zip: PNG + pet.json, s kontrolou), Zdieľať, Odobrať.
+- **Pet Circus** (tvoj nápad) som zapísal do ROADMAP na neskôr.
+
+**Sklo bez GPU:** okná v tvare L (App Manager, Zariadenia) majú matné sklo z rozmazanej tapety. Vypínač je
+v Nastaveniach › Animácie a efekty.
+
+**Poznámka k testom:** dva headless testy zapísali dočasné cesty do tvojich nastavení (ľavý panel Súborov,
+„Nedávne“ v Heidelbergu). Opravil som to a testy odteraz bežia s oddelenými nastaveniami.
+
+**Čaká na tvoje rozhodnutie:**
+1. **Rust (F4):** prepísať Správcu zariadení, Súbory a telemetriu do Rustu už teraz, alebo najprv dokončiť funkcie
+   v prototypoch a Rust až pred Atomic? Navrhujem to druhé: prototypy fungujú a funkcie sa ešte menia.
+2. **Ollama v PC (F7):** nainštalovať do VM s malým modelom (~2–3 GB, napr. Gemma 3 4B alebo Qwen 2.5 3B, na CPU pomalé),
+   alebo ostať pri LM Studio na hostiteľovi a Ollamu nechať na reálny HW?
+3. **Test zaplnenia RAM (F5):** relácia môže na chvíľu zamrznúť a v krajnom prípade by OOM mohol odpojiť SSH.
+   Mám ho spustiť (kedy)?
+4. **Foxy Maid:** čo znamenajú riadky „vaxeene“, „praiecka“ a prázdny „ȷaera“ (popisy sú na liste pokazené)?
+   Zatiaľ ich používam ako „zíva“ (pri spánku) a „nahliada“. A chýba jej chôdza/beh — beží teraz poskokmi.
+   Ak dodáš riadok chôdze (4 snímky), pôjde plynulo.
+5. **Windows aplikácie (F6):** nainštalovať Wine / umu-launcher a pripraviť profily (dôveryhodná / nedôveryhodná, NET
+   pre hru)? Znamená to stiahnuť ~1 GB.
+
+
 ### 25. 9. 2026 v noci: alfatest 1 — prvé kroky podľa tvojich odpovedí (Windows na prvom mieste) ✅
 Tvoje odpovede som si zapamätal: hlavné ovládanie je myš s dvomi tlačidlami ako Windows 7–11, predvolené
 skratky sú z Windows, profil Linux alebo macOS sa dá zvoliť, plávajúce okná sa správajú ako Windows 11 a páska
