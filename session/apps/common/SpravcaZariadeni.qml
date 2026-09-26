@@ -77,7 +77,7 @@ Item {
             dm.live = out;
         } }
     property var uses: []
-    Process { id: qUse; command: ["latte-sysmon", "sukromie"]
+    Process { id: qUse; command: ["latte-sukromie"]
               stdout: StdioCollector { onStreamFinished: dm.uses = this.text.split("\n").filter(l => l).map(l => l.split("\t")) } }
 
     function need(p) { if (!p.running) p.running = true; }

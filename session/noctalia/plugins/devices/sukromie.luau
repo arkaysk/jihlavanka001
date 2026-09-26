@@ -19,7 +19,7 @@ end
 
 function update()
   noctalia.setUpdateInterval(3000)
-  noctalia.runAsync({ "latte-sysmon", "sukromie" }, function(r)
+  noctalia.runAsync({ "latte-sukromie" }, function(r)
     mic, cam = {}, {}
     for kind, who in string.gmatch(r.stdout or "", "(%a+)\t([^\n]+)") do
       table.insert(kind == "camera" and cam or mic, who)

@@ -96,7 +96,7 @@ ShellRoot {
         done: (o) => { try { const out = [], walk = (l) => { for (const d of l) { if (d.type === "disk" && (d.rm || d.tran === "usb")) out.push({ path: d.path, label: d.label || d.model || d.path });
                                                                                if (d.children) walk(d.children); } };
                              walk(JSON.parse(o).blockdevices || []); rq.usbDrives = out; } catch (e) {} } }
-    Q { id: qPriv; command: ["latte-sysmon", "sukromie"]
+    Q { id: qPriv; command: ["latte-sukromie"]
         done: (o) => { const m = [], c = []; for (const l of o.split("\n")) { const f = l.split("\t"); if (f.length > 1) (f[0] === "camera" ? c : m).push(f[1]); }
                        rq.micUsers = m; rq.camUsers = c; } }
     Q { id: qHot; command: ["sh", "-c", 'nmcli -t -f ACTIVE,SIGNAL dev wifi list --rescan no 2>/dev/null | sed -n "s/^yes://p" | head -1; echo @; '
