@@ -385,6 +385,8 @@ flowchart TD
 ### A — Fedora Atomic *(až keď bude F0–F8 + H hotové)*
 - [ ] Obraz LatteOS cez bootc / rpm-ostree podľa vzoru Bazzite (`resources/upstream/bazzite`).
 - [ ] „Vrátiť včerajší systém“ v App Manageri. SAFE ponuka dostane rollback rpm-ostree.
+- [ ] Zdravie štartu systému: greenboot + systemd Automatic Boot Assessment (počítanie štartov záznamu v zavádzači,
+  automatický rollback obrazu). Dopĺňa počítadlo pádov relácie v latte-boot, nenahrádza ho (DSanalyze.md, 26. 9.).
 
 ## Otvorené otázky
 - DMS alebo Caelestia ako základ shellu. Rozhodne meranie v F3.
