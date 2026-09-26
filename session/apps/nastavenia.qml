@@ -71,6 +71,7 @@ ShellRoot {
     property string suboryTahanie: ""        // ľavé ťahanie v Súboroch: "" (ako Windows) | copy | ask
     property bool skloPref: true             // softvérové sklo pod panelmi (common/Sklo.qml)
     property string mascotEscape: ""   // "off" = maskot neuteká
+    property string mascotMode: ""     // off | slot | world | chaos (plugin latteos/cat); "" = podľa mascot-escape
     property string cupQuick: ""       // prázdne = šálka ukazuje stupeň a režim okien, "off" = skryté
     property string deskIcons: ""      // prázdne = ikony na ploche s košom, "off" = bez ikon
     property string barScene: "para"
@@ -268,6 +269,8 @@ ShellRoot {
                onLoaded: app.deskIcons = text().trim(); onLoadFailed: app.deskIcons = "" }
     FileView { path: app.cfgHome + "/latteos/mascot-escape"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.mascotEscape = text().trim(); onLoadFailed: app.mascotEscape = "" }
+    FileView { path: app.cfgHome + "/latteos/mascot-mode"; printErrors: false; watchChanges: true; onFileChanged: reload()
+               onLoaded: app.mascotMode = text().trim(); onLoadFailed: app.mascotMode = "" }
     FileView { path: app.cfgHome + "/latteos/cup-quick"; printErrors: false; watchChanges: true; onFileChanged: reload()
                onLoaded: app.cupQuick = text().trim(); onLoadFailed: app.cupQuick = "" }
     FileView { path: app.cfgHome + "/latteos/bar-scene"; printErrors: false; watchChanges: true; onFileChanged: reload()
@@ -1721,7 +1724,15 @@ ShellRoot {
                           ["kapybara", "Kapybara"], ["latte", "Latte mačka"], ["mokka", "Mokka"], ["tien", "Tieň"], ["liska", "Líška"],
                           ["myval", "Mýval"], ["svetluska", "Svetluška"], ["cdrak", "Dráčik"], ["ziadny", "Žiadny"]]
                 value: ({ macka: "latte", zrnko: "latte", void: "cdrak" })[app.mascot] || app.mascot
-                onPicked: (v) => { app.mascot = v; app.writePref("mascot", v, "Maskot: " + v); }
+                // výber postavy maskota zároveň zapne, ak bol vypnutý (inak by zmizol z lišty aj s ponukou, ktorá ho zapína)
+                onPicked: (v) => { app.mascot = v; app.writePref("mascot", v, "Maskot: " + v);
+                                   if (v !== "ziadny" && app.mascotMode === "off") { app.mascotMode = "slot"; app.writePref("mascot-mode", "slot", "Maskot je späť na lište"); } }
+            }
+            Segments {
+                visible: app.mascot !== "ziadny"
+                options: [["off", "Vypnutý"], ["slot", "Ostrov na lište"], ["world", "Výbehy po lište a oknách"], ["chaos", "Chaos po celej ploche"]]
+                value: app.mascotMode || (app.mascotEscape === "off" ? "slot" : "world")
+                onPicked: (v) => { app.mascotMode = v; app.writePref("mascot-mode", v, v === "off" ? "Maskot je skrytý" : "Maskot: " + ({ slot: "ostrov", world: "výbehy", chaos: "chaos" })[v]); }
             }
             Segments {
                 visible: app.mascot !== "ziadny"

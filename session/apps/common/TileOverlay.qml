@@ -41,7 +41,9 @@ Scope {
         margins { left: to.foot.x; top: to.foot.y }
         implicitWidth: to.foot.w; implicitHeight: to.foot.h
         exclusionMode: ExclusionMode.Ignore
-        WlrLayershell.layer: WlrLayer.Top
+        // nad lištou vždy: v rovnakej úrovni (Top) by záležalo na poradí štartu — po prihlásení vznikla skôr ako lišta
+        // Noctalie a lišta ju prekryla (26. 9. ráno GIF v koreni zmizol)
+        WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "latte-dlazdica"
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
         mask: Region {}                      // kliknutie prejde na dlaždicu Noctalie
