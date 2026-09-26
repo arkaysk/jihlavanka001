@@ -1,3 +1,136 @@
+# Alfatest 2: Nastavenia LatteOS verzus Windows 11
+
+26. 9. 2026 · porovnanie s Windows 11 25H2 (aplikácia Nastavenia vrátane novej stránky **Systém › Pre pokročilých**
+a klasického okna **Rozšírené nastavenia systému**) · stav repozitára po commite 42182d2.
+
+**Značky:**
+- ✅ funguje priamo na stránke;
+- 🔗 stránka je iba odkaz („Otvoriť …“) do inej aplikácie;
+- ⚠ zle zaradené;
+- ♊ duplicitné;
+- ❌ chýba.
+
+## 1. Čo má Windows 11
+
+**11 kategórií:** Systém · Bluetooth a zariadenia · Sieť a internet · Prispôsobenie · Aplikácie · Kontá · Čas a jazyk ·
+Hry · Prístupnosť · Súkromie a zabezpečenie · Windows Update.
+
+**Systém › Pre pokročilých** (25H2, predtým „Pre vývojárov“):
+- Panel úloh: Ukončiť úlohu pravým klikom.
+- Prieskumník: prípony súborov, skryté a systémové súbory, celá cesta v titulku, prázdne jednotky, dlhé cesty,
+  integrácia so správou verzií (Git).
+- Virtuálny pracovný priestor: Vzdialená plocha, virtuálne pracovné priestory.
+- Terminál: predvolený terminál, spúšťanie skriptov PowerShell, **sudo**.
+- Pre vývojárov: režim vývojára (aplikácie z ľubovoľného zdroja), Device Portal, Dev Drive.
+
+**Klasické Rozšírené nastavenia systému:** výkon (vizuálne efekty, **virtuálna pamäť**), používateľské profily,
+spustenie a obnovenie, **premenné prostredia**, ochrana systému (body obnovenia), vzdialený prístup.
+
+## 2. Nálezy v LatteOS
+
+### 2.1 Nedokončené: 12 stránok je iba odkaz 🔗
+Aplikácie, Inštalácia aplikácií, Aktualizácie, Spúšťanie a na pozadí, Súkromie a NET, Obrazovky, Zvuk, Sieť,
+Bluetooth a periférie, Úložné zariadenia, Tlač a skenovanie, Napájanie.
+- Na každej je iba veta a tlačidlo „Otvoriť Správcu zariadení / Aplikácie / Monitor“.
+- Windows má na týchto stránkach priamo ovládanie (hlasitosť a výstup, Wi-Fi, párovanie, rozlíšenie, režim napájania…).
+- **Náprava:** stránky dostanú rovnaké ovládanie ako nový Správca zariadení (zdieľané komponenty, jedna implementácia).
+  Tlačidlo „Otvoriť v Správcovi zariadení“ ostane iba ako cesta k ovládačom.
+
+### 2.2 Duplicitné ♊
+| Čo | Kde všade | Windows | Návrh |
+|---|---|---|---|
+| Úložisko | Dáta › Úložisko **a** Hardvér › Úložné zariadenia | Systém › Úložisko (disky sú v Rozšírených nastaveniach úložiska) | jedna stránka Úložisko: obsadenie + disky a oddiely |
+| App Manager | Aplikácie, Inštalácia aplikácií, Aktualizácie (3 odkazy na jednu aplikáciu) | Aplikácie › Nainštalované; Windows Update zvlášť | Aplikácie (nainštalované, inštalácia) + Aktualizácie ako samostatná oblasť |
+| Mierka | Prístupnosť (veľkosť rozhrania), Písmo a mierka, Obrazovky | Obrazovka › Mierka; Prístupnosť › Veľkosť textu | mierka obrazovky iba v Obrazovke; v Prístupnosti veľkosť textu |
+| Tapety | Pozadie **a** Tapety online | jedna stránka Pozadie | Tapety online ako sekcia Pozadia |
+| Bezpečnosť | Softvér › Súkromie a NET, Účet › Heslo a zabezpečenie, Systém › Bezpečnosť | Súkromie a zabezpečenie (celé na jednom mieste) | jedna oblasť Súkromie a zabezpečenie |
+| Prihlásenie | Účet › Prihlasovanie (greeter), Uzamknutie a nečinnosť, Heslo a zabezpečenie | Kontá › Možnosti prihlásenia | jedna stránka Prihlásenie a uzamknutie |
+| Sieť | Hardvér › Sieť, Systém › Zdieľanie, karta Siete v Správcovi zariadení | Sieť a internet | jedna oblasť Sieť a internet (Wi-Fi, VPN, zdieľanie, firewall) |
+
+### 2.3 Zle zaradené ⚠
+- **Hry a herný režim** sú pod Hardvérom (Windows: samostatná kategória Hry).
+- **Diagnostika a pády** sú pod Hardvérom (Windows: Systém › Riešenie problémov a Obnovenie).
+- **Oznámenia** sú pod Prostredím (Windows: Systém › Oznámenia).
+- **Súkromie a NET** je pod Softvérom (Windows: Súkromie a zabezpečenie › Povolenia aplikácií).
+- **Cloud a synchronizácia** je pod Dátami (Windows: Kontá › Zálohovanie a e-mailové kontá).
+- **Okná** (režimy okien) sú pod Prostredím (Windows: Systém › Multitasking).
+- **Štart a režim** (NORMAL/SAFE, počítadlo pádov) je iba v Systéme (Windows: Obnovenie › Rozšírené spustenie).
+
+### 2.4 Chýba oproti Windows 11 ❌
+- **Systém:**
+  - Schránka (história, počet slotov Kapsy, vymazať);
+  - Multitasking (prichytávanie okien k okrajom a lišta rozložení zapnúť/vypnúť, Alt+Tab);
+  - Nerušiť a zameranie (je iba v Oznámeniach);
+  - Premietanie a vzdialená plocha;
+  - Riešenie problémov (sprievodcovia: zvuk, sieť, tlačiareň);
+  - Obnovenie (príde s Atomic).
+- **Bluetooth a zariadenia:**
+  - Kamery (výber, rozlíšenie);
+  - **Automatické prehrávanie** (čo sa stane po vložení USB kľúča, SD karty, telefónu: otvoriť Súbory, importovať fotky, nič);
+  - USB (upozornenia na problémy);
+  - Mobilné zariadenia (KDE Connect je iba v Zdieľaní);
+  - Pero a dotyk.
+- **Prispôsobenie:**
+  - Písma (inštalácia a prehľad písem);
+  - vzhľad uzamknutej obrazovky;
+  - Štart (App Manager: pripnuté, často používané, skryť odporúčané).
+- **Aplikácie:**
+  - voliteľné súčasti;
+  - aplikácie pre webové stránky (odkazy otvára aplikácia);
+  - prehrávanie videa.
+- **Kontá:** e-mail a kontá (Google, Microsoft, Nextcloud pre kalendár a poštu), rodina (detský účet, čas pred obrazovkou).
+- **Čas a jazyk:** Písanie (automatické opravy, návrhy, emoji), Reč (diktovanie príde s AI).
+- **Hry:** Zachytávanie (priečinok snímok a nahrávok, kvalita, spätný záznam na GPU).
+- **Prístupnosť:**
+  - lupa;
+  - farebné filtre (aj pre farboslepých);
+  - kontrastné motívy;
+  - čítačka (Moderátor → Orca);
+  - titulky;
+  - prilepené klávesy;
+  - veľkosť a farba ukazovateľa a textového kurzora.
+- **Súkromie a zabezpečenie:** povolenia pre kameru, mikrofón, polohu, oznámenia, súbory; diagnostika; história aktivít.
+- **Aktualizácie:** história, pozastaviť, aktualizácie ovládačov a firmvéru (fwupd), plán reštartu.
+- **Pre pokročilých** (Windows 25H2 plus klasické okno):
+  - Ukončiť úlohu na lište;
+  - Súbory: prípony, skryté súbory, celá cesta v titulku;
+  - predvolený terminál;
+  - sudo (či sa pýta heslo);
+  - **premenné prostredia**;
+  - **virtuálna pamäť** (swap a zram);
+  - režim vývojára (zdroje aplikácií: Flathub, COPR, AppImage);
+  - SSH server;
+  - vzdialená plocha.
+  - Nemá zmysel: dlhé cesty, PowerShell, Dev Drive.
+
+### 2.5 Čo má LatteOS navyše (ostáva)
+AI, NET pre aplikácie, textúry a okná v tvare L, maskot, profily ovládania, stupne výkonu, NORMAL/SAFE, živé tapety,
+Kapsa, Total Commander, cloudové priečinky (rclone).
+
+## 3. Návrh
+
+1. **Zmazať odkazové stránky:** Zvuk, Sieť, Bluetooth, Obrazovky, Napájanie, Úložisko a Tlač dostanú priamo ovládanie
+   zo Správcu zariadení (spoločné komponenty). Robím to spolu s novým Správcom zariadení.
+2. **Zlúčiť duplicity** podľa tabuľky 2.2.
+3. **Doplniť chýbajúce stránky** podľa dôležitosti:
+   - Pre pokročilých;
+   - Schránka;
+   - Automatické prehrávanie;
+   - Multitasking;
+   - Zachytávanie;
+   - Povolenia aplikácií;
+   - Aktualizácie ovládačov;
+   - Písma;
+   - Prístupnosť (lupa, filtre, prilepené klávesy).
+4. **Horná úroveň — treba tvoje rozhodnutie** (otázka nižšie):
+   - **A · ostať pri 6 oblastiach LatteOS** (Softvér, Dáta, Hardvér, Účet, Prostredie, Systém; tvoj návrh
+     z main_setting_v2.md) a iba presunúť zle zaradené stránky;
+   - **B · prejsť na 11 kategórií ako Windows 11** (Systém, Zariadenia, Sieť a internet, Prispôsobenie, Aplikácie, Účty,
+     Čas a jazyk, Hry, Prístupnosť, Súkromie a zabezpečenie, Aktualizácie) + Pre pokročilých. Bývalý používateľ
+     Windows by hľadal na rovnakom mieste; vrstvené karty ostanú.
+
+---
+
 # Alfatest 1: LatteOS očami používateľa Windows, macOS a Linuxu
 
 25. 9. 2026 večer · stav repozitára `gamerdistro` po commite 2bfdc98 · overené na živej VM (`hyprctl binds`, konfigurácia)
