@@ -8,7 +8,8 @@ Wants=network-pre.target
 [Service]
 Type=simple
 ExecStart=/usr/libexec/latteos/latte-netd
-ExecStopPost=/usr/sbin/nft delete table inet latte_net
+# destroy = bez chyby, ak tabuľka neexistuje (delete by pri zastavení hlásil zlyhanie)
+ExecStopPost=-/usr/sbin/nft destroy table inet latte_net
 Restart=on-failure
 RestartSec=2
 # iba nftables, ss a čítanie zoznamov používateľov

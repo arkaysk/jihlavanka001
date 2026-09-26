@@ -90,6 +90,7 @@ sudo install -d -m2775 -o root -g latte /var/lib/latteos/greeter /var/lib/latteo
 [ -f /var/lib/latteos/greeter/greeter.conf ] || sudo install -m664 -o root -g latte "$S/greeter/greeter.conf" /var/lib/latteos/greeter/greeter.conf
 
 echo "== App Manager: Flatpak a Flathub (inštalácia aplikácií pre používateľa bez roota)"
+rpm -q bubblewrap xdg-dbus-proxy >/dev/null || sudo dnf -y -q install bubblewrap xdg-dbus-proxy   # izolácia aplikácií (latte-sandbox odmietne bez nej)
 rpm -q flatpak >/dev/null || sudo dnf -y -q install flatpak
 rpm -q rclone >/dev/null || sudo dnf -y -q install rclone        # Synchronizácia (cloudové priečinky)
 rpm -q breeze-icon-theme >/dev/null || sudo dnf -y -q install breeze-icon-theme   # ikony súborov (Kapsa, Súbory)

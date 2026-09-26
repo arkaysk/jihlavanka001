@@ -117,8 +117,12 @@ def main(argv):
         if not deny:
             os.execvp(cmd[0], cmd)
         if not shutil.which("bwrap"):
-            print("latte-sandbox: chýba bubblewrap, spúšťam bez izolácie", file=sys.stderr)
-            os.execvp(cmd[0], cmd)
+            # odmietnuť (fail closed): používateľ oprávnenia zakázal, bez izolácie by sa to potichu ignorovalo
+            msg = "Aplikácia %s má obmedzené oprávnenia, ale chýba bubblewrap (bwrap). Nespustím ju bez izolácie." % app
+            print("latte-sandbox: " + msg, file=sys.stderr)
+            subprocess.run(["notify-send", "-a", "LatteOS", "-u", "critical", "Aplikácia sa nespustila", msg + " Doinštaluj balík bubblewrap."],
+                           stderr=subprocess.DEVNULL)
+            return 126
         extra = []
         if "talk:session-bus" in deny and shutil.which("xdg-dbus-proxy"):
             sock, fd = bus_proxy(app)

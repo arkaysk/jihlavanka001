@@ -22,7 +22,7 @@ Zvuk do siete: AirPlay/RAOP a Snapcast vie PipeWire priamo; Spotify Connect pon�
 zariadení); DLNA/UPnP televízory a receivery cez pa-dlna (GPL-3.0, doinštaluje App Manager); Chromecast cez
 mkchromecast (MIT) — obe iba ako poznámka, kým ich neoveríme na reálnom HW.
 """
-import concurrent.futures, ipaddress, json, os, re, socket, struct, subprocess, sys, time, urllib.request
+import concurrent.futures, ipaddress, json, os, re, socket, struct, subprocess, sys, time, urllib.parse, urllib.request
 import xml.etree.ElementTree as ET
 
 CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "latteos")
@@ -273,11 +273,29 @@ def ssdp(wait=2.0):
         sts.setdefault(src[0], set()).add(h.get("st", ""))
     s.close()
 
+    # popis zariadenia čítame iba bezpečne (secalfaanalyze.md P2): LOCATION si vymyslí ktokoľvek v LAN, preto iba http,
+    # iba na IP adresu, ktorá odpovedala, bez presmerovaní a bez proxy (inak by šlo o localhost, iný cieľ či file://)
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *a, **k):
+            return None
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect)
+
+    def safe(loc, ip):
+        try:
+            u = urllib.parse.urlsplit(loc)
+            return u.scheme == "http" and u.hostname == ip and (u.port or 80) > 0
+        except ValueError:
+            return False
+
     def describe(ip):
         info = {"name": "", "model": "", "maker": "", "types": sorted(t for t in sts.get(ip, ()) if t)}
         for loc in sorted(locs.get(ip, ()))[:3]:
+            if not safe(loc, ip):
+                continue
             try:
-                with urllib.request.urlopen(loc, timeout=1.5) as r:
+                with opener.open(loc, timeout=1.5) as r:
+                    if r.status != 200:
+                        continue
                     x = ET.fromstring(r.read(200000))
             except Exception:
                 continue

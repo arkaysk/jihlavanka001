@@ -57,7 +57,8 @@ def wanted():
 
 
 def apply(paths):
-    """Tabuľku postaviť celú naraz (nft -f), aby nevzniklo okno bez pravidiel."""
+    """Tabuľku postaviť celú naraz (nft -f), aby nevzniklo okno bez pravidiel. Prvé „table inet X“ tabuľku vytvorí,
+    ak ešte nie je, takže „delete“ nezlyhá ani po čistom štarte (overené 26. 9. naostro: bez tabuľky aj s ňou)."""
     rules = []
     for p in sorted(paths):
         lvl = p.count("/") + 1
