@@ -27,6 +27,11 @@ entry = "sukromie.luau"
 id    = "senzory"
 entry = "senzory.luau"
 
+# dashboard Noctalie (riadiace centrum) ako malé úzke tlačidlo
+[[widget]]
+id    = "dash"
+entry = "dash.luau"
+
 [[panel]]
 id        = "panel"
 entry     = "panel.luau"

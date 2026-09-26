@@ -78,7 +78,7 @@ font_scale         = 1.05
 # (textbar si šírku počíta z počtu okien, najviac na polovicu) — zadanie 25. 9.
 start  = ["group:apps", "group:time", "group:system", "group:search"]
 center = []
-end    = ["group:kapsa", "latte-cat", "group:subory", "group:devices", "group:dev"]
+end    = ["group:kapsa", "latte-cat", "group:subory", "group:dash", "group:devices", "group:dev"]
 
 [[bar.main.capsule_group]]
 id      = "apps"
@@ -116,8 +116,14 @@ members = ["textbar"]
 enabled = true
 
 [[bar.main.capsule_group]]
+id      = "dash"                   # dashboard Noctalie: malé úzke tlačidlo, kým sa nerozhodne, či ostane (zadanie 26. 9.)
+members = ["latte-dash"]
+enabled = true
+
+[[bar.main.capsule_group]]
 id      = "devices"
-members = ["latte-sukromie", "latte-senzory"]   # iba keď niečo ukazujú: súkromie (mikrofón/kamera), senzory z Monitora
+members = ["latte-senzory"]        # iba keď niečo ukazuje: senzory z Monitora
+# mikrofón a kameru v použití ukazuje rohová dlaždica Správcu zariadení (zadanie 26. 9.), latte-sukromie tu už nie je
 # sieť, hlasitosť a batéria Noctalie sú preč (zadanie 26. 9.): Wi-Fi a batériu ukazuje rohová dlaždica Správcu zariadení
 enabled = true
 
@@ -162,6 +168,10 @@ type = "latteos/devices:dev"
 # indikátor súkromia (plugin latteos/devices): červená kapsula, kým aplikácia používa mikrofón alebo kameru
 [widget.latte-sukromie]
 type = "latteos/devices:sukromie"
+
+# dashboard Noctalie (riadiace centrum, Super+A) ako úzke tlačidlo (plugin latteos/devices)
+[widget.latte-dash]
+type = "latteos/devices:dash"
 
 # senzory na lište (plugin latteos/devices): hodnoty vybrané v Monitore › Senzory
 [widget.latte-senzory]
